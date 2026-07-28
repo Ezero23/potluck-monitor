@@ -4554,6 +4554,20 @@ app.whenReady().then(() => {
     providerIds: Array.isArray(options?.providerIds) ? options.providerIds : null
   }));
   ipcMain.handle('hub:getInfo', () => getHubInfo());
+  // Potluck gateway pushes its usage as a hub device with deviceId 'potluck';
+  // surface its limits.providers as the renderer's connection list. Local mode
+  // has no potluck device, so it resolves to an empty list there too.
+  ipcMain.handle('potluck:getConnections', async () => {
+    try {
+      const stats = await fetchStats();
+      const devices = Array.isArray(stats?.devices) ? stats.devices : [];
+      const potluck = devices.find((device) => device && device.deviceId === 'potluck');
+      const providers = Array.isArray(potluck?.limits?.providers) ? potluck.limits.providers : [];
+      return { ok: true, result: providers };
+    } catch (error) {
+      return { ok: false, error: error.message, result: [] };
+    }
+  });
   ipcMain.handle('hub:regenerateSecret', () => {
     settings.hubHostSecret = generateHubSecret();
     saveSettings({ throwOnError: true });

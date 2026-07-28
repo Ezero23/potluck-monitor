@@ -1,8 +1,8 @@
-﻿'use strict';
+'use strict';
 
 const { contextBridge, ipcRenderer } = require('electron');
 
-contextBridge.exposeInMainWorld('potluckMonitor', {
+const bridge = {
   getSettings: () => ipcRenderer.invoke('settings:get'),
   updateSettings: (patch) => ipcRenderer.invoke('settings:update', patch),
   clearSessionUsageArchive: () => ipcRenderer.invoke('sessionUsageArchive:clear'),
@@ -25,6 +25,7 @@ contextBridge.exposeInMainWorld('potluckMonitor', {
     close: () => ipcRenderer.send('dashboard:close')
   },
   getHubInfo: () => ipcRenderer.invoke('hub:getInfo'),
+  getPotluckConnections: () => ipcRenderer.invoke('potluck:getConnections'),
   regenerateHubSecret: () => ipcRenderer.invoke('hub:regenerateSecret'),
   onHubPush: (callback) => {
     const listener = (_event, payload) => { try { callback(payload); } catch (_) {} };
@@ -162,4 +163,9 @@ contextBridge.exposeInMainWorld('potluckMonitor', {
   },
   minimize: () => ipcRenderer.send('window:minimize'),
   close: () => ipcRenderer.send('window:close')
-});
+};
+
+contextBridge.exposeInMainWorld('potluckMonitor', bridge);
+// Legacy alias kept while the renderer migrates from tokenMonitor to
+// potluckMonitor naming; both names expose the same bridge object.
+contextBridge.exposeInMainWorld('tokenMonitor', bridge);
