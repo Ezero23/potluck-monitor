@@ -3,7 +3,7 @@
 
 'use strict';
 
-const PERIODS = ['today', 'month', 'allTime'];
+const PERIODS = ['today', 'week', 'month', 'allTime'];
 const { aggregateLimits, normalizeLimitsSummary } = require('./limits');
 const { coerceHistory, mergeHistories } = require('./history');
 const { canonicalProjectKey, deterministicProjectLabel } = require('./projectKey');
@@ -276,7 +276,7 @@ function utcDayKey(date) {
 // instant it ends (next local midnight / next month start, computed in the
 // device's own timezone). The hub expires a frozen snapshot with nowMs >= endsAt
 // so an offline device's stale "today" stops counting once its day rolls over.
-const WINDOW_PERIODS = ['today', 'month'];
+const WINDOW_PERIODS = ['today', 'week', 'month'];
 
 function normalizePeriodWindows(value) {
   if (!value || typeof value !== 'object') return null;
@@ -633,6 +633,23 @@ function normalizeDeviceOsName(value) {
   return String(value || '').trim().slice(0, 64);
 }
 
+// Potluck gateway devices optionally publish their tunnel endpoint and the
+// dashboard password (pushed to loopback monitors only) so a paired monitor
+// can surface one-click access. Plain passthrough; absence just means an
+// older peer.
+function normalizeDeviceTunnel(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  const url = (entry) => {
+    const text = String(entry || '').trim().slice(0, 512);
+    return text || null;
+  };
+  return {
+    enabled: value.enabled === true,
+    publicUrl: url(value.publicUrl),
+    tunnelUrl: url(value.tunnelUrl)
+  };
+}
+
 function normalizeDeviceRecord(record) {
   const nowIso = new Date().toISOString();
   const normalized = {
@@ -651,6 +668,14 @@ function normalizeDeviceRecord(record) {
   if (hasOwn(record, 'trackedClients')) normalized.trackedClients = normalizeTrackedClients(record.trackedClients);
   if (hasOwn(record, 'clientStatus')) normalized.clientStatus = normalizeClientStatus(record.clientStatus);
   if (hasOwn(record, 'wslStatus')) normalized.wslStatus = normalizeWslStatus(record.wslStatus);
+  if (hasOwn(record, 'tunnel')) {
+    const tunnel = normalizeDeviceTunnel(record.tunnel);
+    if (tunnel) normalized.tunnel = tunnel;
+  }
+  if (hasOwn(record, 'dashboardPassword')) {
+    const dashboardPassword = String(record.dashboardPassword || '').trim().slice(0, 256);
+    if (dashboardPassword) normalized.dashboardPassword = dashboardPassword;
+  }
   if (hasOwn(record, 'projectsEnabled')) normalized.projectsEnabled = record.projectsEnabled !== false;
   if (hasOwn(record, 'allTimeProjectsOmitted')) normalized.allTimeProjectsOmitted = record.allTimeProjectsOmitted === true;
   if (hasOwn(record, 'allTimeProjectsIncomplete')) normalized.allTimeProjectsIncomplete = record.allTimeProjectsIncomplete === true;
@@ -833,6 +858,13 @@ function mergeDeviceRecord(existing, incoming) {
   if (!hasIncomingLimits) normalizedIncoming.limits = normalizedExisting.limits;
   else normalizedIncoming.limits = mergeDeviceLimits(normalizedExisting, normalizedIncoming);
   if (!hasIncomingHistory && hasOwn(normalizedExisting, 'history')) normalizedIncoming.history = normalizedExisting.history;
+  // Tunnel/password are gateway-published metadata, not per-tick usage: keep the
+  // last known values when a partial push omits them so the widget card doesn't
+  // flicker off between full payloads.
+  if (!hasOwn(incoming, 'tunnel') && hasOwn(normalizedExisting, 'tunnel')) normalizedIncoming.tunnel = normalizedExisting.tunnel;
+  if (!hasOwn(incoming, 'dashboardPassword') && hasOwn(normalizedExisting, 'dashboardPassword')) {
+    normalizedIncoming.dashboardPassword = normalizedExisting.dashboardPassword;
+  }
   if (hasIncomingTrackedClients) {
     preserveUntrackedClientUsage(normalizedExisting, normalizedIncoming, normalizedIncoming.trackedClients || []);
   }
@@ -963,6 +995,8 @@ function aggregateDevices(devices, staleAfterMs, nowMs = Date.now()) {
       ...(hasOwn(normalized, 'trackedClients') ? { trackedClients: normalized.trackedClients } : {}),
       ...(hasOwn(normalized, 'clientStatus') ? { clientStatus: normalized.clientStatus } : {}),
       ...(hasOwn(normalized, 'wslStatus') ? { wslStatus: normalized.wslStatus } : {}),
+      ...(hasOwn(normalized, 'tunnel') ? { tunnel: normalized.tunnel } : {}),
+      ...(hasOwn(normalized, 'dashboardPassword') ? { dashboardPassword: normalized.dashboardPassword } : {}),
       ...(hasOwn(normalized, 'projectsEnabled') ? { projectsEnabled: normalized.projectsEnabled } : {}),
       ...(hasOwn(normalized, 'allTimeProjectsOmitted') ? { allTimeProjectsOmitted: normalized.allTimeProjectsOmitted } : {}),
       ...(hasOwn(normalized, 'allTimeProjectsIncomplete') ? { allTimeProjectsIncomplete: normalized.allTimeProjectsIncomplete } : {}),
