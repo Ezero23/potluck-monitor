@@ -26,6 +26,12 @@ const bridge = {
   },
   getHubInfo: () => ipcRenderer.invoke('hub:getInfo'),
   getPotluckConnections: () => ipcRenderer.invoke('potluck:getConnections'),
+  potluckGateway: {
+    getState: () => ipcRenderer.invoke('potluck:gatewayGetState'),
+    openWeb: () => ipcRenderer.invoke('potluck:gatewayOpenWeb'),
+    updateSettings: (patch) => ipcRenderer.invoke('potluck:gatewayUpdateSettings', patch),
+    rediscover: () => ipcRenderer.invoke('potluck:gatewayRediscover')
+  },
   regenerateHubSecret: () => ipcRenderer.invoke('hub:regenerateSecret'),
   onHubPush: (callback) => {
     const listener = (_event, payload) => { try { callback(payload); } catch (_) {} };

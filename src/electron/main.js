@@ -92,6 +92,7 @@ const {
 const cursorAuth = require('../shared/cursorAuth');
 const cursorProbe = require('../shared/cursorProbe');
 const opencodeWeb = require('../shared/opencodeWeb');
+const potluckSupervisor = require('./potluckSupervisor');
 const openrouterLimits = require('../shared/openrouterLimits');
 const thirdPartyLimits = require('../shared/thirdPartyLimits');
 const semver = require('semver');
@@ -264,6 +265,20 @@ function defaultSettings() {
     // to a random secret generated in startEmbeddedHub() if env is empty.
     hubHostSecret: process.env.TOKEN_MONITOR_SECRET || '',
     secret: process.env.TOKEN_MONITOR_SECRET || '',
+    // Potluck AI gateway supervisor: auto-discover (or spawn) the local
+    // gateway and auto-pair the embedded hub with its pairing secret so the
+    // gateway can push stats without any manual secret entry. potluckPort is
+    // the preferred gateway port (probed first, used when spawning);
+    // potluckAutoPaired marks a hub secret this app set itself, which is the
+    // only secret the supervisor may rotate.
+    potluckPath: '',
+    potluckPort: 20131,
+    potluckDataDir: '',
+    nodePath: '',
+    potluckAutoStart: true,
+    autoPairPotluck: true,
+    keepGatewayRunningOnQuit: false,
+    potluckAutoPaired: false,
     windowBehavior,
     alwaysOnTop: windowBehavior === 'floating',
     refreshMs: Number(process.env.TOKEN_MONITOR_WIDGET_REFRESH_MS || 15000),
@@ -4166,6 +4181,17 @@ app.whenReady().then(() => {
   ensureTray();
   if (settings.trayMode) enterTrayMode();
   regenerateTokscalePricing();
+  // Synchronously auto-pair with the Potluck gateway's monitor secret BEFORE
+  // startMode() spins up the embedded hub, so the hub comes up requiring
+  // exactly the Bearer token the gateway pushes with. Discovery/spawn of the
+  // gateway itself continues in the background.
+  potluckSupervisor.init({
+    settings,
+    appPath: path.join(__dirname, '..', '..'),
+    persist: () => saveSettings(),
+    logger: { log: (m) => console.log(`[potluck] ${m}`), warn: (m) => console.warn(`[potluck] ${m}`) },
+    onSettingsChanged: () => { startMode(); pushSettingsToRenderer(); }
+  });
   startMode();
   void hydrateCodexManagedWorkspaceLabels();
   if (settings.discordRpcEnabled) startDiscordRpc();
@@ -4196,7 +4222,7 @@ app.whenReady().then(() => {
       return { ok: false, error: error.message };
     }
   });
-  ipcMain.handle('settings:update', (_event, patch) => {
+  const handleSettingsUpdate = (_event, patch) => {
     if (patch?.claudeWebCookie !== undefined) claudeWebCookieMutationRevision += 1;
     const previousSettingsState = settings;
     const previousRuntimeSettings = JSON.parse(JSON.stringify(settings));
@@ -4251,6 +4277,13 @@ app.whenReady().then(() => {
       hubMode: patch.hubMode !== undefined ? normalizeHubMode(patch.hubMode, settings.hubMode) : settings.hubMode,
       hubHostPort: patch.hubHostPort !== undefined ? normalizeHubPort(patch.hubHostPort, settings.hubHostPort) : settings.hubHostPort,
       hubHostSecret: patch.hubHostSecret !== undefined ? String(patch.hubHostSecret) : settings.hubHostSecret,
+      potluckPath: patch.potluckPath !== undefined ? String(patch.potluckPath || '').trim() : (settings.potluckPath || ''),
+      potluckPort: patch.potluckPort !== undefined ? normalizeHubPort(patch.potluckPort, settings.potluckPort) : normalizeHubPort(settings.potluckPort, 20131),
+      potluckDataDir: patch.potluckDataDir !== undefined ? String(patch.potluckDataDir || '').trim() : (settings.potluckDataDir || ''),
+      nodePath: patch.nodePath !== undefined ? String(patch.nodePath || '').trim() : (settings.nodePath || ''),
+      potluckAutoStart: parseBoolean(patch.potluckAutoStart ?? settings.potluckAutoStart, true),
+      autoPairPotluck: parseBoolean(patch.autoPairPotluck ?? settings.autoPairPotluck, true),
+      keepGatewayRunningOnQuit: parseBoolean(patch.keepGatewayRunningOnQuit ?? settings.keepGatewayRunningOnQuit, false),
       deviceId: (patch.deviceId !== undefined ? String(patch.deviceId).trim() : settings.deviceId) || defaultDeviceId(),
       clients: patch.clients !== undefined ? clientsCsvForSetting(patch.clients, '') : clientsCsvForSetting(settings.clients, DEFAULT_CLIENTS),
       refreshMs: Math.max(5000, Number(patch.refreshMs ?? settings.refreshMs ?? 15000)),
@@ -4417,7 +4450,8 @@ app.whenReady().then(() => {
     }
     pushSettingsToRenderer();
     return settingsForRenderer();
-  });
+  };
+  ipcMain.handle('settings:update', handleSettingsUpdate);
   ipcMain.handle('appearance:preview', (_event, patch) => {
     applyNativeMaterial({ ...settings, ...patch });
     if (patch && patch.zoomFactor !== undefined && mainWindow && !mainWindow.isDestroyed()) {
@@ -4568,8 +4602,34 @@ app.whenReady().then(() => {
       return { ok: false, error: error.message, result: [] };
     }
   });
+  // Potluck gateway supervisor: state for the settings UI, plus actions that
+  // need main-process privileges (openExternal, spawning, settings writes).
+  ipcMain.handle('potluck:gatewayGetState', () => potluckSupervisor.getState(settings));
+  ipcMain.handle('potluck:gatewayOpenWeb', () => {
+    const gateway = potluckSupervisor.getState(settings);
+    if (!gateway.port) return { ok: false, error: 'gateway not running' };
+    return shell.openExternal(`http://127.0.0.1:${gateway.port}`)
+      .then(() => ({ ok: true }))
+      .catch((error) => ({ ok: false, error: error.message }));
+  });
+  const POTLUCK_GATEWAY_SETTING_KEYS = ['potluckPath', 'potluckPort', 'potluckDataDir', 'nodePath', 'potluckAutoStart', 'autoPairPotluck', 'keepGatewayRunningOnQuit'];
+  ipcMain.handle('potluck:gatewayUpdateSettings', (event, patch) => {
+    const filtered = {};
+    for (const key of POTLUCK_GATEWAY_SETTING_KEYS) {
+      if (patch && Object.hasOwn(patch, key)) filtered[key] = patch[key];
+    }
+    const updated = handleSettingsUpdate(event, filtered);
+    return { ok: true, settings: updated, gateway: potluckSupervisor.getState(settings) };
+  });
+  ipcMain.handle('potluck:gatewayRediscover', async () => {
+    await potluckSupervisor.rediscover();
+    return potluckSupervisor.getState(settings);
+  });
   ipcMain.handle('hub:regenerateSecret', () => {
     settings.hubHostSecret = generateHubSecret();
+    // An explicit regenerate is a user-managed secret again: the supervisor
+    // must not rotate it back to the gateway's pairing secret.
+    settings.potluckAutoPaired = false;
     saveSettings({ throwOnError: true });
     if (settings.hubMode === 'host') startMode();
     return getHubInfo();
@@ -5302,7 +5362,7 @@ app.whenReady().then(() => {
 
 app.on('second-instance', focusExistingWindow);
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
-app.on('before-quit', () => { quitRequested = true; if (rateRefreshTimer) clearInterval(rateRefreshTimer); if (appUpdateBackgroundTimer) clearInterval(appUpdateBackgroundTimer); unregisterWindowToggleShortcut(); stopAll(); });
+app.on('before-quit', () => { quitRequested = true; if (rateRefreshTimer) clearInterval(rateRefreshTimer); if (appUpdateBackgroundTimer) clearInterval(appUpdateBackgroundTimer); unregisterWindowToggleShortcut(); potluckSupervisor.onAppQuit(settings); stopAll(); });
 for (const signal of ['SIGINT', 'SIGTERM', 'SIGHUP']) {
   process.once(signal, requestAppQuit);
 }
