@@ -1301,6 +1301,25 @@
             </div>
           </div>
         </div>
+
+        <div class="settings-group settings-collapsible-group settings-potluck-group">
+          <button class="settings-section-toggle" type="button" data-settings-section="potluck" aria-expanded="false" aria-controls="potluckSettingsDetails">
+            <span class="settings-section-heading"><span class="settings-section-icon settings-section-icon-sync" aria-hidden="true"></span><span data-i18n="settings.potluck.title">Potluck Gateway</span></span>
+            <span class="settings-section-meta"><span id="potluckSettingsSummary" class="settings-section-summary"></span><span class="settings-section-disclosure" aria-hidden="true"></span></span>
+          </button>
+          <div id="potluckSettingsDetails" class="settings-section-details hidden">
+            <div id="potluckGatewayStatus" class="hub-status" hidden></div>
+            <label><span data-i18n="settings.potluck.path">Potluck path</span><input id="potluckPathInput" type="text" spellcheck="false" placeholder="auto-detect" data-i18n-placeholder="settings.potluck.pathPlaceholder" /></label>
+            <label><span data-i18n="settings.potluck.port">Gateway port</span><input id="potluckPortInput" type="number" min="1" max="65535" spellcheck="false" /></label>
+            <label class="checkbox-label settings-item"><span class="settings-item-text"><span class="settings-item-title" data-i18n="settings.potluck.autoStart">Auto-start the gateway with this app</span></span><input id="potluckAutoStartInput" type="checkbox" /></label>
+            <label class="checkbox-label settings-item"><span class="settings-item-text"><span class="settings-item-title" data-i18n="settings.potluck.keepOnQuit">Keep the gateway running after quit</span></span><input id="potluckKeepOnQuitInput" type="checkbox" /></label>
+            <div class="settings-actions">
+              <button id="potluckOpenWebButton" type="button" data-i18n="settings.potluck.openWeb">Open Web config</button>
+              <button id="potluckRediscoverButton" type="button" data-i18n="settings.potluck.rediscover">Re-detect / reconnect</button>
+              <button id="potluckGatewaySaveButton" type="button" data-i18n="settings.common.save">Save</button>
+            </div>
+          </div>
+        </div>
       </section>
 
       <section class="total-panel">

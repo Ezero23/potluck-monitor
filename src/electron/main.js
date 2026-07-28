@@ -4222,7 +4222,8 @@ app.whenReady().then(() => {
       return { ok: false, error: error.message };
     }
   });
-  const handleSettingsUpdate = (_event, patch) => {
+  let handleSettingsUpdate = null;
+  ipcMain.handle('settings:update', handleSettingsUpdate = (_event, patch) => {
     if (patch?.claudeWebCookie !== undefined) claudeWebCookieMutationRevision += 1;
     const previousSettingsState = settings;
     const previousRuntimeSettings = JSON.parse(JSON.stringify(settings));
@@ -4450,8 +4451,7 @@ app.whenReady().then(() => {
     }
     pushSettingsToRenderer();
     return settingsForRenderer();
-  };
-  ipcMain.handle('settings:update', handleSettingsUpdate);
+  });
   ipcMain.handle('appearance:preview', (_event, patch) => {
     applyNativeMaterial({ ...settings, ...patch });
     if (patch && patch.zoomFactor !== undefined && mainWindow && !mainWindow.isDestroyed()) {

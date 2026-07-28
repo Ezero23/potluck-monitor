@@ -240,7 +240,7 @@ const TOKEN_MONITOR_REPOSITORY_URL = 'https://github.com/Ezero23/potluck-monitor
 const TOKEN_MONITOR_ISSUES_URL = `${TOKEN_MONITOR_REPOSITORY_URL}/issues/new/choose`;
 const TOKEN_MONITOR_WSL_SQLITE_GUIDE_URL = `${TOKEN_MONITOR_REPOSITORY_URL}/blob/main/docs/wsl-sqlite-setup.md`;
 const serviceStatusProviderPreferencesApi = window.TokenMonitorServiceStatusProviderPreferences;
-const SETTINGS_SECTION_IDS = ['general', 'main', 'window', 'appearance', 'tools', 'limits', 'accounts', 'sync'];
+const SETTINGS_SECTION_IDS = ['general', 'main', 'window', 'appearance', 'tools', 'limits', 'accounts', 'sync', 'potluck'];
 const REFRESH_BUTTON_FEEDBACK_MS = 700;
 const CODEX_PENDING_ACTIVE_GRACE_MS = 30000;
 const initialFloatingBubble = window.__TOKEN_MONITOR_INITIAL_FLOATING_BUBBLE__ || { collapsed: false, side: null };
@@ -265,6 +265,7 @@ state.projectSettingsExpanded = false;
 state.homeActivitySettingsExpanded = false;
 state.potluckConnections = null;
 state.potluckConnectionsFetched = false;
+state.potluckGateway = null;
 state.settingsSections = Object.fromEntries(SETTINGS_SECTION_IDS.map((id) => [id, false]));
 const defaultAppearance = { glassOpacity: 68, glassBlur: 32, zoomFactor: 1, systemGlass: true, windowsBackdrop: 'acrylic', reduceMotion: 'system', showLiveDot: true, showToolIcons: true, titleIconOnly: true, showCompactTotalTokens: false, settingsInTitlebar: false };
 let preferenceDrag = null;
@@ -351,6 +352,15 @@ Object.assign(els, {
   showAllViewsButton: document.getElementById('showAllViewsButton'),
   viewDisplayList: document.getElementById('viewDisplayList'),
   syncSettingsSummary: document.getElementById('syncSettingsSummary'),
+  potluckSettingsSummary: document.getElementById('potluckSettingsSummary'),
+  potluckGatewayStatus: document.getElementById('potluckGatewayStatus'),
+  potluckPathInput: document.getElementById('potluckPathInput'),
+  potluckPortInput: document.getElementById('potluckPortInput'),
+  potluckAutoStartInput: document.getElementById('potluckAutoStartInput'),
+  potluckKeepOnQuitInput: document.getElementById('potluckKeepOnQuitInput'),
+  potluckOpenWebButton: document.getElementById('potluckOpenWebButton'),
+  potluckRediscoverButton: document.getElementById('potluckRediscoverButton'),
+  potluckGatewaySaveButton: document.getElementById('potluckGatewaySaveButton'),
   toolsSettingsSummary: document.getElementById('toolsSettingsSummary'),
   accountsSettingsSummary: document.getElementById('accountsSettingsSummary'),
   limitsSettingsSummary: document.getElementById('limitsSettingsSummary'),
@@ -570,6 +580,11 @@ function settingsSectionSummary(section) {
     if (state.settings.hubMode === 'host') return t('settings.sync.hostHub');
     if (state.settings.hubMode === 'client') return t('settings.sync.connectHub');
     return t('settings.sync.localOnly');
+  }
+  if (section === 'potluck') {
+    const gateway = state.potluckGateway;
+    if (gateway?.running && gateway.port) return t('settings.potluck.summaryRunning', { port: gateway.port });
+    return state.settings.potluckAutoStart !== false ? t('settings.potluck.summaryAuto') : t('settings.potluck.summaryOff');
   }
   if (section === 'tools') {
     return t('settings.summary.tools', {
@@ -6022,6 +6037,37 @@ function syncHubModeUi() {
   renderSyncClientStatus();
 }
 
+function renderPotluckGatewayStatus() {
+  if (!els.potluckGatewayStatus) return;
+  const gateway = state.potluckGateway;
+  if (!gateway) {
+    els.potluckGatewayStatus.hidden = true;
+    els.potluckGatewayStatus.textContent = '';
+    return;
+  }
+  const parts = [gateway.running
+    ? t('settings.potluck.statusRunning', { port: gateway.port })
+    : t('settings.potluck.statusStopped')];
+  if (gateway.running) {
+    parts.push(gateway.supervised ? t('settings.potluck.supervised') : t('settings.potluck.external'));
+    if (gateway.pid) parts.push(`PID ${gateway.pid}`);
+  }
+  if (gateway.autoPaired) parts.push(t('settings.potluck.autoPaired'));
+  if (gateway.error) parts.push(gateway.error);
+  els.potluckGatewayStatus.textContent = parts.join(' · ');
+  els.potluckGatewayStatus.className = `hub-status${gateway.running ? ' ok' : gateway.error ? ' error' : ''}`;
+  els.potluckGatewayStatus.hidden = false;
+}
+
+async function refreshPotluckGatewayState() {
+  if (!window.tokenMonitor.potluckGateway?.getState) return;
+  try {
+    state.potluckGateway = await window.tokenMonitor.potluckGateway.getState();
+  } catch (_) { return; }
+  renderPotluckGatewayStatus();
+  renderSettingsSummaries();
+}
+
 function renderHubStatus() {
   if (!els.hubStatusRow || !els.hubAddressList) return;
   const info = state.hubInfo;
@@ -6168,6 +6214,11 @@ function syncSettingsForm() {
   els.hubUrlInput.value = state.settings.hubUrl || '';
   els.secretInput.value = state.settings.secret || '';
   els.deviceIdInput.value = state.settings.deviceId || '';
+  if (els.potluckPathInput) els.potluckPathInput.value = state.settings.potluckPath || '';
+  if (els.potluckPortInput) els.potluckPortInput.value = String(state.settings.potluckPort || 20131);
+  if (els.potluckAutoStartInput) els.potluckAutoStartInput.checked = state.settings.potluckAutoStart !== false;
+  if (els.potluckKeepOnQuitInput) els.potluckKeepOnQuitInput.checked = state.settings.keepGatewayRunningOnQuit === true;
+  renderPotluckGatewayStatus();
   els.limitsRefreshInput.value = String(LIMIT_REFRESH_OPTIONS.includes(Number(state.settings.limitsRefreshMs)) ? state.settings.limitsRefreshMs : 300000);
   els.showLimitSourceInput.checked = Boolean(state.settings.showLimitSource);
   els.maskLimitAccountEmailsInput.checked = Boolean(state.settings.maskLimitAccountEmails);
@@ -7779,10 +7830,42 @@ els.settingsButton.addEventListener('click', (event) => {
   els.settingsPanel.classList.toggle('hidden');
   const settingsOpen = !els.settingsPanel.classList.contains('hidden');
   if (!settingsOpen) stopWindowShortcutRecording();
+  if (settingsOpen) void refreshPotluckGatewayState();
   els.shell.classList.toggle('settings-open', settingsOpen);
   if (!settingsOpen && event.detail > 0) els.settingsButton.blur();
   els.shell.style.transform = 'translateZ(0)';
   requestAnimationFrame(() => { els.shell.style.transform = ''; });
+});
+els.potluckGatewaySaveButton?.addEventListener('click', async () => {
+  if (!window.tokenMonitor.potluckGateway?.updateSettings) return;
+  const patch = {
+    potluckPath: els.potluckPathInput.value.trim(),
+    potluckPort: Number(els.potluckPortInput.value) || 20131,
+    potluckAutoStart: Boolean(els.potluckAutoStartInput.checked),
+    keepGatewayRunningOnQuit: Boolean(els.potluckKeepOnQuitInput.checked)
+  };
+  try {
+    const res = await window.tokenMonitor.potluckGateway.updateSettings(patch);
+    if (res?.settings) state.settings = res.settings;
+    if (res?.gateway) state.potluckGateway = res.gateway;
+  } catch (error) {
+    console.error('Could not persist gateway settings:', error);
+  }
+  renderPotluckGatewayStatus();
+  renderSettingsSummaries();
+});
+els.potluckOpenWebButton?.addEventListener('click', () => {
+  window.tokenMonitor.potluckGateway?.openWeb?.().catch(() => {});
+});
+els.potluckRediscoverButton?.addEventListener('click', async () => {
+  if (!window.tokenMonitor.potluckGateway?.rediscover) return;
+  els.potluckRediscoverButton.disabled = true;
+  try {
+    state.potluckGateway = await window.tokenMonitor.potluckGateway.rediscover();
+  } catch (_) {}
+  els.potluckRediscoverButton.disabled = false;
+  renderPotluckGatewayStatus();
+  renderSettingsSummaries();
 });
 els.saveSettingsButton.addEventListener('click', async () => {
   const patch = {
