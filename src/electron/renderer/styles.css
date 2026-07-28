@@ -3194,6 +3194,36 @@ html.is-windows .settings-panel select option {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.potluck-gateway-card { cursor: default; }
+.potluck-gateway-body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.potluck-gateway-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.potluck-gateway-value {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+  color: var(--text);
+}
+.potluck-gateway-label {
+  font-size: 10px;
+  color: var(--muted);
+  flex-shrink: 0;
+}
+.potluck-gateway-off {
+  font-size: 11px;
+  color: var(--muted);
+}
 .limit-row {
   display: grid;
   gap: 10px;

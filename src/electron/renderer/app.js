@@ -4941,6 +4941,86 @@ function renderHomeTrendsModule() {
   return module;
 }
 
+// Compact card for the Potluck gateway's tunnel URL + dashboard password,
+// read from the 'potluck' device record in the synced stats (fields are
+// absent on older Potluck versions, in which case the card stays hidden).
+function renderPotluckGatewayCard() {
+  const devices = Array.isArray(state.stats?.devices) ? state.stats.devices : [];
+  const potluck = devices.find((device) => device?.deviceId === 'potluck');
+  if (!potluck) return null;
+  const tunnel = potluck.tunnel && typeof potluck.tunnel === 'object' ? potluck.tunnel : null;
+  const password = typeof potluck.dashboardPassword === 'string' && potluck.dashboardPassword ? potluck.dashboardPassword : '';
+  if (!tunnel && !password) return null;
+  const card = document.createElement('section');
+  card.className = 'home-module potluck-gateway-card';
+  const head = document.createElement('div');
+  head.className = 'home-module-head';
+  const titleWrap = document.createElement('div');
+  titleWrap.className = 'home-module-title-wrap';
+  const label = document.createElement('span');
+  label.className = 'home-module-label';
+  label.textContent = t('home.gateway.title');
+  titleWrap.append(label);
+  head.append(titleWrap);
+  const body = document.createElement('div');
+  body.className = 'home-module-body potluck-gateway-body';
+  const tunnelRow = document.createElement('div');
+  tunnelRow.className = 'potluck-gateway-row';
+  const tunnelUrl = tunnel?.enabled ? (tunnel.publicUrl || tunnel.tunnelUrl || '') : '';
+  if (!tunnelUrl) {
+    const off = document.createElement('span');
+    off.className = 'potluck-gateway-off';
+    off.textContent = t('home.gateway.tunnelOff');
+    tunnelRow.append(off);
+  } else {
+    const url = document.createElement('code');
+    url.className = 'potluck-gateway-value';
+    url.textContent = tunnelUrl;
+    url.title = tunnelUrl;
+    const copy = document.createElement('button');
+    copy.type = 'button';
+    copy.className = 'icon-button';
+    copy.title = t('home.gateway.copyUrl');
+    copy.textContent = '⧉';
+    copy.addEventListener('click', (event) => { event.stopPropagation(); copyToClipboard(tunnelUrl, copy); });
+    tunnelRow.append(url, copy);
+  }
+  body.append(tunnelRow);
+  if (password) {
+    const passwordRow = document.createElement('div');
+    passwordRow.className = 'potluck-gateway-row';
+    const passwordLabel = document.createElement('span');
+    passwordLabel.className = 'potluck-gateway-label';
+    passwordLabel.textContent = t('home.gateway.password');
+    const value = document.createElement('code');
+    value.className = 'potluck-gateway-value';
+    const masked = '••••••••';
+    value.textContent = masked;
+    let visible = false;
+    const toggle = document.createElement('button');
+    toggle.type = 'button';
+    toggle.className = 'icon-button';
+    toggle.title = t('home.gateway.show');
+    toggle.textContent = '👁';
+    toggle.addEventListener('click', (event) => {
+      event.stopPropagation();
+      visible = !visible;
+      value.textContent = visible ? password : masked;
+      toggle.title = visible ? t('home.gateway.hide') : t('home.gateway.show');
+    });
+    const copy = document.createElement('button');
+    copy.type = 'button';
+    copy.className = 'icon-button';
+    copy.title = t('home.gateway.copyPassword');
+    copy.textContent = '⧉';
+    copy.addEventListener('click', (event) => { event.stopPropagation(); copyToClipboard(password, copy); });
+    passwordRow.append(passwordLabel, value, toggle, copy);
+    body.append(passwordRow);
+  }
+  card.append(head, body);
+  return card;
+}
+
 function renderHome() {
   if (!els.homePanel) return;
   // The previous scroller (and its ResizeObserver) is about to be replaced; drop the
@@ -4951,6 +5031,7 @@ function renderHome() {
   state.homeActivityResizeObserver = null;
   const period = state.stats.periods?.[state.period] || { totalTokens: 0, costUsd: 0, clients: {} };
   const moduleIds = homeModuleIds();
+  const gatewayCard = renderPotluckGatewayCard();
   if (moduleIds.includes('trends')) void loadHomeHistory();
   if (moduleIds.length === 0) {
     const empty = document.createElement('div');
@@ -4967,7 +5048,7 @@ function renderHome() {
     action.textContent = t('home.customize');
     action.addEventListener('click', openHomeSettings);
     empty.append(title, body, action);
-    els.homePanel.replaceChildren(empty);
+    els.homePanel.replaceChildren(...(gatewayCard ? [gatewayCard, empty] : [empty]));
     return;
   }
   const nodes = moduleIds.map((id) => {
@@ -4978,7 +5059,7 @@ function renderHome() {
     if (id === 'model') return renderHomeModelModule(period);
     return renderHomeTrendsModule();
   });
-  els.homePanel.replaceChildren(...nodes);
+  els.homePanel.replaceChildren(...(gatewayCard ? [gatewayCard, ...nodes] : nodes));
   // setupHomeActivityScroller wires a ResizeObserver that applies the scroll position
   // post-layout, so no requestAnimationFrame guess is needed here.
 }
