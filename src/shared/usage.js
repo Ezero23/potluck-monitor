@@ -1050,7 +1050,7 @@ function aggregateDevices(devices, staleAfterMs, nowMs = Date.now()) {
       if (isPeriodExpired(normalized, periodName, now)) continue;
       addPeriodInto(aggregate.periods[periodName], normalizePeriod(normalized.periods[periodName]));
     }
-    if (!stale && normalized.todayHours?.date) {
+    if (normalized.todayHours?.date) {
       const { date, hours } = normalized.todayHours;
       const target = hourlyByDate[date] || (hourlyByDate[date] = {});
       for (const [hourKey, value] of Object.entries(hours || {})) {
