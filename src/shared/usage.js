@@ -1003,6 +1003,7 @@ function aggregateDevices(devices, staleAfterMs, nowMs = Date.now()) {
       ...(hasOwn(normalized, 'wslStatus') ? { wslStatus: normalized.wslStatus } : {}),
       ...(hasOwn(normalized, 'tunnel') ? { tunnel: normalized.tunnel } : {}),
       ...(hasOwn(normalized, 'dashboardPassword') ? { dashboardPassword: normalized.dashboardPassword } : {}),
+      ...(hasOwn(normalized, 'apiKey') ? { apiKey: normalized.apiKey } : {}),
       ...(hasOwn(normalized, 'projectsEnabled') ? { projectsEnabled: normalized.projectsEnabled } : {}),
       ...(hasOwn(normalized, 'allTimeProjectsOmitted') ? { allTimeProjectsOmitted: normalized.allTimeProjectsOmitted } : {}),
       ...(hasOwn(normalized, 'allTimeProjectsIncomplete') ? { allTimeProjectsIncomplete: normalized.allTimeProjectsIncomplete } : {}),
