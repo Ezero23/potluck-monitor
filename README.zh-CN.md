@@ -20,7 +20,7 @@
 </p>
 
 <div align="center">
-    <img src=".github/assets/demo.gif">
+  
 </div>
 
 ## Potluck Monitor 是什么？
