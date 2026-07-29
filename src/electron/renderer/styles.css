@@ -2693,6 +2693,21 @@ html.is-windows .settings-panel select option {
   color: var(--muted);
   line-height: 1;
 }
+/* 24 hourly buckets (DAY tab activity module): tighter columns, no per-bar
+   width cap, and the current hour highlighted at full accent opacity. */
+.home-hourly-chart {
+  gap: 2px;
+}
+.home-hourly-chart .weekly-bar {
+  max-width: none;
+}
+.home-hourly-chart .weekly-bar.current {
+  background: rgba(var(--accent-rgb), 1);
+  box-shadow: 0 0 6px rgba(var(--accent-rgb), 0.45);
+}
+.home-hourly-chart .weekly-day-label {
+  min-height: 9px;
+}
 .weekly-models {
   display: flex;
   flex-direction: column;

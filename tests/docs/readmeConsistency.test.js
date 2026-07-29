@@ -8,7 +8,7 @@ const test = require('node:test');
 const rootDir = path.join(__dirname, '..', '..');
 const read = (file) => fs.readFileSync(path.join(rootDir, file), 'utf8');
 
-const localizedReadmes = ['README.md', 'README.zh-TW.md', 'README.zh-CN.md', 'README.ja.md', 'README.ko.md'];
+const localizedReadmes = ['README.md', 'README.zh-CN.md'];
 
 // The supported-tools table is what a reader can actually verify, so the prose counts are
 // checked against it — not against LIMIT_PROVIDER_IDS, where zai/zaiteam are two ids but
@@ -175,7 +175,7 @@ test('localized READMEs link to the configuration reference', () => {
 });
 
 test('localized README WSL claims disclose the SQLite agent boundary', () => {
-  const files = ['README.md', 'README.zh-TW.md', 'README.zh-CN.md', 'README.ja.md', 'README.ko.md'];
+  const files = ['README.md', 'README.zh-CN.md'];
 
   for (const file of files) {
     const line = read(file).split('\n').find((value) => value.includes('**WSL')) || '';

@@ -128,7 +128,7 @@ test('release-note popover uses the view switcher glass surface', () => {
   assert.doesNotMatch(popover, /var\(--bg\)/);
 });
 
-test('Japanese release-note heading describes updates rather than only new features', () => {
+test('Chinese release-note heading describes updates rather than only new features', () => {
   const i18n = read('i18n.js');
-  assert.match(i18n, /'settings\.appUpdate\.whatsNew': 'v\{version\} の更新内容'/);
+  assert.match(i18n, /'settings\.appUpdate\.whatsNew': 'v\{version\} 更新内容'/);
 });

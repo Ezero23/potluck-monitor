@@ -409,8 +409,6 @@ test('Codex system account switching is exposed from limits account rows', () =>
   const i18n = fs.readFileSync(path.join(rendererDir, 'i18n.js'), 'utf8');
   assert.match(i18n, /'limits\.codex\.switchAccount': 'Switch'/);
   assert.match(i18n, /'limits\.codex\.activeAccountHint': 'Local'/);
-  assert.match(i18n, /'limits\.codex\.switchAccount': '切換帳號'/);
-  assert.match(i18n, /'limits\.codex\.activeAccountHint': '本機'/);
   assert.match(i18n, /'limits\.codex\.switchAccount': '切换账号'/);
   assert.match(i18n, /'limits\.codex\.activeAccountHint': '本机'/);
 
@@ -944,7 +942,6 @@ test('DeepSeek account copy says browser and external URL is allowlisted', () =>
 
   const i18n = readRendererFile('i18n.js');
   assert.match(i18n, /'settings\.deepseek\.openBrowser': 'Open DeepSeek API keys in browser'/);
-  assert.match(i18n, /'settings\.deepseek\.openBrowser': '在瀏覽器開啟 DeepSeek API 金鑰'/);
   assert.match(i18n, /'settings\.deepseek\.openBrowser': '在浏览器打开 DeepSeek API 密钥'/);
 
   const main = fs.readFileSync(path.join(__dirname, '..', '..', 'src', 'electron', 'main.js'), 'utf8');

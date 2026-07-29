@@ -239,7 +239,6 @@ test('Home limit provider settings stay compact and list only enabled providers'
   assert.match(renderHomeLimitProviderList, /\.filter\(\(\{ id \}\) => enabled\.has\(id\)\)/);
   assert.match(resetHomeLimitProviderOrder, /saveSettings\(\{ homeLimitProviderOrder: '' \}\)/);
   assert.match(i18n, /Default is least remaining first/);
-  assert.match(i18n, /預設按剩餘額度最少優先/);
   assert.match(i18n, /默认按剩余额度最少优先/);
   assert.doesNotMatch(renderHomeLimitProviderList, /limitProviderSettingsTags/);
   assert.doesNotMatch(renderHomeLimitProviderList, /limit-provider-tag/);

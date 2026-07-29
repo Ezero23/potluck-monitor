@@ -1,5 +1,5 @@
 <p align="right">
-   <a href="./README.md">EN</a> | <strong>简</strong> | <a href="./README.zh-TW.md">繁</a> | <a href="./README.ko.md">KO</a> | <a href="./README.ja.md">JA</a>
+   <a href="./README.md">EN</a> | <strong>简</strong>
 </p>
 <div align="center">
     <img src=".github/assets/app.png" alt="Token Monitor logo" width="120">
@@ -16,7 +16,6 @@
     <img src="https://img.shields.io/badge/Windows-10%2B-0078D4?style=flat-square" alt="Windows 10 或更新" />
     <img src="https://img.shields.io/badge/macOS-14%2B-0A84FF?style=flat-square&logo=apple&logoColor=white" alt="macOS 14 或更新" />
     <img src="https://img.shields.io/badge/Linux-x64-64748b?style=flat-square&logo=linux&logoColor=white" alt="Linux x64" />
-    <a href="https://discord.gg/HmdNVVvw5P"><img src="https://img.shields.io/discord/1344259784219689031?color=5865F2&label=Discord&logo=discord&logoColor=white&style=flat-square" alt="Discord"></a>
     <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-A855F7?style=flat-square" alt="许可证：MIT" /></a>
 </p>
 
@@ -127,7 +126,6 @@ Custom 会从一个 GET 余额端点映射数值 JSON 字段；仅兼容 OpenAI 
 - **外观控制**：界面主题切换（含浅色模式）、各工具厂商色、玻璃透明度、模糊度、完全透明窗口
 - **工具列表自定义**：可隐藏、置顶和拖曳排序主列表中的工具，不影响实际追踪
 - **可录制全局快捷键**：可从任何地方快速显示或隐藏窗口
-- **Discord Rich Presence**：将今日 Token、花费与主要工具广播到你的 Discord 个人资料（需手动开启）
 
 ## 安装
 
@@ -252,7 +250,7 @@ npm run pack         # 未打包的 app 目录（无安装包），方便本机�
 
 ## 隐私
 
-Token Monitor 在本地处理使用日志，不会向项目维护者发送分析或遥测数据。网络访问仅用于文档所述或由用户启用的功能；更新、提供方集成、Discord Rich Presence 与可选多设备同步所使用的数据，请参阅[隐私政策](docs/privacy.md)。
+Token Monitor 在本地处理使用日志，不会向项目维护者发送分析或遥测数据。网络访问仅用于文档所述或由用户启用的功能；更新、提供方集成与可选多设备同步所使用的数据，请参阅[隐私政策](docs/privacy.md)。
 
 ## Star 历史
 

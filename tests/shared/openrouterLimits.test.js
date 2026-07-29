@@ -24,8 +24,8 @@ function response(status, body) {
 
 function apiFetch(keyBodies, creditsBodies = {}) {
   return async (url, init) => {
-    assert.equal(init.headers['HTTP-Referer'], 'https://github.com/Javis603/token-monitor');
-    assert.equal(init.headers['X-OpenRouter-Title'], 'Token Monitor');
+    assert.equal(init.headers['HTTP-Referer'], 'https://github.com/Ezero23/potluck-monitor');
+    assert.equal(init.headers['X-OpenRouter-Title'], 'Potluck Monitor');
     assert.equal(init.headers['X-Title'], undefined);
     const key = String(init.headers.Authorization).slice('Bearer '.length);
     if (url === OPENROUTER_KEY_URL) {

@@ -215,7 +215,6 @@ test('Minimax capability tags are localized in settings', () => {
   assert.match(app, /'Token Plan': 'settings\.limits\.capability\.tokenPlan'/);
   assert.match(i18n, /'settings\.limits\.capability\.tokenPlan': 'Token Plan'/);
   assert.match(i18n, /'settings\.limits\.capability\.apiKey': 'API key'/);
-  assert.match(i18n, /'settings\.limits\.capability\.apiKey': 'API 金鑰'/);
   assert.match(i18n, /'settings\.limits\.capability\.apiKey': 'API 密钥'/);
 });
 
@@ -909,8 +908,6 @@ test('MiMo expired Token Plan renders a localized status without a meter', () =>
   assert.match(tokenPlanFallback, /if \(balance\.planStatus === 'expired'\) return null;/);
   assert.match(i18n, /'limits\.mimo\.planExpired': 'Expired'/);
   assert.match(i18n, /'limits\.mimo\.planExpired': '已过期'/);
-  assert.match(i18n, /'limits\.mimo\.planExpired': '만료됨'/);
-  assert.match(i18n, /'limits\.mimo\.planExpired': '期限切れ'/);
 });
 
 test('main Limits plan text shows failure status before account labels', () => {
@@ -1052,7 +1049,6 @@ test('Grok is automatic provider UI, while env token remains documented for head
   assert.match(app, /'Run grok login': 'settings\.limits\.status\.runGrokLogin'/);
   assert.match(app, /'Re-login': 'settings\.limits\.status\.relogin'/);
   assert.match(i18n, /'settings\.limits\.status\.runGrokLogin': 'Run grok login'/);
-  assert.match(i18n, /'settings\.limits\.status\.runGrokLogin': '執行 grok login'/);
   assert.match(i18n, /'settings\.limits\.status\.runGrokLogin': '运行 grok login'/);
 });
 
@@ -1060,13 +1056,11 @@ test('Copilot env token is documented in env example, not the README overview', 
   const envExample = fs.readFileSync(path.join(__dirname, '..', '..', '.env.example'), 'utf8');
   const readme = fs.readFileSync(path.join(__dirname, '..', '..', 'README.md'), 'utf8');
   const readmeCn = fs.readFileSync(path.join(__dirname, '..', '..', 'README.zh-CN.md'), 'utf8');
-  const readmeTw = fs.readFileSync(path.join(__dirname, '..', '..', 'README.zh-TW.md'), 'utf8');
 
   assert.match(envExample, /COPILOT_API_TOKEN=/);
   assert.match(envExample, /GITHUB_COPILOT_TOKEN/);
   assert.doesNotMatch(readme, /COPILOT_API_TOKEN|GITHUB_COPILOT_TOKEN/);
   assert.doesNotMatch(readmeCn, /COPILOT_API_TOKEN|GITHUB_COPILOT_TOKEN/);
-  assert.doesNotMatch(readmeTw, /COPILOT_API_TOKEN|GITHUB_COPILOT_TOKEN/);
 });
 
 test('Accounts summary counts all managed account groups including Claude Web and Third-party API', () => {
@@ -1317,8 +1311,8 @@ test('Kimi credential statuses are localized in settings', () => {
   const i18n = readRendererFile('i18n.js');
   assert.match(app, /'Add credential': 'settings\.limits\.status\.addCredential'/);
   assert.match(app, /'Update credential': 'settings\.limits\.status\.updateCredential'/);
-  assert.match(i18n, /'settings\.limits\.status\.addCredential': '新增憑證'/);
-  assert.match(i18n, /'settings\.limits\.status\.updateCredential': '更新憑證'/);
+  assert.match(i18n, /'settings\.limits\.status\.addCredential': '添加凭据'/);
+  assert.match(i18n, /'settings\.limits\.status\.updateCredential': '更新凭据'/);
 });
 
 test('Kimi usage and limits share the canonical provider id and vendor color', () => {

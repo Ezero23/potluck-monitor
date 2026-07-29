@@ -150,20 +150,20 @@ test('tray context menu exposes refresh progress and current window mode', () =>
 test('tray context menu uses the selected locale for every visible level', () => {
   const template = buildTrayMenuTemplate({
     state: { appVersion: '0.27.0', trayContent: 'tokens', trayMode: true, windowBehavior: 'floating' },
-    translate: (key, params) => translate('zh-TW', key, params)
+    translate: (key, params) => translate('zh-CN', key, params)
   });
 
   assert.deepEqual(template.map((item) => item.label || item.type), [
-    '立即重新整理', '開啟頁面', 'separator', '托盤顯示', '視窗呈現方式', 'separator', '版本 0.27.0', '設定…', '結束 Potluck Monitor'
+    '立即刷新', '打开页面', 'separator', '托盘显示', '窗口呈现方式', 'separator', '版本 0.27.0', '设置…', '退出 Potluck Monitor'
   ]);
-  assert.equal(template[1].submenu[0].label, '主頁');
+  assert.equal(template[1].submenu[0].label, '主页');
   assert.equal(template[3].submenu[0].label, '今日 Tokens');
   assert.deepEqual(template[3].submenu.slice(-2).map((item) => item.label), [
-    '僅顯示 App 圖示',
-    '自訂'
+    '仅显示 App 图标',
+    '自定义'
   ]);
-  assert.equal(template[4].submenu[0].label, '托盤彈出視窗');
-  assert.equal(template[4].submenu.at(-1).label, '固定於桌面');
+  assert.equal(template[4].submenu[0].label, '托盘弹出窗口');
+  assert.equal(template[4].submenu.at(-1).label, '固定到桌面');
 });
 
 test('tray context menu disables unavailable views', () => {
@@ -232,10 +232,10 @@ test('tray Codex account labels keep unique emails compact and disambiguate dupl
       ],
       activeCodexAccountId: 'personal'
     },
-    translate: (key, params) => translate('zh-TW', key, params)
+    translate: (key, params) => translate('zh-CN', key, params)
   });
   assert.deepEqual(duplicate[2].submenu.map((item) => item.label), [
-    'member@example.com · 個人',
+    'member@example.com · 个人',
     'member@example.com · Team'
   ]);
 

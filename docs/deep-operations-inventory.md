@@ -34,7 +34,6 @@
 | 项 | 位置 | 原因 |
 |---|---|---|
 | 开机自启 | :57 | OS login item |
-| Discord Rich Presence | :65 | 本地进程 IPC |
 | App 自更新（检查/下载/安装） | :68-89 | 替换本机二进制 |
 | tokscale CLI 更新/重置 | :91-104 | spawn npm、换二进制 |
 | Open Config 目录 | :110 | shell.openPath |

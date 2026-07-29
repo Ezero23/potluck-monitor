@@ -273,7 +273,7 @@ let viewSwitcherLongPressTimer = null;
 let viewSwitcherLongPressTriggered = false;
 let viewSwitcherHoverCloseTimer = null;
 const els = {
-  shell: document.querySelector('.shell'), status: document.getElementById('status'), liveDot: document.getElementById('liveDot'), totalTokens: document.getElementById('totalTokens'), totalTokensCompact: document.getElementById('totalTokensCompact'), cost: document.getElementById('cost'), homePanel: document.getElementById('homePanel'), breakdown: document.getElementById('breakdown'), serviceStatusPanel: document.getElementById('serviceStatusPanel'), limitsPanel: document.getElementById('limitsPanel'), trendsPanel: document.getElementById('trendsPanel'), viewSwitcher: document.getElementById('viewSwitcher'), pinButton: document.getElementById('pinButton'), utilityActions: document.getElementById('utilityActions'), settingsButton: document.getElementById('settingsButton'), settingsPanel: document.getElementById('settingsPanel'), languageInput: document.getElementById('languageInput'), currencyInput: document.getElementById('currencyInput'), currencyRateRow: document.getElementById('currencyRateRow'), currencyRateModeAuto: document.getElementById('currencyRateModeAuto'), currencyRateModeManual: document.getElementById('currencyRateModeManual'), currencyRateManualField: document.getElementById('currencyRateManualField'), currencyRateOverrideInput: document.getElementById('currencyRateOverrideInput'), currencyRateStatus: document.getElementById('currencyRateStatus'), hubUrlInput: document.getElementById('hubUrlInput'), secretInput: document.getElementById('secretInput'), deviceIdInput: document.getElementById('deviceIdInput'), limitProviderCheckboxes: document.getElementById('limitProviderCheckboxes'), limitsRefreshInput: document.getElementById('limitsRefreshInput'), showLimitSourceInput: document.getElementById('showLimitSourceInput'), maskLimitAccountEmailsInput: document.getElementById('maskLimitAccountEmailsInput'), showLimitUsedInput: document.getElementById('showLimitUsedInput'), liveDotInput: document.getElementById('liveDotInput'), toolIconsInput: document.getElementById('toolIconsInput'), floatingBubbleInput: document.getElementById('floatingBubbleInput'), floatingBubbleTriggerInput: document.getElementById('floatingBubbleTriggerInput'), floatingBubbleTriggerRow: document.getElementById('floatingBubbleTriggerRow'), floatingBubbleContentInput: document.getElementById('floatingBubbleContentInput'), floatingBubbleContentRow: document.getElementById('floatingBubbleContentRow'), floatingBubbleComposer: document.getElementById('floatingBubbleComposer'), floatingBubbleContent: document.getElementById('floatingBubbleContent'), discordRpcInput: document.getElementById('discordRpcInput'), windowBehaviorInput: document.getElementById('windowBehaviorInput'), showTrayIconInput: document.getElementById('showTrayIconInput'), showTrayProviderBadgeInput: document.getElementById('showTrayProviderBadgeInput'), trayModeInput: document.getElementById('trayModeInput'), trayContentInput: document.getElementById('trayContentInput'), trayComposer: document.getElementById('trayComposer'), windowToggleShortcutValue: document.getElementById('windowToggleShortcutValue'), windowToggleShortcutClearButton: document.getElementById('windowToggleShortcutClearButton'), windowToggleShortcutNote: document.getElementById('windowToggleShortcutNote'), glassInput: document.getElementById('glassInput'), blurInput: document.getElementById('blurInput'), zoomInput: document.getElementById('zoomInput'), resetGlassButton: document.getElementById('resetGlassButton'), resetDepthButton: document.getElementById('resetDepthButton'), resetZoomButton: document.getElementById('resetZoomButton'), saveSettingsButton: document.getElementById('saveSettingsButton'), clientDisplayList: document.getElementById('clientDisplayList'), wslScanInput: document.getElementById('wslScanInput'), wslScanRow: document.getElementById('wslScanRow'), wslPanel: document.getElementById('wslPanel'), openConfigButton: document.getElementById('openConfigButton'), exportAutoInput: document.getElementById('exportAutoInput'), exportAutoDetails: document.getElementById('exportAutoDetails'), exportAutoStatus: document.getElementById('exportAutoStatus'), exportDirLabel: document.getElementById('exportDirLabel'), exportPickDirButton: document.getElementById('exportPickDirButton'), exportIntervalInput: document.getElementById('exportIntervalInput'), exportNowButton: document.getElementById('exportNowButton'), refreshButton: document.getElementById('refreshButton'), minButton: document.getElementById('minButton'), closeButton: document.getElementById('closeButton'), floatingBubbleTab: document.getElementById('floatingBubbleTab')
+  shell: document.querySelector('.shell'), status: document.getElementById('status'), liveDot: document.getElementById('liveDot'), totalTokens: document.getElementById('totalTokens'), totalTokensCompact: document.getElementById('totalTokensCompact'), cost: document.getElementById('cost'), homePanel: document.getElementById('homePanel'), breakdown: document.getElementById('breakdown'), serviceStatusPanel: document.getElementById('serviceStatusPanel'), limitsPanel: document.getElementById('limitsPanel'), trendsPanel: document.getElementById('trendsPanel'), viewSwitcher: document.getElementById('viewSwitcher'), pinButton: document.getElementById('pinButton'), utilityActions: document.getElementById('utilityActions'), settingsButton: document.getElementById('settingsButton'), settingsPanel: document.getElementById('settingsPanel'), languageInput: document.getElementById('languageInput'), currencyInput: document.getElementById('currencyInput'), currencyRateRow: document.getElementById('currencyRateRow'), currencyRateModeAuto: document.getElementById('currencyRateModeAuto'), currencyRateModeManual: document.getElementById('currencyRateModeManual'), currencyRateManualField: document.getElementById('currencyRateManualField'), currencyRateOverrideInput: document.getElementById('currencyRateOverrideInput'), currencyRateStatus: document.getElementById('currencyRateStatus'), hubUrlInput: document.getElementById('hubUrlInput'), secretInput: document.getElementById('secretInput'), deviceIdInput: document.getElementById('deviceIdInput'), limitProviderCheckboxes: document.getElementById('limitProviderCheckboxes'), limitsRefreshInput: document.getElementById('limitsRefreshInput'), showLimitSourceInput: document.getElementById('showLimitSourceInput'), maskLimitAccountEmailsInput: document.getElementById('maskLimitAccountEmailsInput'), showLimitUsedInput: document.getElementById('showLimitUsedInput'), liveDotInput: document.getElementById('liveDotInput'), toolIconsInput: document.getElementById('toolIconsInput'), floatingBubbleInput: document.getElementById('floatingBubbleInput'), floatingBubbleTriggerInput: document.getElementById('floatingBubbleTriggerInput'), floatingBubbleTriggerRow: document.getElementById('floatingBubbleTriggerRow'), floatingBubbleContentInput: document.getElementById('floatingBubbleContentInput'), floatingBubbleContentRow: document.getElementById('floatingBubbleContentRow'), floatingBubbleComposer: document.getElementById('floatingBubbleComposer'), floatingBubbleContent: document.getElementById('floatingBubbleContent'), windowBehaviorInput: document.getElementById('windowBehaviorInput'), showTrayIconInput: document.getElementById('showTrayIconInput'), showTrayProviderBadgeInput: document.getElementById('showTrayProviderBadgeInput'), trayModeInput: document.getElementById('trayModeInput'), trayContentInput: document.getElementById('trayContentInput'), trayComposer: document.getElementById('trayComposer'), windowToggleShortcutValue: document.getElementById('windowToggleShortcutValue'), windowToggleShortcutClearButton: document.getElementById('windowToggleShortcutClearButton'), windowToggleShortcutNote: document.getElementById('windowToggleShortcutNote'), glassInput: document.getElementById('glassInput'), blurInput: document.getElementById('blurInput'), zoomInput: document.getElementById('zoomInput'), resetGlassButton: document.getElementById('resetGlassButton'), resetDepthButton: document.getElementById('resetDepthButton'), resetZoomButton: document.getElementById('resetZoomButton'), saveSettingsButton: document.getElementById('saveSettingsButton'), clientDisplayList: document.getElementById('clientDisplayList'), wslScanInput: document.getElementById('wslScanInput'), wslScanRow: document.getElementById('wslScanRow'), wslPanel: document.getElementById('wslPanel'), openConfigButton: document.getElementById('openConfigButton'), exportAutoInput: document.getElementById('exportAutoInput'), exportAutoDetails: document.getElementById('exportAutoDetails'), exportAutoStatus: document.getElementById('exportAutoStatus'), exportDirLabel: document.getElementById('exportDirLabel'), exportPickDirButton: document.getElementById('exportPickDirButton'), exportIntervalInput: document.getElementById('exportIntervalInput'), exportNowButton: document.getElementById('exportNowButton'), refreshButton: document.getElementById('refreshButton'), minButton: document.getElementById('minButton'), closeButton: document.getElementById('closeButton'), floatingBubbleTab: document.getElementById('floatingBubbleTab')
 };
 Object.assign(els, {
   viewBackRow: document.getElementById('viewBackRow'),
@@ -705,6 +705,7 @@ function fitTotalNumber() {
 function trendShortLabel(label, labelKey) {
   const value = String(label || '');
   if (labelKey === 'month') return value.slice(0, 7);
+  if (labelKey === 'hour') return value; // already formatted as "h:00"
   const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(value);
   return m ? `${Number(m[2])}/${Number(m[3])}` : value;
 }
@@ -3849,7 +3850,24 @@ function renderTrends() {
   const preview = state.stats?.historyPreview || { daily: [], monthly: [], summary: {} };
   const todayTotal = Number(state.stats?.periods?.today?.totalTokens || 0);
   const { points, metric, labelKey } = charts.selectPreviewSeries(preview, state.period);
-  const finalPoints = state.period === 'today' ? charts.patchTodayBar(points, todayTotal) : points;
+  // DAY tab: a single patched day bar is a degenerate trend — chart today's
+  // 24 hourly buckets (stats.todayHours) instead when they are available.
+  const trendsTodayHours = state.period === 'today' ? state.stats?.todayHours : null;
+  const hasHourly = Boolean(trendsTodayHours?.hours && Object.keys(trendsTodayHours.hours).length > 0);
+  let finalPoints = state.period === 'today' && !hasHourly ? charts.patchTodayBar(points, todayTotal) : points;
+  let effectiveLabelKey = labelKey;
+  if (hasHourly) {
+    finalPoints = [];
+    for (let h = 0; h < 24; h++) {
+      const bucket = trendsTodayHours.hours[h];
+      finalPoints.push({
+        hour: `${h}:00`,
+        tokens: bucket ? Number(bucket.tokens || 0) : 0,
+        costUsd: bucket ? Number(bucket.costUsd || 0) : 0
+      });
+    }
+    effectiveLabelKey = 'hour';
+  }
 
   // Weekly board (Potluck)
   let weeklyHtml = '';
@@ -3896,14 +3914,15 @@ function renderTrends() {
   }
 
   const model = charts.sparklinePreview(finalPoints, { width: 300, height: 120, gap: 0.3, metric });
-  const titles = finalPoints.map((p) => `${trendShortLabel(p[labelKey], labelKey)} · ${formatCompact(p[metric])}`);
+  const titles = finalPoints.map((p) => `${trendShortLabel(p[effectiveLabelKey], effectiveLabelKey)} · ${formatCompact(p[metric])}`);
   const svg = charts.sparklineSvg(model, { titles });
 
   const summary = preview.summary || {};
   const rangeLabel = state.period === 'allTime' ? t('trends.range.year')
-    : state.period === 'month' ? t('trends.range.month') : t('trends.range.week');
-  const first = trendShortLabel(finalPoints[0][labelKey], labelKey);
-  const last = trendShortLabel(finalPoints[finalPoints.length - 1][labelKey], labelKey);
+    : state.period === 'month' ? t('trends.range.month')
+    : state.period === 'today' ? t('trends.range.day') : t('trends.range.week');
+  const first = trendShortLabel(finalPoints[0][effectiveLabelKey], effectiveLabelKey);
+  const last = trendShortLabel(finalPoints[finalPoints.length - 1][effectiveLabelKey], effectiveLabelKey);
   const stats = [
     [t('trends.activeDays'), formatNumber(summary.activeDays)],
     [t('trends.currentStreak'), formatNumber(summary.currentStreak)],
@@ -3921,7 +3940,7 @@ function renderTrends() {
     + `<div class="trends-stats">${statsHtml}</div>`;
   const bars = Array.from(els.trendsPanel.querySelectorAll('.spark-bar'));
   bars.forEach((bar, index) => {
-    bar.dataset.motionKey = String(finalPoints[index]?.[labelKey] || index);
+    bar.dataset.motionKey = String(finalPoints[index]?.[effectiveLabelKey] || index);
   });
   const fromZero = state.animateChartsOnRender;
   animateTrendBarsFrom(previousBars, { fromZero });
@@ -4827,8 +4846,54 @@ function periodStartForPeriod(periodName) {
   return null;
 }
 
+// DAY tab: daily granularity degenerates to a single heatmap cell, so render
+// today's per-hour distribution (24 buckets, local hours) instead. Data comes
+// from stats.todayHours — pushed by Potluck from usageHistory, or derived
+// locally from session timestamps for plain collector devices.
+function renderHomeHourlyModule(todayHours) {
+  const hours = todayHours?.hours || {};
+  const currentHour = new Date().getHours();
+  const buckets = [];
+  let totalTokens = 0;
+  let totalCost = 0;
+  for (let h = 0; h < 24; h++) {
+    const bucket = hours[h] || null;
+    const tokens = bucket ? Number(bucket.tokens || 0) : 0;
+    const costUsd = bucket ? Number(bucket.costUsd || 0) : 0;
+    buckets.push({ h, tokens, costUsd });
+    totalTokens += tokens;
+    totalCost += costUsd;
+  }
+  const meta = `${formatNumber(totalTokens)} · ${formatCost(totalCost)}`;
+  const { module, body } = homeModuleShell('trends', t('home.activity'), 'trends', meta);
+  const chart = document.createElement('div');
+  chart.className = 'weekly-chart home-hourly-chart';
+  const maxTokens = Math.max(...buckets.map((b) => b.tokens), 1);
+  for (const b of buckets) {
+    const col = document.createElement('div');
+    col.className = 'weekly-day';
+    const bar = document.createElement('div');
+    bar.className = 'weekly-bar';
+    if (b.h === currentHour) bar.classList.add('current');
+    bar.style.height = b.tokens > 0 ? `${Math.max(4, Math.round((b.tokens / maxTokens) * 100))}%` : '2%';
+    if (!b.tokens) bar.classList.add('empty');
+    const label = document.createElement('span');
+    label.className = 'weekly-day-label';
+    label.textContent = b.h % 6 === 0 ? String(b.h) : '';
+    col.append(bar, label);
+    if (b.tokens > 0) col.title = `${b.h}:00 · ${formatNumber(b.tokens)} tokens · ${formatCost(b.costUsd)}`;
+    chart.append(col);
+  }
+  body.append(chart);
+  return module;
+}
+
 function renderHomeTrendsModule() {
   const charts = window.TokenMonitorUsageCharts;
+  const todayHours = state.stats?.todayHours;
+  if (state.period === 'today' && todayHours?.hours && Object.keys(todayHours.hours).length > 0) {
+    return renderHomeHourlyModule(todayHours);
+  }
   const historyEnabled = state.settings?.historyEnabled !== false;
   const preview = state.stats?.historyPreview || { daily: [] };
   const history = homeOverviewApi.pickHomeHistory(state.homeHistory, preview);
@@ -6159,7 +6224,7 @@ function applyAppearanceFromControls() {
 }
 
 async function saveAppearanceFromControls() {
-  await saveSettings({ ...appearancePatchFromControls(), discordRpcEnabled: Boolean(els.discordRpcInput.checked) });
+  await saveSettings({ ...appearancePatchFromControls() });
 }
 
 function syncHubModeUi() {
@@ -6408,7 +6473,6 @@ function syncSettingsForm() {
   els.titleIconInput.checked = state.settings.titleIconOnly === true;
   els.showCompactTotalTokensInput.checked = state.settings.showCompactTotalTokens === true;
   els.swapSettingsRefreshInput.checked = state.settings.settingsInTitlebar === true;
-  els.discordRpcInput.checked = Boolean(state.settings.discordRpcEnabled);
   syncWindowBehaviorControls();
   els.floatingBubbleInput.checked = state.settings.floatingBubbleEnabled === true;
   if (els.floatingBubbleTriggerInput) els.floatingBubbleTriggerInput.value = state.settings.floatingBubbleTrigger === 'hover' ? 'hover' : 'click';
@@ -8229,7 +8293,6 @@ els.swapSettingsRefreshInput.addEventListener('change', () => {
   applyControlLayout(els.swapSettingsRefreshInput.checked);
   void saveAppearanceFromControls();
 });
-els.discordRpcInput.addEventListener('change', saveAppearanceFromControls);
 els.windowBehaviorInput.addEventListener('change', () => saveSettings({ windowBehavior: els.windowBehaviorInput.value }));
 els.floatingBubbleInput.addEventListener('change', () => {
   els.floatingBubbleOptions?.classList.toggle('hidden', !els.floatingBubbleInput.checked);

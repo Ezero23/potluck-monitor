@@ -114,7 +114,7 @@ const {
   writeSessionUsageArchive
 } = require('../shared/sessionUsageArchive');
 const { clearDailyHistoryArchive } = require('../shared/dailyHistoryArchive');
-const { aggregateDevices, aggregateHistory, applyProjectRollups } = require('../shared/usage');
+const { aggregateDevices, aggregateHistory, applyProjectRollups, todayHoursFromSessions } = require('../shared/usage');
 const { postSyncPayload, syncPayload } = require('../shared/syncPayload');
 const { mergedLocalAllTimeSessions } = require('../shared/localSessions');
 const {
@@ -125,7 +125,6 @@ const {
 } = require('../shared/mimoLimits');
 const { historyPreview, historyRevision } = require('../shared/history');
 const { readSessionDetail } = require('../shared/sessionDetail');
-const { startDiscordRpc, stopDiscordRpc, updateDiscordRpc } = require('./discordRpc');
 const linuxAutostart = require('./linuxAutostart');
 const { codexAccountIdForProvider, localLiveCodexProvider } = require('./renderer/accountIdentity');
 const {
@@ -301,7 +300,6 @@ function defaultSettings() {
     floatingBubbleCustomLayout: createDefaultTrayLayout(),
     floatingBubbleBounds: null,
     lastViewState: { period: 'today', breakdown: 'tool' },
-    discordRpcEnabled: false,
     deviceId: process.env.TOKEN_MONITOR_DEVICE_ID || defaultDeviceId(),
     lastPostedDeviceId: '',
     clients: clientsCsvForSetting(process.env.TOKEN_MONITOR_CLIENTS),
@@ -1433,8 +1431,8 @@ function normalizeLanguageSetting(value, fallback = 'auto') {
   const lower = raw.toLowerCase();
   if (lower === 'auto') return 'auto';
   if (lower === 'en' || lower.startsWith('en-')) return 'en';
-  if (lower === 'zh-tw' || lower.startsWith('zh-hant') || /-(tw|hk|mo)\b/i.test(raw)) return 'zh-TW';
-  if (lower === 'zh-cn' || lower.startsWith('zh-hans') || /-(cn|sg|my)\b/i.test(raw)) return 'zh-CN';
+  // Only English and Simplified Chinese ship; every Chinese variant maps to zh-CN.
+  if (lower === 'zh' || lower.startsWith('zh-')) return 'zh-CN';
   return LANGUAGE_VALUES.has(raw) ? raw : fallback;
 }
 
@@ -2439,12 +2437,12 @@ function startSyncCollector() {
       if (isExternalAgentActive()) { sessionUsageArchive = null; return; }
       const visibleSummary = {
         ...summary,
-        syncUploadIntervalMs: syncUploadIntervalMs()
+        syncUploadIntervalMs: syncUploadIntervalMs(),
+        todayHours: todayHoursFromSessions(summary.periods?.today?.sessions)
       };
       lastCollectedDevice = { ...visibleSummary, receivedAt: new Date().toISOString() };
       const displayStats = composeLocalSyncStats(latestHubStats, lastCollectedDevice);
       if (displayStats) {
-        updateDiscordRpc(displayStats, settings.currency);
         sendPush({ event: 'stats', data: { type: 'stats', reason: 'local', stats: displayStats, at: new Date().toISOString() } });
       }
       await syncUploadScheduler.enqueue(visibleSummary, revision);
@@ -2475,6 +2473,9 @@ function startHostCollector() {
     enqueue(summary) {
       if (isExternalAgentActive()) { sessionUsageArchive = null; return; }
       const visibleSummary = summary;
+      // Approximate hourly buckets from today's session activity so the DAY tab
+      // can render an hourly distribution for the local device too.
+      visibleSummary.todayHours = todayHoursFromSessions(visibleSummary.periods?.today?.sessions);
       lastCollectedDevice = { ...visibleSummary, receivedAt: new Date().toISOString() };
       if (!embeddedHub) return;
       try {
@@ -2524,7 +2525,6 @@ function startHostStats() {
   mode = 'sync';
   sendStatus(true);
   const emit = (stats, reason = 'hub') => {
-    updateDiscordRpc(stats, settings.currency);
     sendPush({ event: 'stats', data: { type: 'stats', reason, stats, at: new Date().toISOString() } });
   };
   embeddedHubUnsub = embeddedHub.hub.onStats((stats, reason) => emit(stats, reason || 'hub'));
@@ -2653,7 +2653,6 @@ async function refreshExchangeRates({ force = false } = {}) {
   }
   applyEffectiveRates();
   updateTrayDisplay();
-  if (settings?.discordRpcEnabled && latestStats) updateDiscordRpc(latestStats, settings.currency);
   pushSettingsToRenderer();
 }
 
@@ -2716,9 +2715,11 @@ function startLocalCollector() {
       const reason = meta.reason;
       const visibleSummary = summary;
       localDevice = { ...visibleSummary, receivedAt: new Date().toISOString() };
+      // Approximate hourly buckets from today's session activity so the DAY tab
+      // can render an hourly distribution for the local device too.
+      localDevice.todayHours = todayHoursFromSessions(visibleSummary.periods?.today?.sessions);
       lastCollectedDevice = localDevice;
       localStats = withHistoryPreview(aggregateDevices([localDevice], 0), [localDevice]);
-      updateDiscordRpc(localStats, settings.currency);
       sendPush({ event: 'stats', data: { type: 'stats', reason, stats: localStats, at: new Date().toISOString() } });
       sendStatus(true, { reason });
     },
@@ -2789,7 +2790,6 @@ async function startStatsStream(options = {}) {
             latestHubStats = parsed.data.stats;
             const displayStats = composeLocalSyncStats(latestHubStats, lastCollectedDevice);
             parsed = { ...parsed, data: { ...parsed.data, stats: displayStats } };
-            updateDiscordRpc(displayStats, settings.currency);
           }
           sendPush(parsed);
         }
@@ -3381,7 +3381,6 @@ function stopAll() {
   stopHostStats();
   stopSyncCollector();
   void stopEmbeddedHub();
-  stopDiscordRpc();
   if (tray && !tray.isDestroyed()) tray.destroy();
   tray = null;
 }
@@ -4194,7 +4193,6 @@ app.whenReady().then(() => {
   });
   startMode();
   void hydrateCodexManagedWorkspaceLabels();
-  if (settings.discordRpcEnabled) startDiscordRpc();
   rateCache = readRateCache();
   applyEffectiveRates();                 // use cache/defaults immediately, avoid first-paint gap
   refreshExchangeRates();                // non-blocking: only fetches when stale
@@ -4230,7 +4228,6 @@ app.whenReady().then(() => {
     const previousNativeMaterial = nativeBlurEnabled();
     const previousWindowsBackdrop = normalizeWindowsBackdropMode(settings?.windowsBackdrop);
     const previousClients = settings.clients;
-    const previousDiscordRpcEnabled = settings.discordRpcEnabled;
     const previousShowTrayIcon = settings.showTrayIcon;
     const previousTrayMode = settings.trayMode;
     const previousTrayContent = settings.trayContent;
@@ -4298,7 +4295,6 @@ app.whenReady().then(() => {
       titleIconOnly: parseBoolean(patch.titleIconOnly ?? settings.titleIconOnly, false),
       showCompactTotalTokens: parseBoolean(patch.showCompactTotalTokens ?? settings.showCompactTotalTokens, false),
       floatingBubbleEnabled: parseBoolean(patch.floatingBubbleEnabled ?? settings.floatingBubbleEnabled, false),
-      discordRpcEnabled: patch.discordRpcEnabled ?? settings.discordRpcEnabled ?? false,
       limitsEnabled: parseBoolean(patch.limitsEnabled ?? settings.limitsEnabled, true),
       limitProviders: patch.limitProviders !== undefined ? parseLimitProviders(patch.limitProviders).join(',') : settings.limitProviders,
       limitProviderOrder: patch.limitProviderOrder !== undefined ? migrateLimitProviderOrder(patch.limitProviderOrder) : settings.limitProviderOrder,
@@ -4389,12 +4385,6 @@ app.whenReady().then(() => {
       runAppUpdateCheck({ bypassCooldown: true }).catch(() => {});
     }
     if (patch.zoomFactor !== undefined) applyZoomFactor();
-    if (settings.discordRpcEnabled && !previousDiscordRpcEnabled) {
-      startDiscordRpc();
-      if (latestStats) updateDiscordRpc(latestStats, settings.currency);
-    }
-    else if (!settings.discordRpcEnabled && previousDiscordRpcEnabled) stopDiscordRpc();
-    else if (settings.discordRpcEnabled && settings.currency !== previousCurrency && latestStats) updateDiscordRpc(latestStats, settings.currency);
     applyWindowSettings();
     syncFloatingBubbleAvailability();
     const nextNativeMaterial = nativeBlurEnabled();
@@ -4446,7 +4436,6 @@ app.whenReady().then(() => {
     if (patch.currency !== undefined || patch.currencyRates !== undefined) {
       applyEffectiveRates();               // sync: settingsForRenderer() below sees fresh effective map
       updateTrayDisplay();
-      if (settings.discordRpcEnabled && latestStats) updateDiscordRpc(latestStats, settings.currency);
       refreshExchangeRates();              // async: fetch if stale, then re-push
     }
     pushSettingsToRenderer();

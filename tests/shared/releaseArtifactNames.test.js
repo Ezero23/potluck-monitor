@@ -39,10 +39,10 @@ test('release artifact templates use GitHub-safe names', () => {
     rootPackage.build.portable.artifactName
   ];
   assert.deepEqual(patterns, [
-    'Token-Monitor-${version}-${arch}.${ext}',
-    'Token-Monitor-${version}.${ext}',
-    'Token-Monitor-Setup-${version}.${ext}',
-    'Token-Monitor-${version}.${ext}'
+    'potluck-monitor-${version}-${arch}.${ext}',
+    'potluck-monitor-${version}.${ext}',
+    'potluck-monitor-Setup-${version}.${ext}',
+    'potluck-monitor-${version}.${ext}'
   ]);
   for (const pattern of patterns) assert.doesNotMatch(pattern, /\s/);
 });

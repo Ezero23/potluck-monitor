@@ -137,7 +137,7 @@ test('Trends bars grow from the baseline and preserve matching period heights', 
   const css = read('styles.css');
 
   assert.match(app, /function captureTrendBarMotion\(\)[\s\S]*?\.spark-bar\[data-motion-key\][\s\S]*?getBoundingClientRect\(\)\.height/);
-  assert.match(app, /bar\.dataset\.motionKey = String\(finalPoints\[index\]\?\.\[labelKey\] \|\| index\)/);
+  assert.match(app, /bar\.dataset\.motionKey = String\(finalPoints\[index\]\?\.\[effectiveLabelKey\] \|\| index\)/);
   assert.match(app, /const fromScale = fromZero \|\| !previous[\s\S]*?previous\.height \/ targetHeight/);
   assert.match(app, /transform: `scaleY\(\$\{fromScale\}\)`[\s\S]*?transform: 'scaleY\(1\)'[\s\S]*?duration: 420/);
   assert.match(css, /\.trends-spark \.spark-bar\s*\{[^}]*transform-box:\s*fill-box;[^}]*transform-origin:\s*bottom center;/s);

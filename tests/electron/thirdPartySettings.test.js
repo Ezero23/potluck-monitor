@@ -196,10 +196,7 @@ test('third-party status settles after refresh and pushed stats', () => {
 test('third-party provider identity stays English while account labels remain localized', () => {
   const i18n = read('src/electron/renderer/i18n.js');
   assert.match(i18n, /'settings\.thirdparty\.title': 'Third-party API Accounts'/);
-  assert.match(i18n, /'settings\.thirdparty\.title': 'Third-party APIs 帳號'/);
   assert.match(i18n, /'settings\.thirdparty\.title': 'Third-party APIs 账号'/);
-  assert.match(i18n, /'settings\.thirdparty\.title': 'Third-party APIs 계정'/);
-  assert.match(i18n, /'settings\.thirdparty\.title': 'Third-party APIsアカウント'/);
 });
 
 test('third-party fallback stays last after named providers across product surfaces', () => {
@@ -235,7 +232,7 @@ test('third-party fallback stays last after named providers across product surfa
   assert.ok(providerContract, 'docs/API.md must document the limits provider enum');
   assert.ok(providerContract.lastIndexOf('`thirdparty`') > providerContract.lastIndexOf('`ollama`'));
 
-  for (const file of ['README.md', 'README.zh-TW.md', 'README.zh-CN.md', 'README.ja.md', 'README.ko.md']) {
+  for (const file of ['README.md', 'README.zh-CN.md']) {
     const content = read(file);
     assert.ok(
       content.indexOf('tools-icon/newapi.png') > content.indexOf('tools-icon/ollama.png'),
@@ -245,7 +242,7 @@ test('third-party fallback stays last after named providers across product surfa
 });
 
 test('third-party adapters document New API compatibility, Custom, assets, and environment variables', () => {
-  for (const file of ['README.md', 'README.zh-TW.md', 'README.zh-CN.md', 'README.ja.md', 'README.ko.md']) {
+  for (const file of ['README.md', 'README.zh-CN.md']) {
     const content = read(file);
     assert.match(content, /\.github\/assets\/tools-icon\/newapi\.png"/, file);
     assert.match(content, /Third-party APIs|第三方 API|サードパーティAPI|서드파티 API/, file);

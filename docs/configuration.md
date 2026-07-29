@@ -15,7 +15,7 @@ Click the `⚙` button in the bottom-right corner of the widget to open the sett
 
 | Section | What it controls |
 |---|---|
-| **General** | Language, launch at login, app updates, Discord Rich Presence, About, and Advanced (open the raw `settings.json` for less-common options such as `allTimeSince`). |
+| **General** | Language, launch at login, app updates, About, and Advanced (open the raw `settings.json` for less-common options such as `allTimeSince`). |
 | **Main** | Which Home modules appear and their order, plus the display currency (USD, TWD, HKD, or CNY; daily auto rate or a manual override). |
 | **Window** | Window behavior (float above other apps / normal / desktop-pinned), tray mode (macOS menu bar or Windows system tray, and what shows next to the icon), the floating bubble, and the global show/hide shortcut. |
 | **Appearance** | Interface theme (presets such as Default and Obsidian, a porcelain light mode, or custom colors), per-vendor tool colors, and system glass opacity / blur. |
