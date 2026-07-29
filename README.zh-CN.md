@@ -2,8 +2,8 @@
    <a href="./README.md">EN</a> | <strong>简</strong>
 </p>
 <div align="center">
-    <img src=".github/assets/app.png" alt="Token Monitor logo" width="120">
-    <h1>Token Monitor</h1>
+    <img src=".github/assets/app.png" alt="Potluck Monitor logo" width="120">
+    <h1>Potluck Monitor</h1>
 </div>
 
 <p align="center">
@@ -23,13 +23,13 @@
     <img src=".github/assets/demo.gif">
 </div>
 
-## Token Monitor 是什么？
+## Potluck Monitor 是什么？
 
 一款桌面小部件，实时显示 Claude Code、Codex、Cursor、GitHub Copilot 等 28+ 种 AI 编程工具的 Token 用量与 AI 工具额度，具备实时多设备同步与历史使用趋势功能，并支持按工具、设备、模型、session 或项目分项显示。
 
 ## 支持的工具
 
-Token Monitor 对 Token 用量、账户额度和 session 明细分别支持：
+Potluck Monitor 对 Token 用量、账户额度和 session 明细分别支持：
 
 | Logo | 工具 | 数据路径 | Token 用量 | AI 工具额度 | session 明细 |
 |:---:|------|-----------|:---:|:---:|:---:|
@@ -86,9 +86,9 @@ Custom 会从一个 GET 余额端点映射数值 JSON 字段；仅兼容 OpenAI 
 </tr>
 </table>
 
-## 为什么用 Token Monitor？
+## 为什么用 Potluck Monitor？
 
-大多数用量监控工具只在它运行的那台机器上有用。Token Monitor 是为多设备工作流而设计的：每台设备监视自己的本地日志、把汇总更新发送到你的 hub，每个连接中的小部件几乎都能实时看到 Token 变化。
+大多数用量监控工具只在它运行的那台机器上有用。Potluck Monitor 是为多设备工作流而设计的：每台设备监视自己的本地日志、把汇总更新发送到你的 hub，每个连接中的小部件几乎都能实时看到 Token 变化。
 
 ## 功能特性
 
@@ -104,7 +104,7 @@ Custom 会从一个 GET 余额端点映射数值 JSON 字段；仅兼容 OpenAI 
 
 - **AI 工具额度检测**：涵盖 Claude Code、Codex、Cursor、OpenRouter、第三方 API、GLM、Kimi 等 18+ 家提供方的 session、每周、账单与 credits 窗口，支持多个 OpenRouter／第三方 profile，以及 DeepSeek 预付余额与消费
 - **多账号与 Codex 账号切换**：同一提供方可追踪多个账号、各自显示额度；已加入追踪的 Codex 账号还能一键切换为本机使用账号，免重新登录授权
-- **保留已删除会话用量**：许多工具会定期清除旧 session（Claude Code 默认清 30 天前的 transcript），一删就再也算不到。开启后，Token Monitor 会在本地不设期限地归档已观测到的每日工具／模型用量，让热力图与趋势即使在来源文件被清掉后仍然完整（详见下方[〈会话数据保留期〉](#会话数据保留期)）
+- **保留已删除会话用量**：许多工具会定期清除旧 session（Claude Code 默认清 30 天前的 transcript），一删就再也算不到。开启后，Potluck Monitor 会在本地不设期限地归档已观测到的每日工具／模型用量，让热力图与趋势即使在来源文件被清掉后仍然完整（详见下方[〈会话数据保留期〉](#会话数据保留期)）
 - **使用趋势与仪表板**：主页的活跃热力图与趋势图，加上独立的仪表板窗口，提供连续天数，以及跨所有设备、按工具／按模型堆叠的历史（柱状图与 K 线两种视图）
 - **可选的状态视图**：追踪 Claude、OpenAI、Cursor 与 DeepSeek status 页，支持手动或定时重新检查
 - **数据导出**：把使用数据导出成与工具无关的 CSV + JSON，可手动或自动写入文件夹，接电子表格、Obsidian、Grafana 或自写脚本；详见 [docs/export.md](docs/export.md)
@@ -150,7 +150,7 @@ Custom 会从一个 GET 余额端点映射数值 JSON 字段；仅兼容 OpenAI 
 
 在一台长期开机的机器上打开小部件，进入 设置 → 多设备同步，选 **在这台设备托管 Hub**。小部件会生成随机 secret，并列出其他设备可以连入的局域网 URL（Tailscale 或 ZeroTier 地址也会显示在这里）。在其他每台设备上选 **连接到 Hub**，把 URL 与 secret 贴进去即可。
 
-只要 Token Monitor 还在跑，hub 就会运行——退出 App（仅关闭窗口不算）会停掉 hub，所有连入的设备都会断开。
+只要 Potluck Monitor 还在跑，hub 就会运行——退出 App（仅关闭窗口不算）会停掉 hub，所有连入的设备都会断开。
 
 #### 方案 B——自托管 Node hub（长期开机的无头机器）
 
@@ -183,9 +183,9 @@ App 状态保存在系统的用户数据目录——卸载时一并删除该目�
 
 | 平台 | 路径 |
 |------|------|
-| macOS | `~/Library/Application Support/Token Monitor/` |
-| Windows | `%APPDATA%/Token Monitor/` |
-| Linux | `~/.config/Token Monitor/` |
+| macOS | `~/Library/Application Support/Potluck Monitor/` |
+| Windows | `%APPDATA%/Potluck Monitor/` |
+| Linux | `~/.config/Potluck Monitor/` |
 
 ## 从源码构建
 
@@ -218,7 +218,7 @@ npm run pack         # 未打包的 app 目录（无安装包），方便本机�
 
 ## 会话数据保留期
 
-开启**保留已删除会话用量**（设置 → 采集）后，Token Monitor 会在本地不设期限地归档已观测到的每日工具／模型用量——即使来源工具日后清掉 session，热力图与趋势也不受影响。
+开启**保留已删除会话用量**（设置 → 采集）后，Potluck Monitor 会在本地不设期限地归档已观测到的每日工具／模型用量——即使来源工具日后清掉 session，热力图与趋势也不受影响。
 
 <details>
 <summary><strong>进阶：延长来源工具本身的保留期</strong></summary>
@@ -235,7 +235,7 @@ npm run pack         # 未打包的 app 目录（无安装包），方便本机�
 
 设更大能留更多，代价是 transcript 会按你设定的期限一直留在磁盘上。其他工具的默认值与配置文件路径，请见 tokscale 的 [Session Data Retention](https://github.com/junhoyeo/tokscale#session-data-retention) 表。
 
-这份归档只涵盖 Token Monitor 已观测过的日期；在它开始追踪之前就被删除的数据无法找回。
+这份归档只涵盖 Potluck Monitor 已观测过的日期；在它开始追踪之前就被删除的数据无法找回。
 
 </details>
 
@@ -250,7 +250,7 @@ npm run pack         # 未打包的 app 目录（无安装包），方便本机�
 
 ## 隐私
 
-Token Monitor 在本地处理使用日志，不会向项目维护者发送分析或遥测数据。网络访问仅用于文档所述或由用户启用的功能；更新、提供方集成与可选多设备同步所使用的数据，请参阅[隐私政策](docs/privacy.md)。
+Potluck Monitor 在本地处理使用日志，不会向项目维护者发送分析或遥测数据。网络访问仅用于文档所述或由用户启用的功能；更新、提供方集成与可选多设备同步所使用的数据，请参阅[隐私政策](docs/privacy.md)。
 
 ## Star 历史
 

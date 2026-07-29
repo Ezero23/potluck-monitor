@@ -1,6 +1,6 @@
 # Data export
 
-Token Monitor can export your usage data in **tool-agnostic** formats so you can
+Potluck Monitor can export your usage data in **tool-agnostic** formats so you can
 pull it into a spreadsheet, an Obsidian dashboard, Grafana, or your own scripts.
 Nothing here is specific to any one tool — the app writes standard CSV + JSON and
 you connect whatever consumer you like.
@@ -9,7 +9,7 @@ you connect whatever consumer you like.
 
 In **Settings → Collection → Data export**:
 
-- **Export data…** — pick a folder; Token Monitor writes the file set below into
+- **Export data…** — pick a folder; Potluck Monitor writes the file set below into
   it once, right now.
 - **Auto-export to a folder** — turn this on and choose a folder, and Token
   Monitor rewrites the file set whenever usage updates, at a frequency you choose

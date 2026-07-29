@@ -141,7 +141,7 @@ Example payload:
     "clientCosts": {},
     "projects": {
       "token monitor": {
-        "label": "Token Monitor",
+        "label": "Potluck Monitor",
         "tokens": 8901,
         "costUsd": 0.08,
         "clients": { "codex": 8901 }

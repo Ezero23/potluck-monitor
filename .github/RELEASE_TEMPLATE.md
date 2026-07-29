@@ -19,31 +19,31 @@
 
 ## Download
 
-- **macOS Apple Silicon** — [Token-Monitor-0.35.0-arm64.dmg](https://github.com/Javis603/token-monitor/releases/download/v0.35.0/Token-Monitor-0.35.0-arm64.dmg)
-- **macOS Intel** — [Token-Monitor-0.35.0-x64.dmg](https://github.com/Javis603/token-monitor/releases/download/v0.35.0/Token-Monitor-0.35.0-x64.dmg)
-- **Windows Installer** — [Token-Monitor-Setup-0.35.0.exe](https://github.com/Javis603/token-monitor/releases/download/v0.35.0/Token-Monitor-Setup-0.35.0.exe) (recommended)
-- **Windows Portable** — [Token-Monitor-0.35.0.exe](https://github.com/Javis603/token-monitor/releases/download/v0.35.0/Token-Monitor-0.35.0.exe) (no install required)
-- **Linux x64** — [Token-Monitor-0.35.0.AppImage](https://github.com/Javis603/token-monitor/releases/download/v0.35.0/Token-Monitor-0.35.0.AppImage)
+- **macOS Apple Silicon** — [Potluck-Monitor-0.1.0-arm64.dmg](https://github.com/Ezero23/potluck-monitor/releases/download/v0.1.0/Potluck-Monitor-0.1.0-arm64.dmg)
+- **macOS Intel** — [Potluck-Monitor-0.1.0-x64.dmg](https://github.com/Ezero23/potluck-monitor/releases/download/v0.1.0/Potluck-Monitor-0.1.0-x64.dmg)
+- **Windows Installer** — [Potluck-Monitor-Setup-0.1.0.exe](https://github.com/Ezero23/potluck-monitor/releases/download/v0.1.0/Potluck-Monitor-Setup-0.1.0.exe) (recommended)
+- **Windows Portable** — [Potluck-Monitor-0.1.0.exe](https://github.com/Ezero23/potluck-monitor/releases/download/v0.1.0/Potluck-Monitor-0.1.0.exe) (no install required)
+- **Linux x64** — [Potluck-Monitor-0.1.0.AppImage](https://github.com/Ezero23/potluck-monitor/releases/download/v0.1.0/Potluck-Monitor-0.1.0.AppImage)
 
 <details>
 <summary><strong>First launch and other notes</strong></summary>
 
 ### First launch
 
-**macOS:** the app is Developer ID-signed and notarized by Apple. Open the `.dmg`, then drag Token Monitor to Applications.
+**macOS:** the app is Developer ID-signed and notarized by Apple. Open the `.dmg`, then drag Potluck Monitor to Applications.
 
-**Windows:** both executables are signed ([how to verify](https://github.com/Javis603/token-monitor/blob/main/docs/code-signing.md#verify-a-download)), but you may still see a brief SmartScreen prompt on the first few releases while the certificate builds reputation with Microsoft — More info → Run anyway.
+**Windows:** both executables are signed ([how to verify](https://github.com/Ezero23/potluck-monitor/blob/main/docs/code-signing.md#verify-a-download)), but you may still see a brief SmartScreen prompt on the first few releases while the certificate builds reputation with Microsoft — More info → Run anyway.
 
 **Linux:** mark the AppImage executable, then run it:
 
 ```bash
-chmod +x "Token Monitor"*.AppImage
-./"Token Monitor"*.AppImage
+chmod +x "Potluck Monitor"*.AppImage
+./"Potluck Monitor"*.AppImage
 ```
 
 ### Other notes
 
-Other platforms are not pre-built — run from source per the [README](https://github.com/Javis603/token-monitor#readme). The macOS `.zip` is the same app repackaged; ignore it unless you specifically need it.
+Other platforms are not pre-built — run from source per the [README](https://github.com/Ezero23/potluck-monitor#readme). The macOS `.zip` is the same app repackaged; ignore it unless you specifically need it.
 
 ### tokscale dependency
 
@@ -76,31 +76,31 @@ open-source: https://github.com/junhoyeo/tokscale
 
 ## 下载
 
-- **macOS Apple Silicon** — [Token-Monitor-0.35.0-arm64.dmg](https://github.com/Javis603/token-monitor/releases/download/v0.35.0/Token-Monitor-0.35.0-arm64.dmg)
-- **macOS Intel** — [Token-Monitor-0.35.0-x64.dmg](https://github.com/Javis603/token-monitor/releases/download/v0.35.0/Token-Monitor-0.35.0-x64.dmg)
-- **Windows 安装版** — [Token-Monitor-Setup-0.35.0.exe](https://github.com/Javis603/token-monitor/releases/download/v0.35.0/Token-Monitor-Setup-0.35.0.exe)（推荐）
-- **Windows 便携版** — [Token-Monitor-0.35.0.exe](https://github.com/Javis603/token-monitor/releases/download/v0.35.0/Token-Monitor-0.35.0.exe)（免安装）
-- **Linux x64** — [Token-Monitor-0.35.0.AppImage](https://github.com/Javis603/token-monitor/releases/download/v0.35.0/Token-Monitor-0.35.0.AppImage)
+- **macOS Apple Silicon** — [Potluck-Monitor-0.1.0-arm64.dmg](https://github.com/Ezero23/potluck-monitor/releases/download/v0.1.0/Potluck-Monitor-0.1.0-arm64.dmg)
+- **macOS Intel** — [Potluck-Monitor-0.1.0-x64.dmg](https://github.com/Ezero23/potluck-monitor/releases/download/v0.1.0/Potluck-Monitor-0.1.0-x64.dmg)
+- **Windows 安装版** — [Potluck-Monitor-Setup-0.1.0.exe](https://github.com/Ezero23/potluck-monitor/releases/download/v0.1.0/Potluck-Monitor-Setup-0.1.0.exe)（推荐）
+- **Windows 便携版** — [Potluck-Monitor-0.1.0.exe](https://github.com/Ezero23/potluck-monitor/releases/download/v0.1.0/Potluck-Monitor-0.1.0.exe)（免安装）
+- **Linux x64** — [Potluck-Monitor-0.1.0.AppImage](https://github.com/Ezero23/potluck-monitor/releases/download/v0.1.0/Potluck-Monitor-0.1.0.AppImage)
 
 <details>
 <summary><strong>首次启动与其他说明</strong></summary>
 
 ### 首次启动
 
-**macOS：** 应用已使用 Developer ID 签名并通过 Apple 公证。打开 `.dmg`，然后把 Token Monitor 拖到 Applications。
+**macOS：** 应用已使用 Developer ID 签名并通过 Apple 公证。打开 `.dmg`，然后把 Potluck Monitor 拖到 Applications。
 
-**Windows：** 两个可执行文件均已签名（[查看验证方法](https://github.com/Javis603/token-monitor/blob/main/docs/code-signing.md#verify-a-download)），但在证书刚建立信誉的最初几个版本，仍可能短暂出现 SmartScreen 提示 → 更多信息 → 仍要运行。
+**Windows：** 两个可执行文件均已签名（[查看验证方法](https://github.com/Ezero23/potluck-monitor/blob/main/docs/code-signing.md#verify-a-download)），但在证书刚建立信誉的最初几个版本，仍可能短暂出现 SmartScreen 提示 → 更多信息 → 仍要运行。
 
 **Linux：** 先给 AppImage 执行权限，然后运行：
 
 ```bash
-chmod +x "Token Monitor"*.AppImage
-./"Token Monitor"*.AppImage
+chmod +x "Potluck Monitor"*.AppImage
+./"Potluck Monitor"*.AppImage
 ```
 
 ### 其他说明
 
-其他平台暂不提供预构建版本，请参考 [README](https://github.com/Javis603/token-monitor#readme) 从源码运行。macOS 的 `.zip` 只是同一个 app 的重新打包版本，除非你明确需要，否则可以忽略。
+其他平台暂不提供预构建版本，请参考 [README](https://github.com/Ezero23/potluck-monitor#readme) 从源码运行。macOS 的 `.zip` 只是同一个 app 的重新打包版本，除非你明确需要，否则可以忽略。
 
 ### tokscale 依赖
 

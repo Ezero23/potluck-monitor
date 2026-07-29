@@ -134,7 +134,7 @@ test('service status client sends an identifying User-Agent header', async () =>
 
   await client.getServiceStatus();
 
-  assert.match(String(seenInit?.headers?.['User-Agent'] || ''), /TokenMonitor\//);
+  assert.match(String(seenInit?.headers?.['User-Agent'] || ''), /PotluckMonitor\//);
 });
 
 test('service status client retries soon after a failed check instead of caching the failure', async () => {

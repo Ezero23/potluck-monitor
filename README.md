@@ -2,8 +2,8 @@
    <strong>EN</strong> | <a href="./README.zh-CN.md">简</a>
 </p>
 <div align="center">
-    <img src=".github/assets/app.png" alt="Token Monitor logo" width="120">
-    <h1>Token Monitor</h1>
+    <img src=".github/assets/app.png" alt="Potluck Monitor logo" width="120">
+    <h1>Potluck Monitor</h1>
 </div>
 
 <p align="center">
@@ -23,13 +23,13 @@
     <img src=".github/assets/demo.gif">
 </div>
 
-## What is Token Monitor?
+## What is Potluck Monitor?
 
 A desktop widget that shows live token usage and AI Tool Limits across 28+ AI coding tools — Claude Code, Codex, Cursor, GitHub Copilot, and more — with real-time multi-device sync, historical usage trends, and breakdowns by tool, device, model, session, or project.
 
 ## Supported Tools
 
-Token Monitor supports token usage, account-limit checks, and session details separately:
+Potluck Monitor supports token usage, account-limit checks, and session details separately:
 
 | Logo | Tool | Data path | Token Usage | AI Tool Limits | Session Details |
 |:---:|------|-----------|:---:|:---:|:---:|
@@ -86,9 +86,9 @@ Custom maps numeric JSON fields from one GET balance endpoint; OpenAI or Anthrop
 </tr>
 </table>
 
-## Why Token Monitor?
+## Why Potluck Monitor?
 
-Most usage monitors are useful on the machine they run on. Token Monitor is built for multi-device work: each device watches its own local logs, sends summary updates to your hub, and every connected widget sees token changes almost immediately.
+Most usage monitors are useful on the machine they run on. Potluck Monitor is built for multi-device work: each device watches its own local logs, sends summary updates to your hub, and every connected widget sees token changes almost immediately.
 
 ## Features
 
@@ -104,7 +104,7 @@ Most usage monitors are useful on the machine they run on. Token Monitor is buil
 
 - **AI Tool Limits detection** — provider-specific session, weekly, billing, and credits windows for Claude Code, Codex, Cursor, OpenRouter, third-party APIs, GLM, Kimi, and 18+ providers, including multiple OpenRouter/third-party profiles and DeepSeek prepaid balance/spend
 - **Multiple accounts & Codex switching** — track several accounts per provider, each with its own limits; a tracked Codex account can be switched as the active local account in one click, without re-authenticating
-- **Preserve deleted session usage** — many tools prune old sessions (Claude Code drops transcripts after 30 days by default), losing that history. When enabled, Token Monitor archives observed daily tool/model usage locally so the heatmap and trends survive even after the source files are gone (see [Session data retention](#session-data-retention) below)
+- **Preserve deleted session usage** — many tools prune old sessions (Claude Code drops transcripts after 30 days by default), losing that history. When enabled, Potluck Monitor archives observed daily tool/model usage locally so the heatmap and trends survive even after the source files are gone (see [Session data retention](#session-data-retention) below)
 - **Usage Trends & Dashboard** — a home-screen activity heatmap and trend chart, plus a dedicated dashboard window with streaks and stacked per-tool/per-model history (bar and K-line views) across all your devices
 - **Optional Status view** — Claude, OpenAI, Cursor, and DeepSeek status pages, with manual or interval re-checks
 - **Data export** — export usage as tool-agnostic CSV + JSON, manually or auto-written to a folder, for spreadsheets, Obsidian, Grafana, or scripts; see [docs/export.md](docs/export.md)
@@ -150,7 +150,7 @@ Pick ONE hub backend that all your devices (and any headless agents) connect to.
 
 In the widget on one always-on machine, open Settings → Multi-device Sync and pick **Host hub on this device**. The widget generates a random secret and lists the LAN URLs other devices can connect to (Tailscale or ZeroTier addresses appear here too). On every other device, pick **Connect to a hub** and paste the URL + secret.
 
-The hub runs while Token Monitor is running — quitting (not just closing the window) stops it for all connected devices.
+The hub runs while Potluck Monitor is running — quitting (not just closing the window) stops it for all connected devices.
 
 #### Option B — Self-hosted Node hub (always-on headless machine)
 
@@ -183,9 +183,9 @@ App state lives in the OS user-data dir — delete it along with the app to full
 
 | Platform | Path |
 |----------|------|
-| macOS | `~/Library/Application Support/Token Monitor/` |
-| Windows | `%APPDATA%/Token Monitor/` |
-| Linux | `~/.config/Token Monitor/` |
+| macOS | `~/Library/Application Support/Potluck Monitor/` |
+| Windows | `%APPDATA%/Potluck Monitor/` |
+| Linux | `~/.config/Potluck Monitor/` |
 
 ## Build from source
 
@@ -218,7 +218,7 @@ The widget chooses local vs sync mode based on Settings → Multi-device Sync. T
 
 ## Session data retention
 
-With **Preserve deleted session usage** enabled (Settings → Collection), Token Monitor archives observed daily tool/model usage locally with no time limit — so even after a source tool prunes its own sessions, the heatmap and trends are unaffected.
+With **Preserve deleted session usage** enabled (Settings → Collection), Potluck Monitor archives observed daily tool/model usage locally with no time limit — so even after a source tool prunes its own sessions, the heatmap and trends are unaffected.
 
 <details>
 <summary><strong>Advanced: extend the source tool's own retention</strong></summary>
@@ -235,13 +235,13 @@ The heatmap and sync payload use a rolling 370-day window (older observations re
 
 A larger value keeps more, at the cost of transcripts living on disk for as long as you set. tokscale's [Session Data Retention](https://github.com/junhoyeo/tokscale#session-data-retention) table covers the other tools' defaults and config paths.
 
-This archive only covers days Token Monitor has already observed; data deleted before it started tracking cannot be recovered.
+This archive only covers days Potluck Monitor has already observed; data deleted before it started tracking cannot be recovered.
 
 </details>
 
 ## Settings
 
-There are two places to configure Token Monitor; day-to-day use only needs the first:
+There are two places to configure Potluck Monitor; day-to-day use only needs the first:
 
 - **Widget (GUI)** — click the `⚙` button in the bottom-right corner. Sections, in order: General (language, launch at login, updates), Main (Home modules and display currency), Window (window behavior, menu bar and floating-bubble layout, tray mode, shortcut), Appearance (theme and vendor colours), Collection (tracked tools, collection cadence, Preserve deleted session usage, data export), AI Tool Limits, Accounts (per-provider credentials), and Multi-device Sync. The `⇧` button in the title bar cycles the window behavior.
 - **Headless agent & hub** — no UI; configured with a `.env` file at the project root (copy from `.env.example`), precedence CLI flag → env var → built-in default.
@@ -250,7 +250,7 @@ See the [configuration reference](docs/configuration.md) for every setting and a
 
 ## Privacy
 
-Token Monitor processes usage logs locally and sends no analytics or telemetry to the project maintainer. Network access occurs only for documented or user-enabled features. See the [privacy policy](docs/privacy.md) for the data used by updates, provider integrations, and optional multi-device sync.
+Potluck Monitor processes usage logs locally and sends no analytics or telemetry to the project maintainer. Network access occurs only for documented or user-enabled features. See the [privacy policy](docs/privacy.md) for the data used by updates, provider integrations, and optional multi-device sync.
 
 ## Star History
 

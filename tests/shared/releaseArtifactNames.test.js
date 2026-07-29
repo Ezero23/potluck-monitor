@@ -55,12 +55,12 @@ test('mac release scripts build native Apple Silicon and Intel artifacts', () =>
   const workflow = fs.readFileSync(path.join(__dirname, '..', '..', '.github', 'workflows', 'release.yml'), 'utf8');
   assert.match(workflow, /os: macos-15\s+target: mac\s+arch: arm64/);
   assert.match(workflow, /os: macos-15-intel\s+target: mac\s+arch: x64/);
-  assert.match(workflow, /artifacts\/token-monitor-mac-arm64\/latest-mac\.yml \\\s+artifacts\/token-monitor-mac-x64\/latest-mac\.yml/);
+  assert.match(workflow, /artifacts\/potluck-monitor-mac-arm64\/latest-mac\.yml \\\s+artifacts\/potluck-monitor-mac-x64\/latest-mac\.yml/);
   assert.doesNotMatch(workflow, /latest-mac-(?:arm64|x64)\.yml/);
 
   const releaseTemplate = fs.readFileSync(path.join(__dirname, '..', '..', '.github', 'RELEASE_TEMPLATE.md'), 'utf8');
   const intelBullets = releaseTemplate.split('\n').filter((line) => line.startsWith('- **macOS Intel**'));
-  const intelDmg = `Token-Monitor-${rootPackage.version}-x64.dmg`;
+  const intelDmg = `Potluck-Monitor-${rootPackage.version}-x64.dmg`;
   assert.equal(intelBullets.length, 2);
   assert.ok(intelBullets.every((line) => line.split(intelDmg).length === 3));
   assert.ok(intelBullets.every((line) => line.includes(`/download/v${rootPackage.version}/`)));

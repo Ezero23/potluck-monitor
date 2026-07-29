@@ -1,7 +1,7 @@
 {
   "name": "potluck-monitor",
   "productName": "Potluck Monitor",
-  "version": "0.35.0",
+  "version": "0.1.0",
   "description": "Live token & cost widget for Claude Code, Codex & Hermes — local-first, optional multi-device sync.",
   "main": "src/electron/main.js",
   "scripts": {
@@ -25,7 +25,7 @@
     "verify": "npm run lint && npm test"
   },
   "build": {
-    "appId": "com.javis.tokenmonitor",
+    "appId": "com.ezero23.potluckmonitor",
     "productName": "Potluck Monitor",
     "directories": {
       "output": "dist"

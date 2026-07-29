@@ -223,7 +223,7 @@ async function checkLatestRelease(currentVersion) {
         signal,
         headers: {
           'accept': 'application/vnd.github+json',
-          'user-agent': `token-monitor/${currentVersion || '0.0.0'}`,
+          'user-agent': `potluck-monitor/${currentVersion || '0.0.0'}`,
           'x-github-api-version': '2022-11-28'
         }
       });

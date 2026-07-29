@@ -4,29 +4,29 @@
 
 ## When this setup is needed
 
-On Windows, Token Monitor normally scans supported tools inside every running WSL distribution through `\\wsl$` and merges their usage about every five minutes. File-based sources such as Codex JSONL sessions work well with this path.
+On Windows, Potluck Monitor normally scans supported tools inside every running WSL distribution through `\\wsl$` and merges their usage about every five minutes. File-based sources such as Codex JSONL sessions work well with this path.
 
-OpenCode and Hermes store current usage in SQLite databases. A Windows process can discover those databases through `\\wsl$` while SQLite still cannot reliably coordinate locks or an active WAL across the WSL 9P boundary. Token Monitor may therefore show the tool under **Settings → Collection → WSL detection** with no usage.
+OpenCode and Hermes store current usage in SQLite databases. A Windows process can discover those databases through `\\wsl$` while SQLite still cannot reliably coordinate locks or an active WAL across the WSL 9P boundary. Potluck Monitor may therefore show the tool under **Settings → Collection → WSL detection** with no usage.
 
 Do not copy a live `.db` file as a workaround. Recent transactions may still be in `-wal`, and copying the database and sidecars separately does not guarantee a consistent snapshot.
 
 The reliable setup is:
 
 ```text
-WSL headless agent → Windows host hub → Token Monitor widget
+WSL headless agent → Windows host hub → Potluck Monitor widget
 ```
 
 The agent runs the Linux tokscale binary next to the database, then sends only the normalized usage summary to the hub.
 
 ## 1. Start the hub on Windows
 
-In Token Monitor, open **Settings → Multi-device Sync** and select **Host hub on this device**. Record the hub URL and shared secret.
+In Potluck Monitor, open **Settings → Multi-device Sync** and select **Host hub on this device**. Record the hub URL and shared secret.
 
 Keep the hub on a trusted network and retain the generated secret. If WSL cannot reach the displayed hostname, use the Windows host IP while keeping the same port, which defaults to `17321`.
 
 ## 2. Install the headless agent in WSL
 
-Token Monitor requires Node.js 22.13.0 or newer. Verify Node.js and npm inside WSL before installing; upgrade Node.js first if the reported version is older.
+Potluck Monitor requires Node.js 22.13.0 or newer. Verify Node.js and npm inside WSL before installing; upgrade Node.js first if the reported version is older.
 
 ```bash
 node --version
@@ -64,13 +64,13 @@ Send one snapshot first:
 npm run agent:once
 ```
 
-Confirm that a second device appears in Token Monitor and that OpenCode or Hermes has usage. Then run the continuous agent:
+Confirm that a second device appears in Potluck Monitor and that OpenCode or Hermes has usage. Then run the continuous agent:
 
 ```bash
 npm run agent
 ```
 
-For unattended use, run that command from your normal WSL service manager or login startup. Keep its working directory set to the Token Monitor checkout so `.env` is loaded.
+For unattended use, run that command from your normal WSL service manager or login startup. Keep its working directory set to the Potluck Monitor checkout so `.env` is loaded.
 
 ## Troubleshooting
 
