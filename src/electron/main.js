@@ -4608,7 +4608,10 @@ app.whenReady().then(() => {
   ipcMain.handle('potluck:gatewayOpenWeb', () => {
     const gateway = potluckSupervisor.getState(settings);
     if (!gateway.port) return { ok: false, error: 'gateway not running' };
-    return shell.openExternal(`http://127.0.0.1:${gateway.port}`)
+    // `localhost` rather than `127.0.0.1`: browsers/system proxies bypass local
+    // proxies more reliably for the hostname, and /dashboard goes straight to
+    // the console instead of bouncing through the root redirect.
+    return shell.openExternal(`http://localhost:${gateway.port}/dashboard`)
       .then(() => ({ ok: true }))
       .catch((error) => ({ ok: false, error: error.message }));
   });
