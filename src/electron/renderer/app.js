@@ -4981,10 +4981,9 @@ function renderPotluckGatewayCard() {
     titleWrap.append(status);
   }
   head.append(titleWrap);
-  // One merged copy button: copies every available credential at once.
+  // One merged copy button: copies tunnel URL + API key at once.
   const copyLines = [];
   if (tunnelUrl) copyLines.push(`${t('home.gateway.tunnel')}: ${tunnelUrl}`);
-  if (password) copyLines.push(`${t('home.gateway.password')}: ${password}`);
   if (apiKey?.key) copyLines.push(`${t('home.gateway.apiKey')}: ${apiKey.key}`);
   if (copyLines.length) {
     const copyAll = document.createElement('button');
@@ -5022,32 +5021,7 @@ function renderPotluckGatewayCard() {
     }
     body.append(tunnelRow);
   }
-  // Dashboard password
-  if (password) {
-    const passwordRow = document.createElement('div');
-    passwordRow.className = 'potluck-gateway-row';
-    const passwordLabel = document.createElement('span');
-    passwordLabel.className = 'potluck-gateway-label';
-    passwordLabel.textContent = t('home.gateway.password');
-    const value = document.createElement('code');
-    value.className = 'potluck-gateway-value';
-    const masked = '\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022';
-    value.textContent = masked;
-    let visible = false;
-    const toggle = document.createElement('button');
-    toggle.type = 'button';
-    toggle.className = 'potluck-gateway-toggle';
-    toggle.textContent = t('home.gateway.show');
-    toggle.addEventListener('click', (event) => {
-      event.stopPropagation();
-      visible = !visible;
-      value.textContent = visible ? password : masked;
-      toggle.textContent = visible ? t('home.gateway.hide') : t('home.gateway.show');
-    });
-    passwordRow.append(passwordLabel, value, toggle);
-    body.append(passwordRow);
-  }
-  // API key
+  // API key (used to call the gateway through the tunnel)
   if (apiKey && apiKey.key) {
     const apiRow = document.createElement('div');
     apiRow.className = 'potluck-gateway-row';
@@ -5056,8 +5030,20 @@ function renderPotluckGatewayCard() {
     apiLabel.textContent = t('home.gateway.apiKey');
     const value = document.createElement('code');
     value.className = 'potluck-gateway-value';
-    value.textContent = apiKey.name ? `${apiKey.name} \u00b7 \u2022\u2022\u2022\u2022\u2022\u2022` : '\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022';
-    apiRow.append(apiLabel, value);
+    const masked = '\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022';
+    value.textContent = apiKey.name ? `${apiKey.name} \u00b7 \u2022\u2022\u2022\u2022\u2022\u2022` : masked;
+    let visible = false;
+    const toggle = document.createElement('button');
+    toggle.type = 'button';
+    toggle.className = 'potluck-gateway-toggle';
+    toggle.textContent = t('home.gateway.show');
+    toggle.addEventListener('click', (event) => {
+      event.stopPropagation();
+      visible = !visible;
+      value.textContent = visible ? apiKey.key : (apiKey.name ? `${apiKey.name} \u00b7 \u2022\u2022\u2022\u2022\u2022\u2022` : masked);
+      toggle.textContent = visible ? t('home.gateway.hide') : t('home.gateway.show');
+    });
+    apiRow.append(apiLabel, value, toggle);
     body.append(apiRow);
   }
   // Action buttons
