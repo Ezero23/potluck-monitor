@@ -4989,8 +4989,9 @@ function renderPotluckGatewayCard() {
   if (copyLines.length) {
     const copyAll = document.createElement('button');
     copyAll.type = 'button';
-    copyAll.className = 'button button-small';
-    copyAll.textContent = t('home.gateway.copyAll');
+    copyAll.className = 'icon-button';
+    copyAll.title = t('home.gateway.copyAll');
+    copyAll.textContent = '⧉';
     copyAll.addEventListener('click', (event) => {
       event.stopPropagation();
       copyToClipboard(copyLines.join('\n'), copyAll);
@@ -5064,13 +5065,13 @@ function renderPotluckGatewayCard() {
   row.className = 'potluck-gateway-row potluck-gateway-actions';
   const open = document.createElement('button');
   open.type = 'button';
-  open.className = 'button button-small';
+  open.className = 'potluck-gateway-action';
   open.textContent = t('settings.potluck.openWeb');
   open.addEventListener('click', () => { window.tokenMonitor.potluckGateway?.openWeb?.(); });
   row.append(open);
   const disc = document.createElement('button');
   disc.type = 'button';
-  disc.className = 'button button-small';
+  disc.className = 'potluck-gateway-action';
   disc.textContent = t('home.gateway.rediscover');
   disc.addEventListener('click', async () => {
     disc.disabled = true;
