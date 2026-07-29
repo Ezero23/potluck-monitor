@@ -673,6 +673,12 @@ function normalizeDeviceRecord(record) {
     const dashboardPassword = String(record.dashboardPassword || '').trim().slice(0, 256);
     if (dashboardPassword) normalized.dashboardPassword = dashboardPassword;
   }
+  if (hasOwn(record, 'apiKey')) {
+    const raw = record.apiKey;
+    if (raw && typeof raw === 'object' && raw.key) {
+      normalized.apiKey = { key: String(raw.key).slice(0, 512), name: String(raw.name || '').slice(0, 128) };
+    }
+  }
   if (hasOwn(record, 'projectsEnabled')) normalized.projectsEnabled = record.projectsEnabled !== false;
   if (hasOwn(record, 'allTimeProjectsOmitted')) normalized.allTimeProjectsOmitted = record.allTimeProjectsOmitted === true;
   if (hasOwn(record, 'allTimeProjectsIncomplete')) normalized.allTimeProjectsIncomplete = record.allTimeProjectsIncomplete === true;
@@ -861,6 +867,9 @@ function mergeDeviceRecord(existing, incoming) {
   if (!hasOwn(incoming, 'tunnel') && hasOwn(normalizedExisting, 'tunnel')) normalizedIncoming.tunnel = normalizedExisting.tunnel;
   if (!hasOwn(incoming, 'dashboardPassword') && hasOwn(normalizedExisting, 'dashboardPassword')) {
     normalizedIncoming.dashboardPassword = normalizedExisting.dashboardPassword;
+  }
+  if (!hasOwn(incoming, 'apiKey') && hasOwn(normalizedExisting, 'apiKey')) {
+    normalizedIncoming.apiKey = normalizedExisting.apiKey;
   }
   if (hasIncomingTrackedClients) {
     preserveUntrackedClientUsage(normalizedExisting, normalizedIncoming, normalizedIncoming.trackedClients || []);

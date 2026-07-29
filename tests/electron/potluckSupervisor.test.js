@@ -61,11 +61,11 @@ function baseDeps(overrides = {}) {
 }
 
 test('candidatePorts: configured port first, defaults after, deduplicated', () => {
-  assert.deepEqual(supervisor.candidatePorts({ potluckPort: 20444 }), [20444, 20131, 21023]);
-  assert.deepEqual(supervisor.candidatePorts({ potluckPort: 20131 }), [20131, 21023]);
-  assert.deepEqual(supervisor.candidatePorts({ potluckPort: 21023 }), [21023, 20131]);
-  assert.deepEqual(supervisor.candidatePorts({}), [20131, 21023]);
-  assert.deepEqual(supervisor.candidatePorts({ potluckPort: 'not-a-port' }), [20131, 21023]);
+  assert.deepEqual(supervisor.candidatePorts({ potluckPort: 20444 }), [20444, 20129, 20131, 21023]);
+  assert.deepEqual(supervisor.candidatePorts({ potluckPort: 20131 }), [20131, 20129, 21023]);
+  assert.deepEqual(supervisor.candidatePorts({ potluckPort: 21023 }), [21023, 20129, 20131]);
+  assert.deepEqual(supervisor.candidatePorts({}), [20129, 20131, 21023]);
+  assert.deepEqual(supervisor.candidatePorts({ potluckPort: 'not-a-port' }), [20129, 20131, 21023]);
 });
 
 test('probePotluck: true on ok health, false on refusal or non-ok', async () => {
@@ -82,7 +82,7 @@ test('discoverPotluck: probes in order, first alive wins, none alive → null', 
   const deps = baseDeps({ fetch: mockFetch([21023], calls) });
   const port = await supervisor.discoverPotluck({ potluckPort: 20444 }, deps);
   assert.equal(port, 21023);
-  assert.deepEqual(calls, [20444, 20131, 21023]);
+  assert.deepEqual(calls, [20444, 20129, 20131, 21023]);
 
   const dead = baseDeps({ fetch: mockFetch([]) });
   assert.equal(await supervisor.discoverPotluck({}, dead), null);
@@ -90,7 +90,7 @@ test('discoverPotluck: probes in order, first alive wins, none alive → null', 
   const firstWinsCalls = [];
   const firstWins = baseDeps({ fetch: mockFetch([20131, 21023], firstWinsCalls) });
   assert.equal(await supervisor.discoverPotluck({}, firstWins), 20131);
-  assert.deepEqual(firstWinsCalls, [20131]); // stops at first alive
+  assert.deepEqual(firstWinsCalls, [20129, 20131]); // stops at first alive
 });
 
 test('readPairingSecret: missing file → null, present → trimmed', () => {

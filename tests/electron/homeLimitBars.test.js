@@ -24,8 +24,8 @@ test('Home highlights only low and critical remaining limits', () => {
   const app = read('src/electron/renderer/app.js');
   const css = read('src/electron/renderer/styles.css');
 
-  assert.match(app, /function limitMeterNode\(color, percent, tone = 1\)/);
-  assert.match(app, /const meter = limitMeterNode\(color, fillPercent, tone\)/);
+  assert.match(app, /function limitMeterNode\(color, percent, tone = 1, remainingPercent = null, usedPercent = null, showUsed = false\)/);
+  assert.match(app, /const meter = limitMeterNode\(color, fillPercent, tone, meterRemaining, meterUsed, showUsed\)/);
   assert.match(app, /state\.settings\?\.showHomeLimitBars === true && window\.remainingPercent != null/);
   assert.match(app, /remainingPercent < 20/);
   assert.match(app, /value\.classList\.add\('home-limit-value-critical'\)/);

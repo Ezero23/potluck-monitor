@@ -974,7 +974,7 @@ test('saving Ollama credentials enables its provider and always settles validati
   assert.match(ollamaSetup, /if \(!validation\?\.ok\)/);
   assert.doesNotMatch(ollamaSetup, /await refreshStats\(\{ force: true \}\);/);
   assert.match(ollamaSetup, /clearExternalProviderCheckPending\('ollama'\);/);
-  assert.match(renderExternalStatus, /pending \? t\('settings\.common\.checking'\)/);
+  assert.match(renderExternalStatus, /pending\s*\?\s*t\('settings\.common\.checking'\)/);
   assert.match(
     renderExternalStatus,
     /providerName === 'ollama' && wasPending && !pending && linked[\s\S]*?setExternalAccountExpanded\('ollama', false\)/,
@@ -1083,7 +1083,7 @@ test('Accounts summary counts all managed account groups including Claude Web an
   assert.match(summaryBody, /const qoderLinked = externalProviderAccountLinked\('qoder'\);/);
   assert.match(summaryBody, /const kimiLinked = externalProviderAccountLinked\('kimi'\);/);
   assert.match(summaryBody, /const ollamaLinked = externalProviderAccountLinked\('ollama'\);/);
-  assert.match(summaryBody, /const openrouterCount = state\.openrouterProfileCount \|\| 0;/);
+  assert.match(summaryBody, /const openrouterLinked = openrouterAccountLinked\(\);/);
   assert.match(summaryBody, /const thirdpartyCount = state\.thirdPartyProfileCount \|\| 0;/);
   assert.match(summaryBody, /const mimoLinked = mimoAccountLinked\(\);/);
   assert.match(summaryBody, /const copilotLinked = copilotAccountLinked\(\);/);
@@ -1095,7 +1095,7 @@ test('Accounts summary counts all managed account groups including Claude Web an
   assert.match(summaryBody, /\(qoderLinked \? 1 : 0\)/);
   assert.match(summaryBody, /\(kimiLinked \? 1 : 0\)/);
   assert.match(summaryBody, /\(ollamaLinked \? 1 : 0\)/);
-  assert.match(summaryBody, /\(openrouterCount > 0 \? 1 : 0\)/);
+  assert.match(summaryBody, /\(openrouterLinked \? 1 : 0\)/);
   assert.match(summaryBody, /\(thirdpartyCount > 0 \? 1 : 0\)/);
   assert.match(summaryBody, /\(mimoLinked \? 1 : 0\)/);
   assert.match(summaryBody, /\(copilotLinked \? 1 : 0\)/);

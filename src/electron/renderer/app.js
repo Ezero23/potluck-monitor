@@ -4952,6 +4952,7 @@ function renderPotluckGatewayCard() {
   const password = typeof potluck?.dashboardPassword === 'string' && potluck.dashboardPassword ? potluck.dashboardPassword : '';
   const apiKey = potluck?.apiKey && typeof potluck.apiKey === 'object' ? potluck.apiKey : null;
   if (!gatewayState && !tunnel && !password && !apiKey) return null;
+  const tunnelUrl = tunnel?.enabled ? (tunnel.publicUrl || tunnel.tunnelUrl || '') : '';
   const card = document.createElement('section');
   card.className = 'home-module potluck-gateway-card';
   const head = document.createElement('div');
@@ -4962,33 +4963,50 @@ function renderPotluckGatewayCard() {
   label.className = 'home-module-label';
   label.textContent = t('home.gateway.title');
   titleWrap.append(label);
+  // Supervisor status as a small badge under the title, so it is not
+  // mistaken for one of the credential rows below.
+  if (gatewayState) {
+    const status = document.createElement('span');
+    if (gatewayState.running) {
+      status.className = 'potluck-gateway-status ok';
+      status.textContent = t('settings.potluck.statusRunning', { port: gatewayState.port || 20129 });
+      if (gatewayState.autoPaired) status.textContent += ' \u00b7 ' + t('settings.potluck.autoPaired');
+    } else if (gatewayState.status === 'spawning') {
+      status.className = 'potluck-gateway-status';
+      status.textContent = t('home.gateway.starting');
+    } else {
+      status.className = 'potluck-gateway-status error';
+      status.textContent = t('settings.potluck.statusStopped');
+    }
+    titleWrap.append(status);
+  }
   head.append(titleWrap);
+  // One merged copy button: copies every available credential at once.
+  const copyLines = [];
+  if (tunnelUrl) copyLines.push(`${t('home.gateway.tunnel')}: ${tunnelUrl}`);
+  if (password) copyLines.push(`${t('home.gateway.password')}: ${password}`);
+  if (apiKey?.key) copyLines.push(`${t('home.gateway.apiKey')}: ${apiKey.key}`);
+  if (copyLines.length) {
+    const copyAll = document.createElement('button');
+    copyAll.type = 'button';
+    copyAll.className = 'button button-small';
+    copyAll.textContent = t('home.gateway.copyAll');
+    copyAll.addEventListener('click', (event) => {
+      event.stopPropagation();
+      copyToClipboard(copyLines.join('\n'), copyAll);
+    });
+    head.append(copyAll);
+  }
   const body = document.createElement('div');
   body.className = 'home-module-body potluck-gateway-body';
-  // Supervisor status
-  if (gatewayState) {
-    const statusRow = document.createElement('div');
-    statusRow.className = 'potluck-gateway-row';
-    const el = document.createElement('span');
-    el.className = 'hub-status';
-    if (gatewayState.running) {
-      el.textContent = t('settings.potluck.statusRunning', { port: gatewayState.port || 20131 });
-      if (gatewayState.autoPaired) el.textContent += ' \u00b7 ' + t('settings.potluck.autoPaired');
-      el.className += ' ok';
-    } else if (gatewayState.status === 'spawning') {
-      el.textContent = 'Starting\u2026';
-    } else {
-      el.textContent = t('settings.potluck.statusStopped');
-      el.className += ' error';
-    }
-    statusRow.append(el);
-    body.append(statusRow);
-  }
   // Tunnel URL
   if (tunnel) {
     const tunnelRow = document.createElement('div');
     tunnelRow.className = 'potluck-gateway-row';
-    const tunnelUrl = tunnel?.enabled ? (tunnel.publicUrl || tunnel.tunnelUrl || '') : '';
+    const tunnelLabel = document.createElement('span');
+    tunnelLabel.className = 'potluck-gateway-label';
+    tunnelLabel.textContent = t('home.gateway.tunnel');
+    tunnelRow.append(tunnelLabel);
     if (!tunnelUrl) {
       const off = document.createElement('span');
       off.className = 'potluck-gateway-off';
@@ -4999,13 +5017,7 @@ function renderPotluckGatewayCard() {
       url.className = 'potluck-gateway-value';
       url.textContent = tunnelUrl;
       url.title = tunnelUrl;
-      const copy = document.createElement('button');
-      copy.type = 'button';
-      copy.className = 'icon-button';
-      copy.title = t('home.gateway.copyUrl');
-      copy.textContent = '\u29c9';
-      copy.addEventListener('click', (event) => { event.stopPropagation(); copyToClipboard(tunnelUrl, copy); });
-      tunnelRow.append(url, copy);
+      tunnelRow.append(url);
     }
     body.append(tunnelRow);
   }
@@ -5023,22 +5035,15 @@ function renderPotluckGatewayCard() {
     let visible = false;
     const toggle = document.createElement('button');
     toggle.type = 'button';
-    toggle.className = 'icon-button';
-    toggle.title = t('home.gateway.show');
-    toggle.textContent = '\ud83d\udc41';
+    toggle.className = 'potluck-gateway-toggle';
+    toggle.textContent = t('home.gateway.show');
     toggle.addEventListener('click', (event) => {
       event.stopPropagation();
       visible = !visible;
       value.textContent = visible ? password : masked;
-      toggle.title = visible ? t('home.gateway.hide') : t('home.gateway.show');
+      toggle.textContent = visible ? t('home.gateway.hide') : t('home.gateway.show');
     });
-    const copy = document.createElement('button');
-    copy.type = 'button';
-    copy.className = 'icon-button';
-    copy.title = t('home.gateway.copyPassword');
-    copy.textContent = '\u29c9';
-    copy.addEventListener('click', (event) => { event.stopPropagation(); copyToClipboard(password, copy); });
-    passwordRow.append(passwordLabel, value, toggle, copy);
+    passwordRow.append(passwordLabel, value, toggle);
     body.append(passwordRow);
   }
   // API key
@@ -5050,14 +5055,8 @@ function renderPotluckGatewayCard() {
     apiLabel.textContent = t('home.gateway.apiKey');
     const value = document.createElement('code');
     value.className = 'potluck-gateway-value';
-    value.textContent = apiKey.name ? apiKey.name + '\u00b7\u2022\u2022\u2022\u2022\u2022\u2022' : '\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022';
-    const copy = document.createElement('button');
-    copy.type = 'button';
-    copy.className = 'icon-button';
-    copy.title = t('home.gateway.copyApiKey');
-    copy.textContent = '\u29c9';
-    copy.addEventListener('click', (event) => { event.stopPropagation(); copyToClipboard(apiKey.key, copy); });
-    apiRow.append(apiLabel, value, copy);
+    value.textContent = apiKey.name ? `${apiKey.name} \u00b7 \u2022\u2022\u2022\u2022\u2022\u2022` : '\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022';
+    apiRow.append(apiLabel, value);
     body.append(apiRow);
   }
   // Action buttons
@@ -6370,7 +6369,7 @@ function syncSettingsForm() {
   els.secretInput.value = state.settings.secret || '';
   els.deviceIdInput.value = state.settings.deviceId || '';
   if (els.potluckPathInput) els.potluckPathInput.value = state.settings.potluckPath || '';
-  if (els.potluckPortInput) els.potluckPortInput.value = String(state.settings.potluckPort || 20131);
+  if (els.potluckPortInput) els.potluckPortInput.value = String(state.settings.potluckPort || 20129);
   if (els.potluckAutoStartInput) els.potluckAutoStartInput.checked = state.settings.potluckAutoStart !== false;
   if (els.potluckKeepOnQuitInput) els.potluckKeepOnQuitInput.checked = state.settings.keepGatewayRunningOnQuit === true;
   renderPotluckGatewayStatus();
@@ -7995,7 +7994,7 @@ els.potluckGatewaySaveButton?.addEventListener('click', async () => {
   if (!window.tokenMonitor.potluckGateway?.updateSettings) return;
   const patch = {
     potluckPath: els.potluckPathInput.value.trim(),
-    potluckPort: Number(els.potluckPortInput.value) || 20131,
+    potluckPort: Number(els.potluckPortInput.value) || 20129,
     potluckAutoStart: Boolean(els.potluckAutoStartInput.checked),
     keepGatewayRunningOnQuit: Boolean(els.potluckKeepOnQuitInput.checked)
   };

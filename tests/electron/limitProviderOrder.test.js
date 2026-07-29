@@ -51,7 +51,14 @@ test('default provider order follows tracked tools, named services, then third-p
     'volcengine',
     'qoder',
     'ollama',
-    'thirdparty'
+    'thirdparty',
+    'brave-search',
+    'gemini-cli',
+    'kimchi',
+    'nvidia',
+    'opencode-go',
+    'qoder-cn',
+    'tavily'
   ]);
 });
 
@@ -62,8 +69,11 @@ test('renderer provider order matches the collector default for new settings', (
     app.indexOf('const TRAY_ICON_VARIANTS')
   );
   const ids = [...block.matchAll(/\{ id: '([^']+)'/g)].map((match) => match[1]);
-
-  assert.deepEqual(ids, parseLimitProviders());
+  // The renderer lists extra display-only providers (no limit collector yet);
+  // the collector-known providers must appear in the same order as the
+  // collector default used for new settings.
+  const collectorIds = parseLimitProviders();
+  assert.deepEqual(ids.filter((id) => collectorIds.includes(id)), collectorIds);
 });
 
 test('account groups derive their order from the default limits provider order', () => {

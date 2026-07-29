@@ -3203,9 +3203,16 @@ html.is-windows .settings-panel select option {
 .potluck-gateway-row {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   min-width: 0;
 }
+.potluck-gateway-status {
+  font-size: 10px;
+  font-weight: 400;
+  color: var(--muted);
+}
+.potluck-gateway-status.ok { color: var(--success); }
+.potluck-gateway-status.error { color: var(--red); }
 .potluck-gateway-value {
   flex: 1;
   min-width: 0;
@@ -3216,11 +3223,24 @@ html.is-windows .settings-panel select option {
   color: var(--text);
 }
 .potluck-gateway-label {
-  font-size: 10px;
+  font-size: 11px;
   color: var(--muted);
   flex-shrink: 0;
+  min-width: 60px;
 }
+.potluck-gateway-toggle {
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  padding: 0;
+  font-family: inherit;
+  font-size: 11px;
+  color: var(--muted);
+  cursor: pointer;
+}
+.potluck-gateway-toggle:hover { color: var(--text); }
 .potluck-gateway-off {
+  flex: 1;
   font-size: 11px;
   color: var(--muted);
 }

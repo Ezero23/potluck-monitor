@@ -272,7 +272,7 @@ function defaultSettings() {
     // potluckAutoPaired marks a hub secret this app set itself, which is the
     // only secret the supervisor may rotate.
     potluckPath: '',
-    potluckPort: 20131,
+    potluckPort: 20129,
     potluckDataDir: '',
     nodePath: '',
     potluckAutoStart: true,
@@ -4279,7 +4279,7 @@ app.whenReady().then(() => {
       hubHostPort: patch.hubHostPort !== undefined ? normalizeHubPort(patch.hubHostPort, settings.hubHostPort) : settings.hubHostPort,
       hubHostSecret: patch.hubHostSecret !== undefined ? String(patch.hubHostSecret) : settings.hubHostSecret,
       potluckPath: patch.potluckPath !== undefined ? String(patch.potluckPath || '').trim() : (settings.potluckPath || ''),
-      potluckPort: patch.potluckPort !== undefined ? normalizeHubPort(patch.potluckPort, settings.potluckPort) : normalizeHubPort(settings.potluckPort, 20131),
+      potluckPort: patch.potluckPort !== undefined ? normalizeHubPort(patch.potluckPort, settings.potluckPort) : normalizeHubPort(settings.potluckPort, 20129),
       potluckDataDir: patch.potluckDataDir !== undefined ? String(patch.potluckDataDir || '').trim() : (settings.potluckDataDir || ''),
       nodePath: patch.nodePath !== undefined ? String(patch.nodePath || '').trim() : (settings.nodePath || ''),
       potluckAutoStart: parseBoolean(patch.potluckAutoStart ?? settings.potluckAutoStart, true),
