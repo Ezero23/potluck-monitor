@@ -16,10 +16,16 @@ const TRAILING_PULL_REQUEST_REFERENCES_RE = /\s*(?:\(\s*#\d+(?:\s*,\s*#\d+)*\s*\
 function appUpdateInstallSupport({
   isPackaged = false,
   platform = process.platform,
-  env = process.env
+  env = process.env,
+  macSigned = null
 } = {}) {
   if (!isPackaged) return { supported: false, reason: 'unpackaged' };
-  if (platform === 'darwin') return { supported: true, reason: '' };
+  // Unsigned macOS builds cannot use electron-updater (no latest-mac.yml);
+  // they install through the custom download/replace path instead.
+  if (platform === 'darwin') {
+    const reason = macSigned === true ? 'macos-native' : macSigned === false ? 'macos-custom' : '';
+    return { supported: true, reason };
+  }
   if (platform === 'win32') {
     return env?.PORTABLE_EXECUTABLE_FILE
       ? { supported: false, reason: 'windows-portable' }
@@ -125,6 +131,24 @@ function mergeLatestReleaseMetadata(existing, incoming) {
   };
 }
 
+function selectMacZipAsset(assets, arch = process.arch) {
+  if (!Array.isArray(assets)) return null;
+  const suffix = arch === 'x64' ? 'x64' : 'arm64';
+  const pattern = new RegExp(`^potluck-monitor-.+-${suffix}\\.zip$`);
+  for (const asset of assets) {
+    const name = typeof asset?.name === 'string' ? asset.name : '';
+    if (!pattern.test(name)) continue;
+    const url = typeof asset?.browser_download_url === 'string' ? asset.browser_download_url : '';
+    if (!url.startsWith('https://')) continue;
+    return {
+      name,
+      url,
+      size: Number.isFinite(asset?.size) ? asset.size : null
+    };
+  }
+  return null;
+}
+
 function parseLatestReleasePayload(payload) {
   if (!payload || typeof payload !== 'object') return null;
   const tag = typeof payload.tag_name === 'string' ? payload.tag_name : '';
@@ -133,13 +157,15 @@ function parseLatestReleasePayload(payload) {
   const htmlUrl = typeof payload.html_url === 'string' ? payload.html_url : '';
   if (!htmlUrl.startsWith('https://')) return null;
   const releaseNotes = extractReleaseNotes(payload.body);
+  const zipAsset = selectMacZipAsset(payload.assets);
   return {
     version,
     tag,
     name: (typeof payload.name === 'string' && payload.name.trim()) ? payload.name : tag,
     htmlUrl,
     publishedAt: typeof payload.published_at === 'string' ? payload.published_at : '',
-    ...(Object.keys(releaseNotes).length > 0 ? { releaseNotes } : {})
+    ...(Object.keys(releaseNotes).length > 0 ? { releaseNotes } : {}),
+    ...(zipAsset ? { zipAsset } : {})
   };
 }
 
@@ -242,10 +268,43 @@ async function checkLatestRelease(currentVersion) {
   }
 }
 
+function shSingleQuote(value) {
+  return `'${String(value).replace(/'/g, `'\\''`)}'`;
+}
+
+// Shell script run after the app quits: waits for the main process to exit,
+// swaps the installed .app bundle for the downloaded unsigned build, strips
+// the quarantine flag Gatekeeper would otherwise add, and relaunches.
+function buildCustomInstallScript({ pid, appPath, zipPath } = {}) {
+  const numericPid = Math.trunc(Number(pid)) || 0;
+  return [
+    '#!/bin/sh',
+    `PID=${numericPid}`,
+    `APP_PATH=${shSingleQuote(appPath)}`,
+    `ZIP_PATH=${shSingleQuote(zipPath)}`,
+    'WAITED=0',
+    'while kill -0 "$PID" 2>/dev/null; do',
+    '  if [ "$WAITED" -ge 200 ]; then',
+    '    echo "Timed out waiting for PID $PID to exit" >&2',
+    '    exit 1',
+    '  fi',
+    '  sleep 0.3',
+    '  WAITED=$((WAITED + 1))',
+    'done',
+    'rm -rf "$APP_PATH"',
+    'ditto -x -k "$ZIP_PATH" "$(dirname "$APP_PATH")"',
+    'xattr -dr com.apple.quarantine "$APP_PATH" 2>/dev/null || true',
+    'open "$APP_PATH"',
+    ''
+  ].join('\n');
+}
+
 module.exports = {
   appUpdateInstallSupport,
+  buildCustomInstallScript,
   parseTag,
   parseLatestReleasePayload,
+  selectMacZipAsset,
   shouldSkipAppUpdateCheck,
   downloadedAppUpdateMatchesLatest,
   shouldDownloadAutomaticAppUpdate,

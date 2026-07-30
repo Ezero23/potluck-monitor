@@ -4,6 +4,9 @@ const fs = require('node:fs');
 const crypto = require('node:crypto');
 const os = require('node:os');
 const path = require('node:path');
+const { execFile, spawn } = require('node:child_process');
+const { Readable, PassThrough } = require('node:stream');
+const { pipeline } = require('node:stream/promises');
 const { app, BrowserWindow, clipboard, dialog, globalShortcut, ipcMain, nativeImage, net, Notification, screen, session, shell } = require('electron');
 const { defaultDeviceId, generateHubSecret, lanIpv4Addresses, loadDotEnv, pidFilePath, sharedDataDir } = require('../shared/config');
 const {
@@ -81,6 +84,7 @@ const {
 } = require('../shared/tokscaleUpdater');
 const {
   appUpdateInstallSupport,
+  buildCustomInstallScript,
   checkLatestRelease,
   deriveAppUpdateAvailability,
   downloadedAppUpdateMatchesLatest,
@@ -89,6 +93,7 @@ const {
   shouldDownloadAutomaticAppUpdate,
   shouldSkipAppUpdateCheck
 } = require('../shared/appUpdater');
+const { createOutboundFetch } = require('../shared/outboundFetch');
 const cursorAuth = require('../shared/cursorAuth');
 const cursorProbe = require('../shared/cursorProbe');
 const opencodeWeb = require('../shared/opencodeWeb');
@@ -3554,8 +3559,33 @@ let appUpdateNativeState = {
   phase: 'idle',
   version: null,
   progress: null,
-  error: null
+  error: null,
+  filePath: null
 };
+let macAppSigningProbePromise = null;
+let macAppSigned = null;
+
+// .../Potluck Monitor.app/Contents/MacOS/<bin> → the .app bundle root.
+function macAppBundlePath() {
+  return path.dirname(path.dirname(path.dirname(app.getPath('exe'))));
+}
+
+// One-shot codesign probe: unsigned macOS builds (shipped without
+// latest-mac.yml) cannot use electron-updater and take the custom
+// download/replace path instead. Non-macOS platforms are irrelevant here
+// and report signed so the native updater path is kept.
+function probeMacAppSigning() {
+  if (process.platform !== 'darwin') return Promise.resolve(true);
+  if (!macAppSigningProbePromise) {
+    macAppSigningProbePromise = new Promise((resolve) => {
+      execFile('codesign', ['--verify', '--deep', '--strict', macAppBundlePath()], (error) => {
+        macAppSigned = !error;
+        resolve(macAppSigned);
+      });
+    });
+  }
+  return macAppSigningProbePromise;
+}
 
 function latestFromUpdaterInfo(info) {
   if (!info || typeof info !== 'object') return null;
@@ -3629,7 +3659,7 @@ function deriveAppUpdateState() {
   const currentVersion = app.getVersion();
   const latest = block.lastKnownLatest || null;
   const dismissedVersion = block.dismissedVersion || null;
-  const installSupport = appUpdateInstallSupport({ isPackaged: app.isPackaged, platform: process.platform, env: process.env });
+  const installSupport = appUpdateInstallSupport({ isPackaged: app.isPackaged, platform: process.platform, env: process.env, macSigned: macAppSigned });
   const availability = deriveAppUpdateAvailability({
     currentVersion,
     latest,
@@ -3776,6 +3806,9 @@ async function downloadAndPrepareAppUpdate() {
     latest
   })) return deriveAppUpdateState();
   restoreDismissedAppUpdate(latest?.version);
+  if (process.platform === 'darwin' && !(await probeMacAppSigning())) {
+    return downloadCustomAppUpdate(latest);
+  }
   configureNativeAppUpdater();
   appUpdateNativeBusy = true;
   setNativeAppUpdateState({ phase: 'checking', progress: null, error: null });
@@ -3797,6 +3830,57 @@ async function downloadAndPrepareAppUpdate() {
   return deriveAppUpdateState();
 }
 
+// Custom update path for unsigned macOS builds: stream the release zip from
+// GitHub (proxy-aware via the shared outbound fetch, which follows the asset
+// 302) into the temp dir, then installDownloadedAppUpdate swaps the bundle.
+// Progress percent comes from content-length when the server provides it,
+// falling back to the asset size reported by the release API.
+async function downloadCustomAppUpdate(latest) {
+  const zipAsset = latest?.zipAsset || null;
+  if (!zipAsset?.url) {
+    setNativeAppUpdateState({ phase: 'error', progress: null, error: 'Release has no downloadable macOS archive', filePath: null });
+    return deriveAppUpdateState();
+  }
+  const version = latest?.version || null;
+  const filePath = path.join(app.getPath('temp'), zipAsset.name);
+  const partialPath = `${filePath}.download`;
+  appUpdateNativeBusy = true;
+  setNativeAppUpdateState({ phase: 'downloading', version, progress: 0, error: null, filePath: null });
+  try {
+    const fetchFn = createOutboundFetch(process.env);
+    const response = await fetchFn(zipAsset.url, {
+      redirect: 'follow',
+      headers: { 'user-agent': `potluck-monitor/${app.getVersion()}` }
+    });
+    if (!response.ok || !response.body) throw new Error(`Download ${response.status}`);
+    const total = Number(response.headers.get('content-length') || 0) || zipAsset.size || 0;
+    let received = 0;
+    let lastReportedBucket = -1;
+    let lastReportedAt = 0;
+    const progressTap = new PassThrough();
+    progressTap.on('data', (chunk) => {
+      received += chunk.length;
+      const percent = total > 0 ? Math.max(0, Math.min(100, (received / total) * 100)) : null;
+      // Throttle pushes: one per integer percent (or per 500ms without a total).
+      const bucket = percent === null ? 0 : Math.floor(percent);
+      const now = Date.now();
+      if (bucket === lastReportedBucket && now - lastReportedAt < 500) return;
+      lastReportedBucket = bucket;
+      lastReportedAt = now;
+      setNativeAppUpdateState({ phase: 'downloading', version, progress: percent, error: null });
+    });
+    await pipeline(Readable.fromWeb(response.body), progressTap, fs.createWriteStream(partialPath));
+    fs.renameSync(partialPath, filePath);
+    appUpdateNativeBusy = false;
+    setNativeAppUpdateState({ phase: 'downloaded', version, progress: 100, error: null, filePath });
+  } catch (error) {
+    appUpdateNativeBusy = false;
+    try { fs.rmSync(partialPath, { force: true }); } catch (_) {}
+    setNativeAppUpdateState({ phase: 'error', progress: null, error: error?.message || String(error), filePath: null });
+  }
+  return deriveAppUpdateState();
+}
+
 function installDownloadedAppUpdate() {
   const latest = settings?.appUpdate?.lastKnownLatest || null;
   if (!downloadedAppUpdateMatchesLatest({
@@ -3804,6 +3888,20 @@ function installDownloadedAppUpdate() {
     downloadedVersion: appUpdateNativeState.version,
     latest
   })) return deriveAppUpdateState();
+  if (appUpdateNativeState.filePath) {
+    // Custom unsigned-macOS install: hand the bundle swap to a detached shell
+    // script that waits for this process to exit, then relaunches the app.
+    const scriptPath = path.join(app.getPath('temp'), `potluck-monitor-update-${process.pid}.sh`);
+    fs.writeFileSync(scriptPath, buildCustomInstallScript({
+      pid: process.pid,
+      appPath: macAppBundlePath(),
+      zipPath: appUpdateNativeState.filePath
+    }), { mode: 0o700 });
+    spawn('/bin/sh', [scriptPath], { detached: true, stdio: 'ignore' }).unref();
+    quitRequested = true;
+    app.quit();
+    return deriveAppUpdateState();
+  }
   quitRequested = true;
   // isSilent: skip the NSIS installer UI on Windows so the update feels seamless
   // (per-user install needs no elevation); isForceRunAfter relaunches the app.
@@ -5350,6 +5448,9 @@ app.whenReady().then(() => {
   app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
   maybeRunBackgroundUpdateCheck();
   startAppUpdateBackgroundChecks();
+  // Resolve the codesign probe early so a later download picks the right
+  // (native vs. custom) update path without waiting on codesign first.
+  void probeMacAppSigning();
 });
 
 app.on('second-instance', focusExistingWindow);

@@ -57,3 +57,27 @@ test('automatic update control persists through settings', () => {
   assert.match(renderer, /automaticAppUpdateControlState\(\{\s*preferenceEnabled: state\.settings\?\.automaticAppUpdates,\s*updateState: state\.appUpdate\s*\}\)/);
   assert.match(renderer, /saveSettings\(\{ automaticAppUpdates: els\.automaticAppUpdatesInput\.checked \}\)/);
 });
+
+test('unsigned macOS builds download updates through the custom path', () => {
+  const download = sourceBetween('async function downloadAndPrepareAppUpdate', 'function installDownloadedAppUpdate');
+  assert.match(download, /if \(process\.platform === 'darwin' && !\(await probeMacAppSigning\(\)\)\) \{\s*return downloadCustomAppUpdate\(latest\);\s*\}/);
+  assert.match(download, /createOutboundFetch\(process\.env\)/);
+  assert.match(download, /pipeline\(Readable\.fromWeb\(response\.body\)/);
+  assert.match(download, /phase: 'downloaded', version, progress: 100, error: null, filePath/);
+  assert.match(download, /configureNativeAppUpdater\(\)/);
+});
+
+test('custom installs replace the bundle via a detached shell script', () => {
+  const install = sourceBetween('function installDownloadedAppUpdate', 'function isAllowedExternalUrl');
+  assert.match(install, /buildCustomInstallScript\(\{\s*pid: process\.pid,\s*appPath: macAppBundlePath\(\),\s*zipPath: appUpdateNativeState\.filePath\s*\}\)/);
+  assert.match(install, /spawn\('\/bin\/sh', \[scriptPath\], \{ detached: true, stdio: 'ignore' \}\)\.unref\(\)/);
+  assert.match(install, /autoUpdater\.quitAndInstall\(true, true\)/);
+});
+
+test('the codesign probe is one-shot and starts at app startup', () => {
+  const probe = sourceBetween('function probeMacAppSigning', 'function latestFromUpdaterInfo');
+  assert.match(probe, /execFile\('codesign', \['--verify', '--deep', '--strict', macAppBundlePath\(\)\]/);
+  assert.match(probe, /if \(!macAppSigningProbePromise\)/);
+  assert.match(probe, /if \(process\.platform !== 'darwin'\) return Promise\.resolve\(true\)/);
+  assert.match(main, /void probeMacAppSigning\(\);/);
+});

@@ -7,12 +7,14 @@ const test = require('node:test');
 
 const {
   appUpdateInstallSupport,
+  buildCustomInstallScript,
   deriveAppUpdateAvailability,
   downloadedAppUpdateMatchesLatest,
   extractReleaseNotes,
   mergeLatestReleaseMetadata,
   parseLatestReleasePayload,
   parseTag,
+  selectMacZipAsset,
   shouldDownloadAutomaticAppUpdate,
   shouldSkipAppUpdateCheck
 } = require('../../src/shared/appUpdater');
@@ -46,6 +48,25 @@ test('appUpdateInstallSupport only enables packaged auto-updatable targets', () 
   }), { supported: false, reason: 'windows-portable' });
   assert.deepEqual(appUpdateInstallSupport({ isPackaged: true, platform: 'linux', env: {} }), { supported: false, reason: 'linux-not-appimage' });
   assert.deepEqual(appUpdateInstallSupport({ isPackaged: true, platform: 'linux', env: { APPIMAGE: '/tmp/Token Monitor.AppImage' } }), { supported: true, reason: '' });
+});
+
+test('appUpdateInstallSupport reports the macOS install path from the signing probe', () => {
+  assert.deepEqual(
+    appUpdateInstallSupport({ isPackaged: true, platform: 'darwin', macSigned: true }),
+    { supported: true, reason: 'macos-native' }
+  );
+  assert.deepEqual(
+    appUpdateInstallSupport({ isPackaged: true, platform: 'darwin', macSigned: false }),
+    { supported: true, reason: 'macos-custom' }
+  );
+  assert.deepEqual(
+    appUpdateInstallSupport({ isPackaged: true, platform: 'darwin', macSigned: null }),
+    { supported: true, reason: '' }
+  );
+  assert.deepEqual(
+    appUpdateInstallSupport({ isPackaged: true, platform: 'win32', env: {}, macSigned: false }),
+    { supported: true, reason: '' }
+  );
 });
 
 test('shouldSkipAppUpdateCheck refreshes cached update prompts sooner than the normal cooldown', () => {
@@ -374,4 +395,95 @@ test('parseLatestReleasePayload rejects payloads without an https html_url', () 
   assert.equal(parseLatestReleasePayload({
     tag_name: 'v0.1.3'
   }), null);
+});
+
+test('parseLatestReleasePayload carries the matching macOS zip asset', () => {
+  const result = parseLatestReleasePayload({
+    tag_name: 'v0.30.0',
+    html_url: 'https://github.com/Ezero23/potluck-monitor/releases/tag/v0.30.0',
+    assets: [
+      { name: 'potluck-monitor-0.30.0-arm64.dmg', browser_download_url: 'https://example.com/app.dmg', size: 10 },
+      { name: 'potluck-monitor-0.30.0-arm64.zip', browser_download_url: 'https://example.com/app.zip', size: 1234 }
+    ]
+  });
+  assert.deepEqual(result.zipAsset, {
+    name: 'potluck-monitor-0.30.0-arm64.zip',
+    url: 'https://example.com/app.zip',
+    size: 1234
+  });
+});
+
+test('selectMacZipAsset picks the zip matching the requested arch', () => {
+  const assets = [
+    { name: 'potluck-monitor-0.30.0-arm64.dmg', browser_download_url: 'https://example.com/app-arm64.dmg', size: 10 },
+    { name: 'potluck-monitor-0.30.0-arm64.zip', browser_download_url: 'https://example.com/app-arm64.zip', size: 100 },
+    { name: 'potluck-monitor-0.30.0-x64.zip', browser_download_url: 'https://example.com/app-x64.zip', size: 200 }
+  ];
+  assert.deepEqual(selectMacZipAsset(assets, 'arm64'), {
+    name: 'potluck-monitor-0.30.0-arm64.zip',
+    url: 'https://example.com/app-arm64.zip',
+    size: 100
+  });
+  assert.deepEqual(selectMacZipAsset(assets, 'x64'), {
+    name: 'potluck-monitor-0.30.0-x64.zip',
+    url: 'https://example.com/app-x64.zip',
+    size: 200
+  });
+});
+
+test('selectMacZipAsset returns null without a matching or usable asset', () => {
+  assert.equal(selectMacZipAsset([
+    { name: 'potluck-monitor-0.30.0-arm64.dmg', browser_download_url: 'https://example.com/app.dmg', size: 10 }
+  ], 'arm64'), null);
+  assert.equal(selectMacZipAsset([
+    { name: 'potluck-monitor-0.30.0-arm64.zip', browser_download_url: 'http://example.com/app.zip', size: 10 }
+  ], 'arm64'), null);
+  assert.equal(selectMacZipAsset([
+    { name: 'potluck-monitor-0.30.0-arm64.zip', size: 10 }
+  ], 'arm64'), null);
+  assert.equal(selectMacZipAsset(null, 'arm64'), null);
+  assert.equal(selectMacZipAsset('not-an-array', 'arm64'), null);
+  assert.equal(selectMacZipAsset([], 'arm64'), null);
+});
+
+test('selectMacZipAsset skips malformed entries and tolerates a missing size', () => {
+  const assets = [
+    null,
+    { name: 42, browser_download_url: 'https://example.com/wrong.zip' },
+    { name: 'other-app-0.30.0-arm64.zip', browser_download_url: 'https://example.com/other.zip' },
+    { name: 'potluck-monitor-0.30.0-arm64.zip', browser_download_url: 'https://example.com/app.zip' }
+  ];
+  assert.deepEqual(selectMacZipAsset(assets, 'arm64'), {
+    name: 'potluck-monitor-0.30.0-arm64.zip',
+    url: 'https://example.com/app.zip',
+    size: null
+  });
+});
+
+test('buildCustomInstallScript waits, replaces, dequarantines, and relaunches', () => {
+  const script = buildCustomInstallScript({
+    pid: 1234,
+    appPath: '/Applications/Potluck Monitor.app',
+    zipPath: '/tmp/potluck-monitor-0.30.0-arm64.zip'
+  });
+  assert.match(script, /^#!/);
+  assert.match(script, /PID=1234/);
+  assert.match(script, /while kill -0 "\$PID" 2>\/dev\/null; do/);
+  assert.match(script, /sleep 0\.3/);
+  assert.match(script, /rm -rf "\$APP_PATH"/);
+  assert.match(script, /ditto -x -k "\$ZIP_PATH" "\$\(dirname "\$APP_PATH"\)"/);
+  assert.match(script, /xattr -dr com\.apple\.quarantine "\$APP_PATH" 2>\/dev\/null \|\| true/);
+  assert.match(script, /open "\$APP_PATH"/);
+  assert.match(script, /APP_PATH='\/Applications\/Potluck Monitor\.app'/);
+  assert.match(script, /ZIP_PATH='\/tmp\/potluck-monitor-0\.30\.0-arm64\.zip'/);
+});
+
+test('buildCustomInstallScript escapes single quotes in interpolated paths', () => {
+  const script = buildCustomInstallScript({
+    pid: 42,
+    appPath: "/Applications/O'Brien/Potluck Monitor.app",
+    zipPath: "/tmp/it's here/update.zip"
+  });
+  assert.match(script, /APP_PATH='\/Applications\/O'\\''Brien\/Potluck Monitor\.app'/);
+  assert.match(script, /ZIP_PATH='\/tmp\/it'\\''s here\/update\.zip'/);
 });
