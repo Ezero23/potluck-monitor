@@ -468,7 +468,10 @@ function applySettingsTranslations() {
 }
 
 function applySettingsSectionDom(id, open) {
-  const toggle = document.querySelector(`[data-settings-section="${id}"]`);
+  // Scope to the button: the collapsible group itself also carries
+  // data-settings-section (drag-sort handle wiring), and an unscoped
+  // querySelector matches the group first.
+  const toggle = document.querySelector(`button[data-settings-section="${id}"]`);
   const details = document.getElementById(`${id}SettingsDetails`);
   const group = toggle?.closest('.settings-collapsible-group');
   toggle?.setAttribute('aria-expanded', open ? 'true' : 'false');
@@ -537,7 +540,7 @@ function anchorSettingsScroll(anchorEl, mutate) {
 }
 
 function setupSettingsSections() {
-  for (const toggle of document.querySelectorAll('[data-settings-section]')) {
+  for (const toggle of document.querySelectorAll('button[data-settings-section]')) {
     const section = toggle.dataset.settingsSection;
     toggle.addEventListener('click', () => {
       const expanding = !state.settingsSections[section];

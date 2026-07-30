@@ -809,6 +809,14 @@ span.settings-note.settings-item-desc {
   scrollbar-width: none;
 }
 .settings-section-details::-webkit-scrollbar { width: 0; height: 0; }
+/* The animation wrapper clamps to the capped height and its overflow:hidden
+   would clip the content without ever scrolling — the wrapper, not the outer
+   details, is what actually fits the cap, so it must be the scroll container. */
+.settings-section-details > .accordion-animation-inner {
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+.settings-section-details > .accordion-animation-inner::-webkit-scrollbar { width: 0; height: 0; }
 .settings-section-details-inner {
   display: grid;
   min-width: 0;
