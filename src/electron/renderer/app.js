@@ -125,6 +125,7 @@ const clientStatusPresentationApi = window.TokenMonitorClientStatusPresentation;
 const serviceStatusPresentationApi = window.TokenMonitorServiceStatusPresentation;
 const clientDisplayPreferencesApi = window.TokenMonitorClientDisplayPreferences;
 const customPricingFormApi = window.TokenMonitorCustomPricingForm;
+const pricingAuditApi = window.TokenMonitorPricingAudit;
 const viewDisplayPreferencesApi = window.TokenMonitorViewDisplayPreferences;
 const preferenceDragSortApi = window.TokenMonitorPreferenceDragSort;
 const homeOverviewApi = window.TokenMonitorHomeOverview;
@@ -253,7 +254,7 @@ function normalizeInitialViewValue(value, allowed, fallback) {
   return allowed.has(raw) ? raw : fallback;
 }
 
-const state = { period: normalizeInitialViewValue(initialViewState.period, viewPeriodValues, 'today'), appUpdate: null, breakdown: normalizeInitialViewValue(initialViewState.breakdown, viewBreakdownValues, 'home'), viewSwitcherOpen: false, viewSwitcherHasOpened: false, limitDetailTooltipHasOpened: false, limitDetailTooltipActive: false, limitDetailTooltipRenderPending: false, settings: null, stats: null, homeHistory: null, homeHistoryBusy: false, homeHistoryRequested: false, homeHistorySignature: '', homeHistoryRetries: 0, homeHistoryRetryTimer: null, homeActivityScrollLeft: null, homeActivityFollowEnd: true, homeActivityResizeObserver: null, serviceStatus: null, serviceStatusBusy: false, serviceProvidersExpanded: false, trendSettingsExpanded: false, trendsActivating: false, homeSettingsExpanded: false, homeLimitSettingsExpanded: false, serviceStatusTicker: null, refreshTimer: null, refreshBusy: false, refreshFeedbackTimer: null, currentTotal: 0, rowSignature: '', streamConnected: false, streamFailure: null, mode: 'idle', appInfo: null, tokscaleStatus: null, tokscaleCheck: null, tokscaleBusy: false, hubInfo: null, cursorAccount: { status: null, error: '' }, cursorAccountExpanded: false, codexAccountExpanded: false, codexAccountError: '', codexSignInBusy: false, codexSignInFlowId: '', codexLoginUrl: '', codexLoginStatus: '', codexLoginOutput: '', codexWorkspaceChoices: [], codexWorkspaceId: '', codexActiveAccount: null, codexPendingActiveAccount: null, codexPendingActiveAccountUntil: 0, codexPendingActiveAccountTimer: null, codexSystemSwitchingAccountId: '', codexSystemSwitchErrorAccountId: '', codexSystemSwitchError: '', codexSwitchPopoverHasOpened: false, codexSwitchPopoverActive: false, codexSwitchPopoverRenderPending: false, customPricingExpanded: false, claudeAccountExpanded: false, claudePendingCheckSince: 0, opencodeProfileCount: 0, opencodeCookieExpanded: false, openrouterProfileCount: 0, openrouterAccountExpanded: false, thirdPartyProfileCount: 0, thirdPartyAccountExpanded: false, deepseekAccountExpanded: false, deepseekPendingCheckSince: 0, minimaxAccountExpanded: false, minimaxPendingCheckSince: 0, zaiAccountExpanded: false, zaiPendingCheckSince: 0, zaiteamAccountExpanded: false, zaiteamPendingCheckSince: 0, volcengineAccountExpanded: false, volcenginePendingCheckSince: 0, qoderAccountExpanded: false, qoderPendingCheckSince: 0, kimiAccountExpanded: false, kimiPendingCheckSince: 0, ollamaAccountExpanded: false, ollamaPendingCheckSince: 0, mimoAccountExpanded: false, mimoAccountError: '', copilotAccountExpanded: false, copilotManualExpanded: false, copilotPendingCheckSince: 0, copilotSignInBusy: false, copilotSignInCancelable: false, copilotSignInFlowId: '', copilotAuthorizeMessage: '', copilotLoginStatus: '', copilotErrorMessage: '', floatingBubble: initialFloatingBubble, suppressInitialNumberAnimation: window.__TOKEN_MONITOR_SUPPRESS_INITIAL_NUMBER_ANIMATION__ === true, openSession: null, detailSort: 'time', recordingWindowShortcut: false, windowShortcutInvalid: false };
+const state = { period: normalizeInitialViewValue(initialViewState.period, viewPeriodValues, 'today'), appUpdate: null, breakdown: normalizeInitialViewValue(initialViewState.breakdown, viewBreakdownValues, 'home'), pricingAuditByModel: null, pricingAuditSignature: '', pricingAuditBusy: false, viewSwitcherOpen: false, viewSwitcherHasOpened: false, limitDetailTooltipHasOpened: false, limitDetailTooltipActive: false, limitDetailTooltipRenderPending: false, settings: null, stats: null, homeHistory: null, homeHistoryBusy: false, homeHistoryRequested: false, homeHistorySignature: '', homeHistoryRetries: 0, homeHistoryRetryTimer: null, homeActivityScrollLeft: null, homeActivityFollowEnd: true, homeActivityResizeObserver: null, serviceStatus: null, serviceStatusBusy: false, serviceProvidersExpanded: false, trendSettingsExpanded: false, trendsActivating: false, homeSettingsExpanded: false, homeLimitSettingsExpanded: false, serviceStatusTicker: null, refreshTimer: null, refreshBusy: false, refreshFeedbackTimer: null, currentTotal: 0, rowSignature: '', streamConnected: false, streamFailure: null, mode: 'idle', appInfo: null, tokscaleStatus: null, tokscaleCheck: null, tokscaleBusy: false, hubInfo: null, cursorAccount: { status: null, error: '' }, cursorAccountExpanded: false, codexAccountExpanded: false, codexAccountError: '', codexSignInBusy: false, codexSignInFlowId: '', codexLoginUrl: '', codexLoginStatus: '', codexLoginOutput: '', codexWorkspaceChoices: [], codexWorkspaceId: '', codexActiveAccount: null, codexPendingActiveAccount: null, codexPendingActiveAccountUntil: 0, codexPendingActiveAccountTimer: null, codexSystemSwitchingAccountId: '', codexSystemSwitchErrorAccountId: '', codexSystemSwitchError: '', codexSwitchPopoverHasOpened: false, codexSwitchPopoverActive: false, codexSwitchPopoverRenderPending: false, customPricingExpanded: false, claudeAccountExpanded: false, claudePendingCheckSince: 0, opencodeProfileCount: 0, opencodeCookieExpanded: false, openrouterProfileCount: 0, openrouterAccountExpanded: false, thirdPartyProfileCount: 0, thirdPartyAccountExpanded: false, deepseekAccountExpanded: false, deepseekPendingCheckSince: 0, minimaxAccountExpanded: false, minimaxPendingCheckSince: 0, zaiAccountExpanded: false, zaiPendingCheckSince: 0, zaiteamAccountExpanded: false, zaiteamPendingCheckSince: 0, volcengineAccountExpanded: false, volcenginePendingCheckSince: 0, qoderAccountExpanded: false, qoderPendingCheckSince: 0, kimiAccountExpanded: false, kimiPendingCheckSince: 0, ollamaAccountExpanded: false, ollamaPendingCheckSince: 0, mimoAccountExpanded: false, mimoAccountError: '', copilotAccountExpanded: false, copilotManualExpanded: false, copilotPendingCheckSince: 0, copilotSignInBusy: false, copilotSignInCancelable: false, copilotSignInFlowId: '', copilotAuthorizeMessage: '', copilotLoginStatus: '', copilotErrorMessage: '', floatingBubble: initialFloatingBubble, suppressInitialNumberAnimation: window.__TOKEN_MONITOR_SUPPRESS_INITIAL_NUMBER_ANIMATION__ === true, openSession: null, detailSort: 'time', recordingWindowShortcut: false, windowShortcutInvalid: false };
 state.homeHistoryLoadedSignature = '';
 state.homeHistoryRetrySignature = '';
 state.homeReturnVisible = false;
@@ -274,7 +275,7 @@ let viewSwitcherLongPressTimer = null;
 let viewSwitcherLongPressTriggered = false;
 let viewSwitcherHoverCloseTimer = null;
 const els = {
-  shell: document.querySelector('.shell'), status: document.getElementById('status'), liveDot: document.getElementById('liveDot'), totalTokens: document.getElementById('totalTokens'), totalTokensCompact: document.getElementById('totalTokensCompact'), cost: document.getElementById('cost'), homePanel: document.getElementById('homePanel'), breakdown: document.getElementById('breakdown'), serviceStatusPanel: document.getElementById('serviceStatusPanel'), limitsPanel: document.getElementById('limitsPanel'), trendsPanel: document.getElementById('trendsPanel'), viewSwitcher: document.getElementById('viewSwitcher'), pinButton: document.getElementById('pinButton'), utilityActions: document.getElementById('utilityActions'), settingsButton: document.getElementById('settingsButton'), settingsPanel: document.getElementById('settingsPanel'), languageInput: document.getElementById('languageInput'), currencyInput: document.getElementById('currencyInput'), currencyRateRow: document.getElementById('currencyRateRow'), currencyRateModeAuto: document.getElementById('currencyRateModeAuto'), currencyRateModeManual: document.getElementById('currencyRateModeManual'), currencyRateManualField: document.getElementById('currencyRateManualField'), currencyRateOverrideInput: document.getElementById('currencyRateOverrideInput'), currencyRateStatus: document.getElementById('currencyRateStatus'), hubUrlInput: document.getElementById('hubUrlInput'), secretInput: document.getElementById('secretInput'), deviceIdInput: document.getElementById('deviceIdInput'), limitProviderCheckboxes: document.getElementById('limitProviderCheckboxes'), limitsRefreshInput: document.getElementById('limitsRefreshInput'), showLimitSourceInput: document.getElementById('showLimitSourceInput'), maskLimitAccountEmailsInput: document.getElementById('maskLimitAccountEmailsInput'), showLimitUsedInput: document.getElementById('showLimitUsedInput'), liveDotInput: document.getElementById('liveDotInput'), toolIconsInput: document.getElementById('toolIconsInput'), floatingBubbleInput: document.getElementById('floatingBubbleInput'), floatingBubbleTriggerInput: document.getElementById('floatingBubbleTriggerInput'), floatingBubbleTriggerRow: document.getElementById('floatingBubbleTriggerRow'), floatingBubbleContentInput: document.getElementById('floatingBubbleContentInput'), floatingBubbleContentRow: document.getElementById('floatingBubbleContentRow'), floatingBubbleComposer: document.getElementById('floatingBubbleComposer'), floatingBubbleContent: document.getElementById('floatingBubbleContent'), windowBehaviorInput: document.getElementById('windowBehaviorInput'), showTrayIconInput: document.getElementById('showTrayIconInput'), showTrayProviderBadgeInput: document.getElementById('showTrayProviderBadgeInput'), trayModeInput: document.getElementById('trayModeInput'), trayContentInput: document.getElementById('trayContentInput'), trayComposer: document.getElementById('trayComposer'), windowToggleShortcutValue: document.getElementById('windowToggleShortcutValue'), windowToggleShortcutClearButton: document.getElementById('windowToggleShortcutClearButton'), windowToggleShortcutNote: document.getElementById('windowToggleShortcutNote'), glassInput: document.getElementById('glassInput'), blurInput: document.getElementById('blurInput'), zoomInput: document.getElementById('zoomInput'), resetGlassButton: document.getElementById('resetGlassButton'), resetDepthButton: document.getElementById('resetDepthButton'), resetZoomButton: document.getElementById('resetZoomButton'), saveSettingsButton: document.getElementById('saveSettingsButton'), clientDisplayList: document.getElementById('clientDisplayList'), wslScanInput: document.getElementById('wslScanInput'), wslScanRow: document.getElementById('wslScanRow'), wslPanel: document.getElementById('wslPanel'), openConfigButton: document.getElementById('openConfigButton'), exportAutoInput: document.getElementById('exportAutoInput'), exportAutoDetails: document.getElementById('exportAutoDetails'), exportAutoStatus: document.getElementById('exportAutoStatus'), exportDirLabel: document.getElementById('exportDirLabel'), exportPickDirButton: document.getElementById('exportPickDirButton'), exportIntervalInput: document.getElementById('exportIntervalInput'), exportNowButton: document.getElementById('exportNowButton'), refreshButton: document.getElementById('refreshButton'), minButton: document.getElementById('minButton'), closeButton: document.getElementById('closeButton'), floatingBubbleTab: document.getElementById('floatingBubbleTab')
+  shell: document.querySelector('.shell'), status: document.getElementById('status'), liveDot: document.getElementById('liveDot'), totalTokens: document.getElementById('totalTokens'), totalTokensCompact: document.getElementById('totalTokensCompact'), cost: document.getElementById('cost'), pricingCoverage: document.getElementById('pricingCoverage'), homePanel: document.getElementById('homePanel'), breakdown: document.getElementById('breakdown'), serviceStatusPanel: document.getElementById('serviceStatusPanel'), limitsPanel: document.getElementById('limitsPanel'), trendsPanel: document.getElementById('trendsPanel'), viewSwitcher: document.getElementById('viewSwitcher'), pinButton: document.getElementById('pinButton'), utilityActions: document.getElementById('utilityActions'), settingsButton: document.getElementById('settingsButton'), settingsPanel: document.getElementById('settingsPanel'), languageInput: document.getElementById('languageInput'), currencyInput: document.getElementById('currencyInput'), currencyRateRow: document.getElementById('currencyRateRow'), currencyRateModeAuto: document.getElementById('currencyRateModeAuto'), currencyRateModeManual: document.getElementById('currencyRateModeManual'), currencyRateManualField: document.getElementById('currencyRateManualField'), currencyRateOverrideInput: document.getElementById('currencyRateOverrideInput'), currencyRateStatus: document.getElementById('currencyRateStatus'), hubUrlInput: document.getElementById('hubUrlInput'), secretInput: document.getElementById('secretInput'), deviceIdInput: document.getElementById('deviceIdInput'), limitProviderCheckboxes: document.getElementById('limitProviderCheckboxes'), limitsRefreshInput: document.getElementById('limitsRefreshInput'), showLimitSourceInput: document.getElementById('showLimitSourceInput'), maskLimitAccountEmailsInput: document.getElementById('maskLimitAccountEmailsInput'), showLimitUsedInput: document.getElementById('showLimitUsedInput'), liveDotInput: document.getElementById('liveDotInput'), toolIconsInput: document.getElementById('toolIconsInput'), floatingBubbleInput: document.getElementById('floatingBubbleInput'), floatingBubbleTriggerInput: document.getElementById('floatingBubbleTriggerInput'), floatingBubbleTriggerRow: document.getElementById('floatingBubbleTriggerRow'), floatingBubbleContentInput: document.getElementById('floatingBubbleContentInput'), floatingBubbleContentRow: document.getElementById('floatingBubbleContentRow'), floatingBubbleComposer: document.getElementById('floatingBubbleComposer'), floatingBubbleContent: document.getElementById('floatingBubbleContent'), windowBehaviorInput: document.getElementById('windowBehaviorInput'), showTrayIconInput: document.getElementById('showTrayIconInput'), showTrayProviderBadgeInput: document.getElementById('showTrayProviderBadgeInput'), trayModeInput: document.getElementById('trayModeInput'), trayContentInput: document.getElementById('trayContentInput'), trayComposer: document.getElementById('trayComposer'), windowToggleShortcutValue: document.getElementById('windowToggleShortcutValue'), windowToggleShortcutClearButton: document.getElementById('windowToggleShortcutClearButton'), windowToggleShortcutNote: document.getElementById('windowToggleShortcutNote'), glassInput: document.getElementById('glassInput'), blurInput: document.getElementById('blurInput'), zoomInput: document.getElementById('zoomInput'), resetGlassButton: document.getElementById('resetGlassButton'), resetDepthButton: document.getElementById('resetDepthButton'), resetZoomButton: document.getElementById('resetZoomButton'), saveSettingsButton: document.getElementById('saveSettingsButton'), clientDisplayList: document.getElementById('clientDisplayList'), wslScanInput: document.getElementById('wslScanInput'), wslScanRow: document.getElementById('wslScanRow'), wslPanel: document.getElementById('wslPanel'), openConfigButton: document.getElementById('openConfigButton'), exportAutoInput: document.getElementById('exportAutoInput'), exportAutoDetails: document.getElementById('exportAutoDetails'), exportAutoStatus: document.getElementById('exportAutoStatus'), exportDirLabel: document.getElementById('exportDirLabel'), exportPickDirButton: document.getElementById('exportPickDirButton'), exportIntervalInput: document.getElementById('exportIntervalInput'), exportNowButton: document.getElementById('exportNowButton'), refreshButton: document.getElementById('refreshButton'), minButton: document.getElementById('minButton'), closeButton: document.getElementById('closeButton'), floatingBubbleTab: document.getElementById('floatingBubbleTab')
 };
 Object.assign(els, {
   viewBackRow: document.getElementById('viewBackRow'),
@@ -1612,7 +1613,7 @@ function renderDeviceAccordion(accordionInner, deviceDetail) {
   accordionInner.dataset.signature = signature;
 }
 
-function updateRow(row, { name, subtitle, detail, value, cost, max, color, barBackground, accordionRows, deviceDetail, stale, platform, local, client, kind, cacheReadTokens, outputTokens }) {
+function updateRow(row, { name, subtitle, detail, value, cost, costUnknown, pricingInfo, max, color, barBackground, accordionRows, deviceDetail, stale, platform, local, client, kind, cacheReadTokens, outputTokens }) {
   const width = rowWidth(value, max);
   const isExpanded = row.classList.contains('expanded');
   row.className = `row${kind ? ` ${kind}-row` : ''}${stale ? ' stale' : ''}${local ? ' local' : ''}`;
@@ -1647,7 +1648,9 @@ function updateRow(row, { name, subtitle, detail, value, cost, max, color, barBa
   valueEl.textContent = formatNumber(value);
   valueEl.dataset.motionValue = String(Number(value) || 0);
   row.dataset.motionValue = String(Number(value) || 0);
-  row.querySelector('.row-cost').textContent = formatCost(cost || 0);
+  const costEl = row.querySelector('.row-cost');
+  costEl.textContent = costUnknown ? t('pricing.unknown') : formatCost(cost || 0);
+  costEl.classList.toggle('unknown', Boolean(costUnknown));
   const fill = row.querySelector('.bar-fill');
   fill.style.background = barBackground || color;
   applyBarScale(fill, width / 100);
@@ -1713,6 +1716,22 @@ function updateRow(row, { name, subtitle, detail, value, cost, max, color, barBa
         </div>
       </div>
     `;
+    // PRC-003: surface where this model's price comes from (or that there is
+    // no trustworthy price) in the same expansion as the token breakdown.
+    if (pricingInfo) {
+      const pricingRow = document.createElement('div');
+      pricingRow.className = 'accordion-row';
+      const pricingLabel = document.createElement('div');
+      pricingLabel.className = 'accordion-label';
+      pricingLabel.textContent = t('dashboard.tooltip.pricing');
+      const pricingValue = document.createElement('div');
+      pricingValue.className = 'accordion-value';
+      pricingValue.textContent = pricingInfo.status === 'priced'
+        ? [pricingInfo.source, pricingInfo.matchedKey].filter(Boolean).join(' · ') || t('pricing.priced')
+        : t('pricing.unknown');
+      pricingRow.append(pricingLabel, pricingValue);
+      accordionInner.querySelector('.accordion-content')?.append(pricingRow);
+    }
     row.classList.add('has-accordion');
     if (isExpanded) row.classList.add('expanded');
   } else {
@@ -1875,18 +1894,94 @@ function toolRowsForPeriod(period) {
   return deviceRowsForPeriod();
 }
 
+// Pricing audit (PRC-003/PRC-004): resolves — once per model-set change or TTL
+// — whether tokscale can price each model in the current stats. Lookup failures
+// and zero-priced catalog records both audit as "unknown" so the UI never shows
+// a misleading $0.00. Fire-and-forget from refreshStats; when it lands it
+// re-renders so costs flip to "Price unknown" and the coverage line appears.
+const pricingAudit = pricingAuditApi.createPricingAudit({
+  lookup: async (modelId) => {
+    const res = await window.tokenMonitor.lookupModelPricing(modelId);
+    return res?.ok ? res.result : null;
+  }
+});
+
+function pricingAuditSignatureFor(stats) {
+  const models = new Set();
+  for (const period of Object.values(stats?.periods || {})) {
+    for (const [model, tokens] of Object.entries(period?.models || {})) {
+      if (Number(tokens) > 0) models.add(pricingAuditApi.normalizeModelId(model));
+    }
+  }
+  return [...models].sort().join(',');
+}
+
+async function ensurePricingAudit() {
+  const signature = pricingAuditSignatureFor(state.stats);
+  if (!signature || state.pricingAuditBusy) return;
+  if (signature === state.pricingAuditSignature && state.pricingAuditByModel) return;
+  state.pricingAuditBusy = true;
+  try {
+    const byModel = await pricingAudit.resolveModels(state.stats?.periods || {});
+    // A newer refresh may have changed the model set while lookups ran.
+    if (signature !== pricingAuditSignatureFor(state.stats)) return;
+    state.pricingAuditByModel = byModel;
+    state.pricingAuditSignature = signature;
+    render();
+  } catch (_) {
+    // Pricing audit is supplementary: never break the live refresh over it.
+  } finally {
+    state.pricingAuditBusy = false;
+  }
+}
+
+function invalidatePricingAudit() {
+  pricingAudit.invalidate();
+  state.pricingAuditByModel = null;
+  state.pricingAuditSignature = '';
+}
+
+function pricingInfoForModel(model) {
+  return state.pricingAuditByModel?.[pricingAuditApi.normalizeModelId(model)] || null;
+}
+
+function renderPricingCoverage(period) {
+  const el = els.pricingCoverage;
+  if (!el) return;
+  const summary = state.pricingAuditByModel
+    ? pricingAuditApi.summarizePeriod(period, state.pricingAuditByModel)
+    : null;
+  const total = summary ? summary.pricedTokens + summary.unpricedTokens : 0;
+  if (total <= 0 || summary.unpricedTokens <= 0) {
+    el.classList.add('hidden');
+    return;
+  }
+  el.textContent = t('pricing.coverage', { pct: Math.round((summary.pricedTokens / total) * 100) });
+  el.title = summary.unpricedModels.join(', ');
+  el.classList.remove('hidden');
+}
+
 function modelRowsForPeriod(period) {
-  const modelRows = Object.entries(period?.models || {}).filter(([, value]) => Number(value) > 0).map(([model, value]) => ({
-    key: model,
-    name: model,
-    value: Number(value),
-    cost: Number(period?.modelCosts?.[model] || 0),
-    color: modelColor(model),
-    stale: false,
-    cacheReadTokens: Number(period?.modelCacheReads?.[model] || 0),
-    cacheWriteTokens: Number(period?.modelCacheWrites?.[model] || 0),
-    outputTokens: Number(period?.modelOutputs?.[model] || 0)
-  }));
+  const modelRows = Object.entries(period?.models || {}).filter(([, value]) => Number(value) > 0).map(([model, value]) => {
+    const cost = Number(period?.modelCosts?.[model] || 0);
+    const pricingInfo = pricingInfoForModel(model);
+    return {
+      key: model,
+      name: model,
+      value: Number(value),
+      cost,
+      // PRC-004: an unpriced model must read "Price unknown", never $0.00 — but
+      // only when there is no computed cost to show (a provider-reported or
+      // custom-priced cost still displays even without a catalog match).
+      costUnknown: Boolean(pricingInfo && pricingInfo.status !== 'priced' && cost === 0),
+      pricingInfo,
+      color: modelColor(model),
+      stale: false,
+      cacheReadTokens: Number(period?.modelCacheReads?.[model] || 0),
+      cacheWriteTokens: Number(period?.modelCacheWrites?.[model] || 0),
+      outputTokens: Number(period?.modelOutputs?.[model] || 0)
+    };
+  });
   if (modelRows.length > 0) return modelRows.sort((a, b) => b.value - a.value);
   if (Number(period?.totalTokens || 0) === 0) return [];
   return toolRowsForPeriod(period);
@@ -5276,6 +5371,7 @@ function render() {
   }
   state.currentTotal = nextTotal;
   els.cost.textContent = formatCost(period.costUsd || 0);
+  renderPricingCoverage(period);
   if (!state.refreshBusy && !state.refreshFeedbackTimer) setRefreshButtonState('idle');
   els.shell.classList.toggle('session-mode', state.breakdown === 'session');
   els.shell.classList.toggle('home-mode', state.breakdown === 'home');
@@ -5472,6 +5568,7 @@ async function refreshStats(options = {}) {
   }
   try {
     state.stats = overlayAllTimeSessions(await window.tokenMonitor.getStats(options));
+    ensurePricingAudit();
     if (options.forceHistory === true) {
       // A manual history rescan is an explicit retry boundary. Let Home request the
       // corresponding full payload even when its revision is unchanged, and restore
@@ -11203,6 +11300,8 @@ function renderCustomPricing() {
     remove.addEventListener('click', async () => {
       const next = customPricingFormApi.removeOverride(state.settings?.customModelPricing || [], ov.modelId);
       await saveSettings({ customModelPricing: next });
+      invalidatePricingAudit();
+      ensurePricingAudit();
       renderCustomPricing();
     });
     row.append(main, remove);
@@ -11338,6 +11437,8 @@ function setupCustomPricingUI() {
     if (!hasInput && !hasOutput) { showError(t('settings.customPricing.errorNoPrice')); return; }
     const next = customPricingFormApi.upsertOverride(state.settings?.customModelPricing || [], entry);
     await saveSettings({ customModelPricing: next });
+    invalidatePricingAudit();
+    ensurePricingAudit();
     closeForm();
     renderCustomPricing();
   });
