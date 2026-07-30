@@ -11,11 +11,9 @@
 </p>
 
 <p align="center">
-    <a href="https://github.com/Javis603/token-monitor/releases"><img src="https://img.shields.io/github/v/release/Javis603/token-monitor?include_prereleases&style=flat-square&label=release&color=22c55e" alt="最新发布" /></a>
-    <a href="https://github.com/Javis603/token-monitor/releases"><img src="https://img.shields.io/github/downloads/Javis603/token-monitor/total?style=flat-square&color=22c55e" alt="总下载量" /></a>
-    <img src="https://img.shields.io/badge/Windows-10%2B-0078D4?style=flat-square" alt="Windows 10 或更新" />
+    <a href="https://github.com/Ezero23/potluck-monitor/releases"><img src="https://img.shields.io/github/v/release/Ezero23/potluck-monitor?include_prereleases&style=flat-square&label=release&color=22c55e" alt="最新发布" /></a>
+    <a href="https://github.com/Ezero23/potluck-monitor/releases"><img src="https://img.shields.io/github/downloads/Ezero23/potluck-monitor/total?style=flat-square&color=22c55e" alt="总下载量" /></a>
     <img src="https://img.shields.io/badge/macOS-14%2B-0A84FF?style=flat-square&logo=apple&logoColor=white" alt="macOS 14 或更新" />
-    <img src="https://img.shields.io/badge/Linux-x64-64748b?style=flat-square&logo=linux&logoColor=white" alt="Linux x64" />
     <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-A855F7?style=flat-square" alt="许可证：MIT" /></a>
 </p>
 
@@ -98,7 +96,6 @@ Custom 会从一个 GET 余额端点映射数值 JSON 字段；仅兼容 OpenAI 
 - **单个 session 明细**：点进 Claude Code、Codex 或 OpenCode 的 session，可看每条提问的 Token 消耗，并展开查看每次回复的 Token 拆分与用到的工具（打开时才实时读取本机 transcript 或数据库，绝不同步）
 - **缓存命中统计**：点击任何工具或模型，展开查看输入 Token（缓存命中与未命中）、输出 Token 的详细分类及命中率百分比
 - **成本与币别**：Token 数量旁附带成本；可用 USD、TWD、HKD 或 CNY 显示，汇率每日自动更新，也可在设置中手动覆写
-- **WSL 用量（Windows）**：运行中 WSL 发行版里的文件型用量会自动识别，约每 5 分钟并入总量；OpenCode、Hermes 等 SQLite 来源可能需要按照[指南](docs/wsl-sqlite-setup.zh-CN.md)在 WSL 内运行 headless agent
 
 ### 额度、趋势与导出
 
@@ -120,7 +117,7 @@ Custom 会从一个 GET 余额端点映射数值 JSON 字段；仅兼容 OpenAI 
 ### 界面与呈现
 
 - **分组视图**：可按工具、设备、模型、session、项目或账户额度分组查看用量
-- **菜单栏（macOS）与系统托盘（Windows）弹出窗口**：图标旁可显示成本、token 数，或最接近用完的提供方剩余额度百分比
+- **菜单栏弹出窗口**：菜单栏图标旁可显示成本、token 数，或最接近用完的提供方剩余额度百分比
 - **悬浮小窗模式**：可将组件收成可拖动的紧凑小窗，支持点击或悬停预览展开，并可显示托盘同款内容
 - **菜单栏排版自定义**：菜单栏与悬浮小窗的显示内容可以直接挑内置版式，也可以选“自定义…”自己排——加入 AI 工具图标、额度条、百分比、重置时间、成本或自定义文字等项目，拖动排序并实时预览，每个项目还能各自指定 AI 工具、账号、额度周期与字体
 - **外观控制**：界面主题切换（含浅色模式）、各工具厂商色、玻璃透明度、模糊度、完全透明窗口
@@ -129,12 +126,9 @@ Custom 会从一个 GET 余额端点映射数值 JSON 字段；仅兼容 OpenAI 
 
 ## 安装
 
-从 [GitHub Releases](https://github.com/Javis603/token-monitor/releases) 下载。
+从 [GitHub Releases](https://github.com/Ezero23/potluck-monitor/releases) 下载。
 
-- **macOS（Apple Silicon）** — `.dmg`，已签名并 notarize
-- **macOS（Intel）** — x64 `.dmg`，已签名并 notarize
-- **Windows 10/11** — 安装版和便携版 `.exe`，均[已签名](docs/code-signing.md)
-- **Linux x64** — `.AppImage`
+- **macOS（Apple Silicon）** — `.dmg`（或 `.zip`），未签名：首次启动请右键点击 App 选择"打开"，或执行 `xattr -dr com.apple.quarantine "/Applications/Potluck Monitor.app"`
 
 打包版会自动检查 GitHub Releases。有新版本时，界面会显示更新提示；受支持的平台也可在 设置 → 常规 中安装更新。
 
@@ -163,7 +157,7 @@ npm run hub
 
 #### 方案 C——Cloudflare Worker hub（跨网络，包含 iPhone）
 
-[![部署到 Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/Javis603/token-monitor/tree/main/worker)
+[![部署到 Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/Ezero23/potluck-monitor/tree/main/worker)
 
 一键部署——Cloudflare 会在过程中提示你输入 `TOKEN_MONITOR_SECRET`。或手动部署:
 
@@ -184,23 +178,18 @@ App 状态保存在系统的用户数据目录——卸载时一并删除该目�
 | 平台 | 路径 |
 |------|------|
 | macOS | `~/Library/Application Support/Potluck Monitor/` |
-| Windows | `%APPDATA%/Potluck Monitor/` |
-| Linux | `~/.config/Potluck Monitor/` |
 
 ## 从源码构建
 
-如需自己从源码打包安装包，请在**对应的**操作系统上使用 Node.js 22.13+（electron-builder 无法在 Windows 上交叉构建 macOS 的 `.dmg`，反之亦然）。
+如需自己从源码打包安装包，请在 macOS 上使用 Node.js 22.13+：
 
 ```bash
 npm install
 npm run dist:mac     # macOS arm64 .dmg → dist/
-npm run dist:mac:x64 # macOS Intel x64 .dmg → dist/
-npm run dist:win     # Windows x64 安装包 .exe → dist/
-npm run dist:linux   # Linux x64 AppImage → dist/
 npm run pack         # 未打包的 app 目录（无安装包），方便本机快速测试
 ```
 
-产物会放在 `dist/`。Windows 和 Linux 请在对应系统上使用上面的 `dist:*` 脚本。如果要打包 macOS 发布版，需要本机有 Developer ID Application 签名身份；本地开发或未列出的平台请用 `npm start` 运行。
+产物会放在 `dist/`。本地开发请用 `npm start` 运行。
 
 ## 工作原理
 
@@ -254,11 +243,11 @@ Potluck Monitor 在本地处理使用日志，不会向项目维护者发送分�
 
 ## Star 历史
 
-<a href="https://www.star-history.com/?repos=Javis603%2Ftoken-monitor&type=date&legend=top-left">
+<a href="https://www.star-history.com/?repos=Ezero23%2Fpotluck-monitor&type=date&legend=top-left">
  <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=Javis603/token-monitor&type=date&theme=dark&legend=top-left&sealed_token=VEcaPQSNlH8coYjuILJy7eT6t-pGJrGDEjOAjVwP8WGwNBOeNXoLTcz-KVBaZ2Y8eSqG1tLEpWGF3-5eMvVhW5G8n1ckdYI_uMZ6UCBE7b_eANd6we__7g7yc4ShXemuWfi-8SRcxgJNLK12VZGgBIccY1ceI3T3xm7jBM1TJjTVQFWJ0MmX2e-7QBp9" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=Javis603/token-monitor&type=date&legend=top-left&sealed_token=VEcaPQSNlH8coYjuILJy7eT6t-pGJrGDEjOAjVwP8WGwNBOeNXoLTcz-KVBaZ2Y8eSqG1tLEpWGF3-5eMvVhW5G8n1ckdYI_uMZ6UCBE7b_eANd6we__7g7yc4ShXemuWfi-8SRcxgJNLK12VZGgBIccY1ceI3T3xm7jBM1TJjTVQFWJ0MmX2e-7QBp9" />
-   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=Javis603/token-monitor&type=date&legend=top-left&sealed_token=VEcaPQSNlH8coYjuILJy7eT6t-pGJrGDEjOAjVwP8WGwNBOeNXoLTcz-KVBaZ2Y8eSqG1tLEpWGF3-5eMvVhW5G8n1ckdYI_uMZ6UCBE7b_eANd6we__7g7yc4ShXemuWfi-8SRcxgJNLK12VZGgBIccY1ceI3T3xm7jBM1TJjTVQFWJ0MmX2e-7QBp9" />
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=Ezero23/potluck-monitor&type=date&theme=dark&legend=top-left" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=Ezero23/potluck-monitor&type=date&legend=top-left" />
+   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=Ezero23/potluck-monitor&type=date&legend=top-left" />
  </picture>
 </a>
 
@@ -270,8 +259,7 @@ Potluck Monitor 在本地处理使用日志，不会向项目维护者发送分�
 
 - [tokscale](https://github.com/junhoyeo/tokscale) 提供日志解析与 Token 计算。
 - [CodexBar](https://github.com/steipete/CodexBar) 提供 AI 工具额度的研究参考。
-- **[代码签名政策](docs/code-signing.md)：** 免费代码签名由 [SignPath.io](https://signpath.io/) 提供，证书由 [SignPath Foundation](https://signpath.org/) 提供。
 
 ## 许可证
 
-[MIT](LICENSE) © [@Javis](https://github.com/Javis603)
+[MIT](LICENSE) © [Ezero23](https://github.com/Ezero23)
