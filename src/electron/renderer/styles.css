@@ -2083,8 +2083,7 @@ html.is-windows .settings-panel select option {
   white-space: nowrap;
 }
 .total-compact.hidden { display: none; }
-.cost { display: inline-block; margin-top: 6px; color: var(--muted); font-size: 12px; }
-.pricing-coverage { display: inline-block; margin-left: 6px; color: var(--muted); font-size: 10px; opacity: 0.75; }
+.cost { margin-top: 6px; color: var(--muted); font-size: 12px; }
 .view-back-row {
   position: relative;
   z-index: 1;
