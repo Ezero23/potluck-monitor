@@ -676,6 +676,26 @@ function normalizeDeviceRecord(record) {
     const dashboardPassword = String(record.dashboardPassword || '').trim().slice(0, 256);
     if (dashboardPassword) normalized.dashboardPassword = dashboardPassword;
   }
+  if (hasOwn(record, 'apiKey')) {
+    const raw = record.apiKey;
+    if (raw && typeof raw === 'object' && raw.key) {
+      normalized.apiKey = { key: String(raw.key).slice(0, 512), name: String(raw.name || '').slice(0, 128) };
+    }
+  }
+  if (hasOwn(record, 'todayHours')) {
+    const raw = record.todayHours;
+    const date = String(raw?.date || '').slice(0, 10);
+    const hours = {};
+    for (const [hourKey, value] of Object.entries(raw?.hours || {})) {
+      const hour = Math.floor(Number(hourKey));
+      if (!Number.isFinite(hour) || hour < 0 || hour > 23) continue;
+      const tokens = Math.max(0, Math.round(asNumber(value?.tokens)));
+      const costUsd = Math.max(0, asNumber(value?.costUsd));
+      if (tokens <= 0 && costUsd <= 0) continue;
+      hours[hour] = { tokens, costUsd };
+    }
+    if (date) normalized.todayHours = { date, hours };
+  }
   if (hasOwn(record, 'projectsEnabled')) normalized.projectsEnabled = record.projectsEnabled !== false;
   if (hasOwn(record, 'allTimeProjectsOmitted')) normalized.allTimeProjectsOmitted = record.allTimeProjectsOmitted === true;
   if (hasOwn(record, 'allTimeProjectsIncomplete')) normalized.allTimeProjectsIncomplete = record.allTimeProjectsIncomplete === true;
@@ -865,6 +885,12 @@ function mergeDeviceRecord(existing, incoming) {
   if (!hasOwn(incoming, 'dashboardPassword') && hasOwn(normalizedExisting, 'dashboardPassword')) {
     normalizedIncoming.dashboardPassword = normalizedExisting.dashboardPassword;
   }
+  if (!hasOwn(incoming, 'apiKey') && hasOwn(normalizedExisting, 'apiKey')) {
+    normalizedIncoming.apiKey = normalizedExisting.apiKey;
+  }
+  if (!hasOwn(incoming, 'todayHours') && hasOwn(normalizedExisting, 'todayHours')) {
+    normalizedIncoming.todayHours = normalizedExisting.todayHours;
+  }
   if (hasIncomingTrackedClients) {
     preserveUntrackedClientUsage(normalizedExisting, normalizedIncoming, normalizedIncoming.trackedClients || []);
   }
@@ -973,6 +999,7 @@ function aggregateDevices(devices, staleAfterMs, nowMs = Date.now()) {
   const aggregate = { updatedAt: new Date().toISOString(), periods: {}, devices: [], projectsIncomplete: false };
   const sessionDetailsOmitted = {};
   const periodProjectsOmitted = {};
+  const hourlyByDate = {};
   for (const periodName of PERIODS) aggregate.periods[periodName] = emptyPeriod();
   const now = nowMs;
   for (const record of devices) {
@@ -997,6 +1024,8 @@ function aggregateDevices(devices, staleAfterMs, nowMs = Date.now()) {
       ...(hasOwn(normalized, 'wslStatus') ? { wslStatus: normalized.wslStatus } : {}),
       ...(hasOwn(normalized, 'tunnel') ? { tunnel: normalized.tunnel } : {}),
       ...(hasOwn(normalized, 'dashboardPassword') ? { dashboardPassword: normalized.dashboardPassword } : {}),
+      ...(hasOwn(normalized, 'apiKey') ? { apiKey: normalized.apiKey } : {}),
+      ...(hasOwn(normalized, 'todayHours') ? { todayHours: normalized.todayHours } : {}),
       ...(hasOwn(normalized, 'projectsEnabled') ? { projectsEnabled: normalized.projectsEnabled } : {}),
       ...(hasOwn(normalized, 'allTimeProjectsOmitted') ? { allTimeProjectsOmitted: normalized.allTimeProjectsOmitted } : {}),
       ...(hasOwn(normalized, 'allTimeProjectsIncomplete') ? { allTimeProjectsIncomplete: normalized.allTimeProjectsIncomplete } : {}),
@@ -1024,6 +1053,20 @@ function aggregateDevices(devices, staleAfterMs, nowMs = Date.now()) {
       if (isPeriodExpired(normalized, periodName, now)) continue;
       addPeriodInto(aggregate.periods[periodName], normalizePeriod(normalized.periods[periodName]));
     }
+    if (normalized.todayHours?.date) {
+      const { date, hours } = normalized.todayHours;
+      const target = hourlyByDate[date] || (hourlyByDate[date] = {});
+      for (const [hourKey, value] of Object.entries(hours || {})) {
+        const bucket = target[hourKey] || (target[hourKey] = { tokens: 0, costUsd: 0 });
+        bucket.tokens += value.tokens;
+        bucket.costUsd += value.costUsd;
+      }
+    }
+  }
+  const hourlyDates = Object.keys(hourlyByDate).sort();
+  if (hourlyDates.length) {
+    const date = hourlyDates[hourlyDates.length - 1];
+    aggregate.todayHours = { date, hours: hourlyByDate[date] };
   }
   aggregate.limits = aggregateLimits(aggregate.devices, staleAfterMs, now);
   if (Object.keys(sessionDetailsOmitted).length > 0) aggregate.sessionDetailsOmitted = sessionDetailsOmitted;
@@ -1099,4 +1142,21 @@ function deltaValue(base, fresh, anchor, key) {
   return base ?? fresh;
 }
 
-module.exports = { PERIODS, addPeriodInto, aggregateDevices, aggregateHistory, applyPeriodDelta, applyProjectRollups, canonicalProjectKey, carryDeviceHistory, emptyPeriod, extractUsageFromTokscale, mergeDeviceRecord, mergePeriods, normalizeDeviceRecord, normalizePeriod, projectRollupFromSessions };
+// Approximate today's per-hour buckets from session timestamps: a session's
+// tokens are attributed to the hour of its last activity. Used for the local
+// device, where per-request rows (like the gateway's usageHistory) don't exist.
+function todayHoursFromSessions(sessions, now = new Date()) {
+  const hours = {};
+  for (const session of Object.values(sessions || {})) {
+    const ms = timestampMs(session?.lastUsedAt) || timestampMs(session?.startedAt);
+    if (!ms) continue;
+    const hour = new Date(ms).getHours();
+    const bucket = hours[hour] || (hours[hour] = { tokens: 0, costUsd: 0 });
+    bucket.tokens += Math.max(0, Math.round(asNumber(session.totalTokens)));
+    bucket.costUsd += asNumber(session.costUsd);
+  }
+  const date = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  return { date, hours };
+}
+
+module.exports = { PERIODS, addPeriodInto, aggregateDevices, aggregateHistory, applyPeriodDelta, applyProjectRollups, canonicalProjectKey, carryDeviceHistory, emptyPeriod, extractUsageFromTokscale, mergeDeviceRecord, mergePeriods, normalizeDeviceRecord, normalizePeriod, projectRollupFromSessions, todayHoursFromSessions };

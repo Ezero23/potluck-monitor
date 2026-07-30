@@ -405,7 +405,7 @@ test('parseLatestReleasePayload carries the matching macOS zip asset', () => {
       { name: 'potluck-monitor-0.30.0-arm64.dmg', browser_download_url: 'https://example.com/app.dmg', size: 10 },
       { name: 'potluck-monitor-0.30.0-arm64.zip', browser_download_url: 'https://example.com/app.zip', size: 1234 }
     ]
-  });
+  }, { arch: 'arm64' });
   assert.deepEqual(result.zipAsset, {
     name: 'potluck-monitor-0.30.0-arm64.zip',
     url: 'https://example.com/app.zip',

@@ -149,7 +149,7 @@ function selectMacZipAsset(assets, arch = process.arch) {
   return null;
 }
 
-function parseLatestReleasePayload(payload) {
+function parseLatestReleasePayload(payload, { arch = process.arch } = {}) {
   if (!payload || typeof payload !== 'object') return null;
   const tag = typeof payload.tag_name === 'string' ? payload.tag_name : '';
   const version = parseTag(tag);
@@ -157,7 +157,7 @@ function parseLatestReleasePayload(payload) {
   const htmlUrl = typeof payload.html_url === 'string' ? payload.html_url : '';
   if (!htmlUrl.startsWith('https://')) return null;
   const releaseNotes = extractReleaseNotes(payload.body);
-  const zipAsset = selectMacZipAsset(payload.assets);
+  const zipAsset = selectMacZipAsset(payload.assets, arch);
   return {
     version,
     tag,

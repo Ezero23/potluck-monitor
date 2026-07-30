@@ -45,7 +45,9 @@ function baseDeps(overrides = {}) {
   return {
     fs: mockFs(),
     os: mockOs(),
-    path: require('node:path'),
+    // posix on purpose: the fs mock keys are POSIX paths, and node:path on
+    // Windows would build backslash paths that never match them.
+    path: require('node:path').posix,
     childProcess: { spawn() { throw new Error('spawn not mocked'); }, execFileSync() { throw new Error('no which'); } },
     fetch: mockFetch(),
     execPath: '/fake/electron',
