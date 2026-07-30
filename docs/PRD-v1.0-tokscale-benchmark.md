@@ -38,13 +38,15 @@ Potluck Monitor 的下一阶段应建立在 tokScale 之上，而不是与它竞
 
 1. **P0：统一分析查询层**  
    让所有图表、列表、导出和 API 使用同一个时间范围、筛选、分组和钻取契约。
-2. **P0：额度与成本行动中心**  
+2. **P0：价格正确性与可审计性**  
+   使用 LiteLLM 实时价格目录，完整处理 cache 折扣和长上下文分层价格，并明确区分未知、免费、估算、自定义和 provider 实报成本。
+3. **P0：额度与成本行动中心**  
    将额度、余额、成本和重置时间转化为风险、预测和可执行提醒。
-3. **P1：工作归因与复盘**  
+4. **P1：工作归因与复盘**  
    在默认不上传提示词的前提下，把 session 聚合成项目、任务和工作类型。
-4. **P1：周报、月报与私密分享**  
+5. **P1：周报、月报与私密分享**  
    生成真正有用的 Wrapped/Review，而不是只做一张漂亮海报。
-5. **P2：可选公开身份与团队比较**  
+6. **P2：可选公开身份与团队比较**  
    只有在用户明确选择公开、隐私和反作弊机制成熟后，才试验 profile、group 和 leaderboard。
 
 ---
@@ -1043,7 +1045,161 @@ Home 最多显示 3 个高价值动作：
 - 无操作入口的泛化建议；
 - 用红色制造无依据紧迫感。
 
-### 10.4 Epic D — Work Attribution
+### 10.4 Epic D — Pricing Accuracy and Auditability
+
+#### PRC-001：实时价格目录 — P0
+
+Potluck Monitor 必须明确使用 tokScale 的价格服务，并将
+[LiteLLM `model_prices_and_context_window.json`](https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json)
+作为默认实时价格目录。
+
+要求：
+
+- 默认从 LiteLLM 获取最新模型价格；
+- 使用 tokScale 当前的一小时本地缓存策略，避免每次扫描都访问网络；
+- LiteLLM 不可用时，可以使用仍有明确时间戳的 stale cache；
+- 保留 tokScale 的 OpenRouter、models.dev 和受控内置价格 fallback；
+- 价格目录刷新失败不能阻塞 token 用量采集；
+- UI 和 diagnostics 必须显示价格目录的来源、获取时间、缓存年龄和刷新错误；
+- 不能把“实时价格”描述为 provider 账单；除非来源明确标记为 provider-reported，
+  它只是按公开目录计算的估算成本。
+
+#### PRC-002：完整 token bucket 与分层定价 — P0
+
+成本计算必须分别处理：
+
+- input；
+- output；
+- cache read；
+- cache creation/cache write；
+- reasoning（遵守上游模型的计费语义）；
+- 128k、200k、256k、272k 等上游声明的长上下文价格档位。
+
+验收：
+
+- 不允许把 cache read 按普通 input 价格计算；
+- 不允许忽略 cache write；
+- 不允许把 reasoning 重复计入 output；
+- 分层阈值必须按 tokScale 的原始 message/request 粒度计算，再聚合到 session、项目和周期；
+- 不得在已经聚合的日/月总 token 上重新应用单请求长上下文阈值；
+- provider 特有的“整次请求进入高价档”语义必须由 provider-aware 规则处理；
+- 每种 bucket 和阈值边界都有精确测试。
+
+#### PRC-003：价格来源和成本来源 — P0
+
+每条可计价 observation 至少记录：
+
+```json
+{
+  "costUsd": 0,
+  "costKind": "estimated",
+  "pricingSource": "LiteLLM",
+  "matchedPricingKey": "openai/gpt-5.6-sol",
+  "pricingFetchedAt": "",
+  "pricingEffectiveAt": "",
+  "pricingSchemaVersion": 1,
+  "pricingConfidence": "exact_model_match"
+}
+```
+
+`costKind` 至少区分：
+
+- `provider_reported`；
+- `estimated`；
+- `custom`；
+- `subscription_zero`；
+- `unavailable`。
+
+`pricingConfidence` 至少区分：
+
+- exact provider + model；
+- exact model；
+- normalized alias；
+- controlled fallback；
+- fuzzy match；
+- unavailable。
+
+Potluck 不得丢弃 tokScale 已知的价格来源，也不得只保留一个无法解释的 `cost` 数字。
+
+#### PRC-004：未知价格不等于免费 — P0
+
+当模型没有可用价格时：
+
+- `costUsd` 使用 `null`，不能默认为 `0`；
+- UI 显示“价格未知”，不能显示 `$0.00`；
+- period 总成本同时显示：
+  - 已计价成本；
+  - 未计价 token；
+  - 未计价模型数量；
+  - 成本覆盖率；
+- 未知价格不得参与“最便宜模型”“节省金额”或预算安全结论；
+- 只有明确的免费模型、订阅内零边际成本或 provider-reported zero，
+  才能使用 `subscription_zero`/零成本语义；
+- 导出必须保留 unknown 与 zero 的区别。
+
+#### PRC-005：自定义价格不得静默降级 — P0
+
+当前 Potluck 自定义价格 UI 只覆盖 input、output 和 cache read，而 tokScale
+自定义价格模型支持 cache creation/cache write 和多个长上下文档位。自定义条目优先于
+LiteLLM，因此不完整 override 可能把原本存在的 cache-write 或 tier price 变成缺失。
+
+新合同必须二选一并明确展示：
+
+1. **Complete override**：用户填写完整价格表，未填字段明确视为不计价；
+2. **Layered override**：只覆盖用户填写字段，其余字段继承指定的上游精确匹配条目。
+
+要求：
+
+- UI 支持 cache write；
+- UI 支持上游已有的 tier fields；
+- 保存前显示将覆盖或继承哪些字段；
+- 显示 override 的匹配范围和优先级；
+- 删除 override 后恢复上游价格；
+- 不允许 model alias 意外覆盖另一个模型；
+- 自定义价格变更触发重算时，必须标记新的 pricing revision。
+
+#### PRC-006：历史价格快照 — P0
+
+历史成本必须区分：
+
+- `cost_at_event`：发生时使用的价格或 provider-reported cost；
+- `cost_at_current_price`：按当前目录重算，仅作为可选比较；
+- `provider_reported_cost`：上游实际报告的金额。
+
+要求：
+
+- 默认历史报告使用 `cost_at_event`；
+- 价格目录更新不得悄悄改写过去的周报、月报或预算结果；
+- 用户主动选择“按当前价格重算”时必须显示说明；
+- report snapshot 保存价格来源、版本和有效时间；
+- provider-reported cost 优先于估算值，但两者可在 diagnostics 中对照；
+- 汇率变化与模型美元单价变化分别记录。
+
+#### PRC-007：价格审计与覆盖率 — P0
+
+提供 Price Audit：
+
+- 当前使用过的所有 model ID；
+- provider/client；
+- matched pricing key；
+- source；
+- base/tier/cache prices；
+- 最近刷新时间；
+- 本周期 token；
+- 本周期已计价成本；
+- 未知/零价/模糊匹配状态；
+- custom override；
+- 一键复制 diagnostics。
+
+质量门槛：
+
+- 发布前使用真实模型 ID fixture 审计；
+- fuzzy match 不能静默进入高置信成本；
+- 新出现且有 token 的未知模型进入数据健康中心；
+- 成本覆盖率低于用户阈值时，预算和异常结论显示低置信度；
+- LiteLLM、OpenRouter、models.dev 与 custom 的冲突选择有确定性测试。
+
+### 10.5 Epic E — Work Attribution
 
 #### WAT-001：确定性归因优先 — P1
 
@@ -1131,7 +1287,7 @@ External summarizer 必须：
 
 不得把 token/成本直接解释为生产力或质量。
 
-### 10.5 Epic E — Reviews and Shareables
+### 10.6 Epic F — Reviews and Shareables
 
 #### REV-001：每日摘要 — P1
 
@@ -1224,7 +1380,7 @@ Wrapped 是周/月报告的视觉摘要，不是独立数据管线。
 
 而不是直接建立全球榜单。
 
-### 10.6 Epic F — Desktop and Headless Surfaces
+### 10.7 Epic G — Desktop and Headless Surfaces
 
 #### DHS-001：小组件职责 — P0
 
@@ -1288,7 +1444,7 @@ potluck-monitor health --json
 
 所有操作仍需有可发现的可点击入口。
 
-### 10.7 Epic G — Optional Community
+### 10.8 Epic H — Optional Community
 
 #### COM-001：团队共享报告 — P2
 
@@ -1684,6 +1840,9 @@ P0 目标：
 
 - 当前所有 view → 数据来源映射；
 - tokScale 版本/输出 fixture 矩阵；
+- 当前使用模型的 Price Audit；
+- LiteLLM/cache/fallback/custom 价格来源矩阵；
+- unknown、zero、estimated 和 provider-reported 成本清单；
 - exact/derived/estimated 清单；
 - scope schema v1；
 - query result schema v1；
@@ -1696,6 +1855,8 @@ P0 目标：
 退出门槛：
 
 - 不存在未定义的关键指标；
+- 未知价格不会被当作免费；
+- 当前成本覆盖率和未计价 token 已量化；
 - today/month/all-time 的来源和边界明确；
 - hourly 近似被识别；
 - Node hub 与 Worker 兼容策略明确；
@@ -1709,6 +1870,9 @@ P0 目标：
 
 - scope normalization；
 - query service；
+- pricing provenance、costKind 和 coverage；
+- event-time pricing snapshot；
+- 完整 token bucket 与 tier pricing contract；
 - daily/custom range；
 - 首批组合 group-by；
 - provenance/freshness；
@@ -1720,6 +1884,7 @@ P0 目标：
 退出门槛：
 
 - 旧页面数字与新 query 在同 scope 下对账；
+- 标准价格、cache 折扣、长上下文档位和未知价格 fixture 对账；
 - Node/Worker/local 三模式一致；
 - 新查询不阻塞 renderer；
 - lint、完整 tests、打包 smoke 全通过；
@@ -1732,6 +1897,8 @@ P0 目标：
 交付：
 
 - 数据健康中心；
+- Price Audit；
+- unknown-price health event；
 - limit risk；
 - exhaustion forecast；
 - budgets；
@@ -1886,7 +2053,33 @@ P0 目标：
 - stale；
 - provider 部分成功。
 
-### 16.4 UX
+### 16.4 Pricing
+
+- LiteLLM fresh cache；
+- LiteLLM stale cache；
+- LiteLLM 无网络且无 cache；
+- OpenRouter fallback；
+- models.dev fallback；
+- exact provider + model；
+- exact model；
+- normalized alias；
+- fuzzy match；
+- unknown model；
+- explicit subscription zero；
+- provider-reported cost；
+- input/output/cache read/cache write/reasoning；
+- 128k/200k/256k/272k 阈值边界；
+- 单请求 tier 后再聚合；
+- custom complete override；
+- custom layered override；
+- override 删除恢复上游；
+- event-time cost；
+- current-price revaluation；
+- 汇率变化；
+- 成本覆盖率；
+- 未计价 token 导出。
+
+### 16.5 UX
 
 - 首次运行无数据；
 - 大数据；
@@ -1904,7 +2097,7 @@ P0 目标：
 - scope 深链；
 - 返回导航。
 
-### 16.5 隐私
+### 16.6 隐私
 
 - renderer 无 credential；
 - export 无 account email/hostname；
@@ -1919,7 +2112,7 @@ P0 目标：
 - malicious project/model label 转义；
 - SVG/Markdown/CSV injection。
 
-### 16.6 发布验证
+### 16.7 发布验证
 
 每个阶段至少：
 
