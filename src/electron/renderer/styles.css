@@ -800,7 +800,15 @@ span.settings-note.settings-item-desc {
 
 .settings-section-details {
   min-width: 0;
+  /* Cap the expanded body so every collapsed section header stays on screen:
+     panel max-height (100vh - 72px) minus nine 40px headers and 6px panel
+     padding. Content scrolls inside the details area instead of pushing the
+     remaining headers below the fold; only one section is expanded at a time. */
+  max-height: max(180px, calc(100vh - 438px));
+  overflow-y: auto;
+  scrollbar-width: none;
 }
+.settings-section-details::-webkit-scrollbar { width: 0; height: 0; }
 .settings-section-details-inner {
   display: grid;
   min-width: 0;

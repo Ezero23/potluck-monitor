@@ -389,6 +389,17 @@ test('expanded settings sections keep content full width', () => {
   assert.doesNotMatch(innerRule, /padding:\s*[^;]*\s24px\b/);
 });
 
+test('expanded settings section content scrolls inside a capped height', () => {
+  // Collapsed section headers must stay on screen when one section is open:
+  // the details area caps its height (viewport minus all nine headers) and
+  // scrolls internally rather than pushing the remaining headers down.
+  const css = readRendererFile('styles.css');
+  const detailsRule = cssRule(css, '.settings-section-details');
+  assert.match(detailsRule, /max-height:\s*max\(/);
+  assert.match(detailsRule, /calc\(100vh - \d+px\)/);
+  assert.match(detailsRule, /overflow-y:\s*auto/);
+});
+
 test('renderer applies the first visible view on cold startup only', () => {
   const app = readRendererFile('app.js');
   const body = functionBody(app, 'applyInitialBreakdownPreference', 'syncSettingsForm');
