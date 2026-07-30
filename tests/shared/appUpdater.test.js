@@ -321,8 +321,8 @@ test('release template exposes marked English and Chinese app summaries', () => 
   assert.ok(notes.zh.every((group) => group.items.length > 0));
   assert.ok(notes.en.every((group) => group.items.every((item) => !/\(#\d/.test(item))));
   assert.ok(notes.zh.every((group) => group.items.every((item) => !/（#\d/.test(item))));
-  assert.match(template, /\(#\d+(?:, #\d+)*\)/);
-  assert.match(template, /（#\d+(?:、#\d+)*）/);
+  // Upstream appended issue refs to every template bullet; this fork does not
+  // track those issues, so the template carries no (#123) references.
 });
 
 test('mergeLatestReleaseMetadata preserves notes when native updater metadata omits them', () => {

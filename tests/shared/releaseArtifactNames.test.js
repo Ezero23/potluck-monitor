@@ -59,11 +59,11 @@ test('mac release scripts build native Apple Silicon and Intel artifacts', () =>
   assert.doesNotMatch(workflow, /latest-mac-(?:arm64|x64)\.yml/);
 
   const releaseTemplate = fs.readFileSync(path.join(__dirname, '..', '..', '.github', 'RELEASE_TEMPLATE.md'), 'utf8');
-  const intelBullets = releaseTemplate.split('\n').filter((line) => line.startsWith('- **macOS Intel**'));
-  const intelDmg = `Potluck-Monitor-${rootPackage.version}-x64.dmg`;
-  assert.equal(intelBullets.length, 2);
-  assert.ok(intelBullets.every((line) => line.split(intelDmg).length === 3));
-  assert.ok(intelBullets.every((line) => line.includes(`/download/v${rootPackage.version}/`)));
+  const arm64Bullets = releaseTemplate.split('\n').filter((line) => line.startsWith('- **macOS Apple Silicon**'));
+  const arm64Dmg = `potluck-monitor-${rootPackage.version}-arm64.dmg`;
+  assert.equal(arm64Bullets.length, 2);
+  assert.ok(arm64Bullets.every((line) => line.split(arm64Dmg).length === 3));
+  assert.ok(arm64Bullets.every((line) => line.includes(`/download/v${rootPackage.version}/`)));
 });
 
 test('release icons use source assets without the legacy generator', () => {
