@@ -2438,7 +2438,7 @@ function startSyncCollector() {
       const visibleSummary = {
         ...summary,
         syncUploadIntervalMs: syncUploadIntervalMs(),
-        todayHours: todayHoursFromSessions(summary.periods?.today?.sessions)
+        todayHours: todayHoursFromSessions((summary.today || summary.periods?.today)?.sessions)
       };
       lastCollectedDevice = { ...visibleSummary, receivedAt: new Date().toISOString() };
       const displayStats = composeLocalSyncStats(latestHubStats, lastCollectedDevice);
@@ -2475,7 +2475,7 @@ function startHostCollector() {
       const visibleSummary = summary;
       // Approximate hourly buckets from today's session activity so the DAY tab
       // can render an hourly distribution for the local device too.
-      visibleSummary.todayHours = todayHoursFromSessions(visibleSummary.periods?.today?.sessions);
+      visibleSummary.todayHours = todayHoursFromSessions((visibleSummary.today || visibleSummary.periods?.today)?.sessions);
       lastCollectedDevice = { ...visibleSummary, receivedAt: new Date().toISOString() };
       if (!embeddedHub) return;
       try {
@@ -2717,7 +2717,7 @@ function startLocalCollector() {
       localDevice = { ...visibleSummary, receivedAt: new Date().toISOString() };
       // Approximate hourly buckets from today's session activity so the DAY tab
       // can render an hourly distribution for the local device too.
-      localDevice.todayHours = todayHoursFromSessions(visibleSummary.periods?.today?.sessions);
+      localDevice.todayHours = todayHoursFromSessions((visibleSummary.today || visibleSummary.periods?.today)?.sessions);
       lastCollectedDevice = localDevice;
       localStats = withHistoryPreview(aggregateDevices([localDevice], 0), [localDevice]);
       sendPush({ event: 'stats', data: { type: 'stats', reason, stats: localStats, at: new Date().toISOString() } });
