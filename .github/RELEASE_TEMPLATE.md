@@ -17,7 +17,7 @@
 
 ## Download
 
-- **macOS Apple Silicon** — [potluck-monitor-0.1.1-arm64.dmg](https://github.com/Ezero23/potluck-monitor/releases/download/v0.1.1/potluck-monitor-0.1.1-arm64.dmg)
+- **macOS Apple Silicon** — [potluck-monitor-0.1.2-arm64.dmg](https://github.com/Ezero23/potluck-monitor/releases/download/v0.1.2/potluck-monitor-0.1.2-arm64.dmg)
 
 <details>
 <summary><strong>First launch and other notes</strong></summary>
@@ -63,7 +63,7 @@ open-source: https://github.com/junhoyeo/tokscale
 
 ## 下载
 
-- **macOS Apple Silicon** — [potluck-monitor-0.1.1-arm64.dmg](https://github.com/Ezero23/potluck-monitor/releases/download/v0.1.1/potluck-monitor-0.1.1-arm64.dmg)
+- **macOS Apple Silicon** — [potluck-monitor-0.1.2-arm64.dmg](https://github.com/Ezero23/potluck-monitor/releases/download/v0.1.2/potluck-monitor-0.1.2-arm64.dmg)
 
 <details>
 <summary><strong>首次启动与其他说明</strong></summary>
