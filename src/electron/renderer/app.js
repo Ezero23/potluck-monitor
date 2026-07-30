@@ -129,6 +129,7 @@ const viewDisplayPreferencesApi = window.TokenMonitorViewDisplayPreferences;
 const preferenceDragSortApi = window.TokenMonitorPreferenceDragSort;
 const homeOverviewApi = window.TokenMonitorHomeOverview;
 const homeModulePreferencesApi = window.TokenMonitorHomeModulePreferences;
+const settingsSectionPreferencesApi = window.TokenMonitorSettingsSectionPreferences;
 const { limitFillPercent, limitModeSuffix, meterColorForRemaining, meterColorForUsed } = window.TokenMonitorLimitDisplayMode;
 const i18n = window.TokenMonitorI18n;
 const currencyApi = window.TokenMonitorCurrency;
@@ -548,6 +549,51 @@ function setupSettingsSections() {
   els.settingsPanel?.addEventListener('pointerdown', cancelSettingsScrollAnchor, { passive: true });
   els.settingsPanel?.addEventListener('wheel', cancelSettingsScrollAnchor, { passive: true });
   els.settingsPanel?.addEventListener('keydown', cancelSettingsScrollAnchorOnKeydown);
+}
+
+function orderedSettingsSectionIds(value) {
+  return settingsSectionPreferencesApi
+    .orderedSettingsSections(SETTINGS_SECTION_IDS, value)
+    .map((section) => section.id ?? section);
+}
+
+function applySettingsSectionOrder(value) {
+  applyPreferenceOrder('settingsSection', orderedSettingsSectionIds(value));
+}
+
+function initSettingsSectionOrder() {
+  const panel = els.settingsPanel;
+  if (!panel) return;
+  for (const group of panel.querySelectorAll('.settings-collapsible-group')) {
+    const toggle = group.querySelector('[data-settings-section]');
+    const id = toggle?.dataset.settingsSection;
+    if (!id || !SETTINGS_SECTION_IDS.includes(id)) continue;
+    group.dataset.settingsSection = id;
+    const meta = toggle.querySelector('.settings-section-meta');
+    const disclosure = meta?.querySelector('.settings-section-disclosure');
+    if (!meta || !disclosure || meta.querySelector('.preference-order-handle')) continue;
+    const labelKey = toggle.querySelector('.settings-section-heading [data-i18n]')?.dataset.i18n;
+    const label = labelKey ? t(labelKey) : id;
+    meta.insertBefore(
+      createPreferenceOrderHandle({ kind: 'settingsSection', id, label, count: SETTINGS_SECTION_IDS.length }),
+      disclosure
+    );
+  }
+  applySettingsSectionOrder(state.settings?.settingsSectionOrder);
+}
+
+async function onSettingsSectionMove(sectionId, direction) {
+  const next = settingsSectionPreferencesApi.moveSettingsSectionOrder(state.settings?.settingsSectionOrder, SETTINGS_SECTION_IDS, sectionId, direction);
+  await saveSettings({ settingsSectionOrder: next });
+  applySettingsSectionOrder(next);
+}
+
+async function onSettingsSectionReorder(sectionId, targetIndex) {
+  const current = settingsSectionPreferencesApi.normalizeSettingsSectionOrder(state.settings?.settingsSectionOrder, SETTINGS_SECTION_IDS).join(',');
+  const next = settingsSectionPreferencesApi.reorderSettingsSectionOrder(state.settings?.settingsSectionOrder, SETTINGS_SECTION_IDS, sectionId, targetIndex);
+  if (next === current) return;
+  await saveSettings({ settingsSectionOrder: next });
+  applySettingsSectionOrder(next);
 }
 
 function orderAccountProviderGroups() {
@@ -4222,6 +4268,7 @@ function renderViewSwitcher({ focusMenu = false, focusDisclosure = false } = {})
     itemLabel.className = 'view-switcher-menu-label';
     itemLabel.textContent = viewLabelById(id);
     item.append(itemLabel);
+    item.append(createPreferenceOrderHandle({ kind: 'viewLive', id, label: viewLabelById(id), count: order.length }));
     item.addEventListener('click', () => {
       state.viewSwitcherOpen = false;
       updateViewSwitcherOpenState();
@@ -4237,6 +4284,8 @@ function renderViewSwitcher({ focusMenu = false, focusDisclosure = false } = {})
       setViewSwitcherOpen(false, { focusDisclosure: true });
       return;
     }
+    // Order handles inside items manage their own arrow/Home/End reordering.
+    if (event.target.closest?.('.preference-order-handle')) return;
     const direction = event.key === 'ArrowDown' || event.key === 'ArrowRight'
       ? 1
       : (event.key === 'ArrowUp' || event.key === 'ArrowLeft' ? -1 : 0);
@@ -4259,6 +4308,7 @@ function renderViewSwitcher({ focusMenu = false, focusDisclosure = false } = {})
 function homeModuleShell(kind, title, viewId, meta = '') {
   const module = document.createElement('section');
   module.className = `home-module home-module-${kind}`;
+  module.dataset.homeModule = kind;
   module.tabIndex = 0;
   module.setAttribute('role', 'button');
   module.setAttribute('aria-label', title);
@@ -4288,6 +4338,7 @@ function homeModuleShell(kind, title, viewId, meta = '') {
     metaText.textContent = meta;
     end.append(metaText);
   }
+  end.append(createPreferenceOrderHandle({ kind: 'homeLive', id: kind, label: title, count: homeModuleIds().length }));
   const icon = document.createElement('span');
   icon.className = `home-module-jump ${VIEW_ICON_CLASSES[viewId] || ''}`;
   icon.setAttribute('aria-hidden', 'true');
@@ -5181,7 +5232,7 @@ function renderHome() {
   if (!state._gatewayRefreshed) {
     state._gatewayRefreshed = true;
     void refreshPotluckGatewayState().then(() => {
-      if (state.breakdown === 'home') renderHome();
+      if (state.breakdown === 'home' && preferenceDrag?.kind !== 'homeLive') renderHome();
     });
   }
   // setupHomeActivityScroller wires a ResizeObserver that applies the scroll position
@@ -5192,7 +5243,9 @@ function render() {
   if (!state.stats) return;
   renderSessionUsageArchiveStatus();
   ensureBreakdownVisible();
-  renderViewSwitcher();
+  // The switcher menu is rebuilt on every render; skip that while a live view
+  // drag is reordering the menu's own items.
+  if (preferenceDrag?.kind !== 'viewLive') renderViewSwitcher();
   if (state.openSession && state.breakdown !== 'session') { state.openSession = null; els.sessionDetail.classList.add('hidden'); els.sessionDetail.replaceChildren(); els.sessionDetailHead.classList.add('hidden'); els.sessionDetailHead.replaceChildren(); }
   if (state.openSession) { els.sessionDetail.classList.remove('hidden'); els.sessionDetailHead.classList.remove('hidden'); } else { els.sessionDetail.classList.add('hidden'); els.sessionDetailHead.classList.add('hidden'); }
   const period = state.stats.periods?.[state.period] || { totalTokens: 0, costUsd: 0, clients: {} };
@@ -5237,7 +5290,9 @@ function render() {
     els.trendsPanel.classList.add('hidden');
     els.limitsPanel.classList.add('hidden');
     els.homePanel.classList.remove('hidden');
-    renderHome();
+    // A live module drag reorders els.homePanel's children directly; rebuilding
+    // here would destroy the dragged DOM mid-drag.
+    if (preferenceDrag?.kind !== 'homeLive') renderHome();
   } else if (state.breakdown === 'limits') {
     els.homePanel.classList.add('hidden');
     els.breakdown.classList.add('hidden');
@@ -6605,15 +6660,19 @@ function preferenceListForKind(kind) {
   if (kind === 'statusProvider') return document.getElementById('serviceProviderList');
   if (kind === 'homeModule') return document.getElementById('homeSettingsList');
   if (kind === 'homeLimitProvider') return document.getElementById('homeLimitProviderList');
+  if (kind === 'homeLive') return els.homePanel;
+  if (kind === 'settingsSection') return els.settingsPanel;
+  if (kind === 'viewLive') return els.viewSwitcher?.querySelector('#viewSwitcherMenu');
   return els.limitProviderCheckboxes;
 }
 
 function preferenceItemAttribute(kind) {
   if (kind === 'client') return 'client';
-  if (kind === 'view') return 'view';
+  if (kind === 'view' || kind === 'viewLive') return 'view';
   if (kind === 'statusProvider') return 'statusProvider';
-  if (kind === 'homeModule') return 'homeModule';
+  if (kind === 'homeModule' || kind === 'homeLive') return 'homeModule';
   if (kind === 'homeLimitProvider') return 'homeLimitProvider';
+  if (kind === 'settingsSection') return 'settingsSection';
   return 'provider';
 }
 
@@ -6629,7 +6688,13 @@ function preferenceRows(kind) {
           ? '.home-module-preference-row[data-home-module]'
           : kind === 'homeLimitProvider'
             ? '.home-limit-provider-row[data-home-limit-provider]'
-            : '.limit-provider-row[data-provider]';
+            : kind === 'homeLive'
+              ? '.home-module[data-home-module]'
+              : kind === 'settingsSection'
+                ? '.settings-collapsible-group[data-settings-section]'
+                : kind === 'viewLive'
+                  ? '.view-switcher-menu-item[data-view]'
+                  : '.limit-provider-row[data-provider]';
   return Array.from(list?.querySelectorAll(selector) || []);
 }
 
@@ -6681,7 +6746,7 @@ function startPreferenceDrag(event, kind, id) {
   const order = preferenceOrder(kind);
   preferenceDrag = { kind, id, pointerId: event.pointerId, originalOrder: order, order, changed: false, handle: event.currentTarget };
   event.currentTarget.setPointerCapture?.(event.pointerId);
-  event.currentTarget.closest('[data-client], [data-provider], [data-view], [data-status-provider], [data-home-module], [data-home-limit-provider]')?.classList.add('is-dragging');
+  event.currentTarget.closest('[data-client], [data-provider], [data-view], [data-status-provider], [data-home-module], [data-home-limit-provider], [data-settings-section]')?.classList.add('is-dragging');
   setPreferencePointerListeners(true);
   applyPreferenceLiveOrder(kind, event.clientY);
 }
@@ -6731,19 +6796,27 @@ function createPreferenceOrderHandle({ kind, id, label, count }) {
   handle.dataset.preferenceOrderHandle = kind;
   const titleKey = kind === 'client'
     ? 'settings.tools.reorderClient'
-    : kind === 'view'
+    : kind === 'view' || kind === 'viewLive'
       ? 'settings.views.reorderView'
       : kind === 'statusProvider'
         ? 'serviceStatus.reorderProvider'
-        : kind === 'homeModule'
+        : kind === 'homeModule' || kind === 'homeLive'
           ? 'settings.home.reorderModule'
           : kind === 'homeLimitProvider'
             ? 'settings.home.reorderProvider'
-            : 'settings.limits.reorderProvider';
+            : kind === 'settingsSection'
+              ? 'settings.sections.reorder'
+              : 'settings.limits.reorderProvider';
   handle.title = t(titleKey, { name: label });
   handle.setAttribute('aria-label', handle.title);
   handle.setAttribute('aria-keyshortcuts', 'ArrowUp ArrowDown Home End');
   handle.disabled = count <= 1;
+  // Handles live inside clickable rows (home modules, section toggles, view menu
+  // items); keep the click from triggering the row's own action after a drag.
+  handle.addEventListener('click', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+  });
   handle.addEventListener('pointerdown', (event) => startPreferenceDrag(event, kind, id));
   handle.addEventListener('keydown', (event) => onPreferenceOrderKeydown(event, kind, id));
   return handle;
@@ -7792,10 +7865,11 @@ async function showAllServiceProviders() {
 
 async function onPreferenceReorder(kind, id, targetIndex) {
   if (kind === 'client') await onClientDisplayReorder(id, targetIndex);
-  else if (kind === 'view') await onViewDisplayReorder(id, targetIndex);
-  else if (kind === 'homeModule') await onHomeModuleReorder(id, targetIndex);
+  else if (kind === 'view' || kind === 'viewLive') await onViewDisplayReorder(id, targetIndex);
+  else if (kind === 'homeModule' || kind === 'homeLive') await onHomeModuleReorder(id, targetIndex);
   else if (kind === 'homeLimitProvider') await onHomeLimitProviderReorder(id, targetIndex);
   else if (kind === 'statusProvider') await onServiceProviderReorder(id, targetIndex);
+  else if (kind === 'settingsSection') await onSettingsSectionReorder(id, targetIndex);
   else await onLimitProviderReorder(id, targetIndex);
 }
 
@@ -7827,6 +7901,14 @@ async function onPreferenceOrderCommit(kind, order, id) {
     if (value !== current) await saveSettings({ homeModuleOrder: value });
     return;
   }
+  if (kind === 'homeLive') {
+    // The drag order only covers currently-visible modules; fold it back into
+    // the full order so hidden modules keep their positions.
+    const full = homeModulePreferencesApi.normalizeHomeModuleOrder(state.settings?.homeModuleOrder, HOME_MODULE_OPTIONS);
+    const next = preferenceDragSortApi.mergeVisibleOrderIntoFull(full, order).join(',');
+    if (next !== full.join(',')) await saveSettings({ homeModuleOrder: next });
+    return;
+  }
   if (kind === 'homeLimitProvider') {
     const current = limitProviderOrderApi.normalizeLimitProviderOrder(homeLimitProviderOrderValue(), LIMIT_PROVIDERS).join(',');
     if (value !== current) await saveSettings({ homeLimitProviderOrder: value });
@@ -7835,6 +7917,18 @@ async function onPreferenceOrderCommit(kind, order, id) {
   if (kind === 'statusProvider') {
     const current = serviceStatusProviderPreferencesApi.normalizeOrder(state.settings?.serviceProviderDisplayOrder, SERVICE_PROVIDER_OPTIONS).join(',');
     if (value !== current) await saveSettings({ serviceProviderDisplayOrder: value });
+    return;
+  }
+  if (kind === 'viewLive') {
+    // The switcher menu only lists visible views; merge into the full order like homeLive.
+    const full = viewDisplayPreferencesApi.normalizeViewDisplayOrder(effectiveViewDisplayOrderValue(), VIEW_DISPLAY_OPTIONS);
+    const next = preferenceDragSortApi.mergeVisibleOrderIntoFull(full, order).join(',');
+    if (next !== full.join(',')) await saveSettings({ viewDisplayOrder: next });
+    return;
+  }
+  if (kind === 'settingsSection') {
+    const current = settingsSectionPreferencesApi.normalizeSettingsSectionOrder(state.settings?.settingsSectionOrder, SETTINGS_SECTION_IDS).join(',');
+    if (value !== current) await saveSettings({ settingsSectionOrder: value });
     return;
   }
   const current = limitProviderOrderApi.normalizeLimitProviderOrder(state.settings?.limitProviderOrder, LIMIT_PROVIDERS).join(',');
@@ -7846,10 +7940,11 @@ function onPreferenceOrderKeydown(event, kind, id) {
   if (moves[event.key]) {
     event.preventDefault();
     if (kind === 'client') void onClientDisplayMove(id, moves[event.key]);
-    else if (kind === 'view') void onViewDisplayMove(id, moves[event.key]);
-    else if (kind === 'homeModule') void onHomeModuleMove(id, moves[event.key]);
+    else if (kind === 'view' || kind === 'viewLive') void onViewDisplayMove(id, moves[event.key]);
+    else if (kind === 'homeModule' || kind === 'homeLive') void onHomeModuleMove(id, moves[event.key]);
     else if (kind === 'homeLimitProvider') void onHomeLimitProviderMove(id, moves[event.key]);
     else if (kind === 'statusProvider') void onServiceProviderMove(id, moves[event.key]);
+    else if (kind === 'settingsSection') void onSettingsSectionMove(id, moves[event.key]);
     else void onLimitProviderMove(id, moves[event.key]);
     return;
   }
@@ -7957,6 +8052,7 @@ async function init() {
   try { state.appInfo = await window.tokenMonitor.getAppInfo?.(); } catch (_) {}
   if (els.aboutVersion) els.aboutVersion.textContent = state.appInfo?.version ? `v${state.appInfo.version}` : '—';
   state.settings = await window.tokenMonitor.getSettings();
+  initSettingsSectionOrder();
   applyEffectiveCurrencyRates();
   deliverTrayProviderIcons();
 

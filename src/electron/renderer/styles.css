@@ -1757,11 +1757,27 @@ span.settings-note.settings-item-desc {
   opacity: 0.34;
   cursor: default;
 }
+.home-module-head-end .preference-order-handle,
+.settings-section-meta .preference-order-handle {
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+}
+.view-switcher-menu-item .preference-order-handle {
+  justify-self: end;
+  width: 18px;
+  height: 18px;
+  color: inherit;
+  opacity: 0.72;
+}
 .tool-preference-row.is-dragging,
 .view-preference-row.is-dragging,
 .settings-panel .limit-provider-row.is-dragging,
 .home-module-preference-row.is-dragging,
-.home-limit-provider-row.is-dragging {
+.home-limit-provider-row.is-dragging,
+.home-module.is-dragging,
+.settings-collapsible-group.is-dragging,
+.view-switcher-menu-item.is-dragging {
   background: rgba(var(--accent-rgb), 0.08);
   box-shadow: inset 0 0 0 1px rgba(var(--accent-rgb), 0.28);
   opacity: 0.9;
@@ -3929,7 +3945,7 @@ html.is-windows .limit-live-badge {
   width: 100%;
   min-width: 0;
   height: 28px;
-  grid-template-columns: 16px minmax(0, 1fr);
+  grid-template-columns: 16px minmax(0, 1fr) 18px;
   align-items: center;
   gap: 7px;
   padding: 0 7px;

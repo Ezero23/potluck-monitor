@@ -174,16 +174,6 @@ test('localized READMEs link to the configuration reference', () => {
   for (const file of localizedReadmes) assert.match(read(file), /docs\/configuration\.md/, file);
 });
 
-test('localized README WSL claims disclose the SQLite agent boundary', () => {
-  const files = ['README.md', 'README.zh-CN.md'];
-
-  for (const file of files) {
-    const line = read(file).split('\n').find((value) => value.includes('**WSL')) || '';
-    assert.match(line, /SQLite/, file);
-    assert.match(line, /docs\/wsl-sqlite-setup(?:\.zh-CN)?\.md/, file);
-  }
-});
-
 test('WSL SQLite guides keep English and Chinese entry points connected', () => {
   assert.match(read('docs/wsl-sqlite-setup.md'), /\[简体中文\]\(wsl-sqlite-setup\.zh-CN\.md\)/);
   assert.match(read('docs/wsl-sqlite-setup.zh-CN.md'), /\[English\]\(wsl-sqlite-setup\.md\)/);

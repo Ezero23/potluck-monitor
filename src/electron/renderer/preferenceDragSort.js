@@ -51,5 +51,20 @@
     return reorderItems(items, draggedId, dropIndexFromClientY(rows, draggedId, clientY));
   }
 
-  return { dropIndexFromClientY, reorderItems, reorderItemsFromClientY };
+  // Live drags only see the currently-visible rows. Fold that partial order back
+  // into the full order so hidden entries keep their positions: walk the full
+  // order and replace each visible slot with the next id from the dragged order.
+  function mergeVisibleOrderIntoFull(fullOrder, visibleOrder) {
+    const full = (fullOrder || []).map(normalizeId).filter(Boolean);
+    const fullSet = new Set(full);
+    const queue = (visibleOrder || []).map(normalizeId).filter((id) => id && fullSet.has(id));
+    const visibleSet = new Set(queue);
+    const merged = [];
+    for (const id of full) {
+      merged.push(visibleSet.has(id) && queue.length > 0 ? queue.shift() : id);
+    }
+    return merged;
+  }
+
+  return { dropIndexFromClientY, mergeVisibleOrderIntoFull, reorderItems, reorderItemsFromClientY };
 });

@@ -5,6 +5,7 @@ const test = require('node:test');
 
 const {
   dropIndexFromClientY,
+  mergeVisibleOrderIntoFull,
   reorderItemsFromClientY
 } = require('../../src/electron/renderer/preferenceDragSort');
 
@@ -34,5 +35,31 @@ test('reorderItemsFromClientY returns the live order while dragging', () => {
   assert.deepEqual(
     reorderItemsFromClientY(['hermes', 'claude', 'codex', 'opencode', 'cursor'], rows, 'hermes', 200),
     ['claude', 'codex', 'opencode', 'cursor', 'hermes']
+  );
+});
+
+test('mergeVisibleOrderIntoFull folds a visible-only drag order into the full order', () => {
+  assert.deepEqual(
+    mergeVisibleOrderIntoFull(['limits', 'tool', 'device', 'model', 'trends'], ['model', 'limits', 'trends']),
+    ['model', 'tool', 'device', 'limits', 'trends']
+  );
+});
+
+test('mergeVisibleOrderIntoFull keeps hidden ids at their positions', () => {
+  assert.deepEqual(
+    mergeVisibleOrderIntoFull(['a', 'b', 'c', 'd'], ['c', 'a']),
+    ['c', 'b', 'a', 'd']
+  );
+});
+
+test('mergeVisibleOrderIntoFull returns the full order for an empty visible order', () => {
+  assert.deepEqual(mergeVisibleOrderIntoFull(['a', 'b'], []), ['a', 'b']);
+  assert.deepEqual(mergeVisibleOrderIntoFull(['a', 'b'], null), ['a', 'b']);
+});
+
+test('mergeVisibleOrderIntoFull ignores visible ids that are not in the full order', () => {
+  assert.deepEqual(
+    mergeVisibleOrderIntoFull(['a', 'b', 'c'], ['b', 'x', 'a']),
+    ['b', 'a', 'c']
   );
 });
