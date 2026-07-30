@@ -17,7 +17,7 @@ const { hermesProfileWatchDirs, resolveHermesHome } = require('./hermesProfiles'
 const { mergeHistories, parseGraphResult, normalizeHistory } = require('./history');
 const { retainDailyHistory } = require('./dailyHistoryArchive');
 const cursorAuth = require('./cursorAuth');
-const { findSessionFiles, codexSessionFile } = require('./sessionFiles');
+const { findSessionFiles, findKimiStateFiles, codexSessionFile } = require('./sessionFiles');
 const opencodeSession = require('./opencodeSession');
 const { buildPromaHistoryGraph, buildPromaPeriods, collectPromaRows } = require('./promaUsage');
 const { hashKey } = require('./hashKey');
@@ -439,13 +439,37 @@ function sessionTimestampMap(periods, home = os.homedir(), deps = {}) {
   const codexFiles = findSessionFiles(path.join(home, '.codex', 'sessions'), missingCodexIds);
   for (const [sessionId, filePath] of codexFiles) applyFile('codex', sessionId, filePath);
 
+  // Kimi Code: no JSONL transcript — timestamps come from state.json
+  // (createdAt/updatedAt) inside each session directory.
+  const kimiIds = byClient.get('kimi') || new Set();
+  if (kimiIds.size > 0) {
+    for (const [sessionId, statePath] of findKimiStateFiles(home, kimiIds)) {
+      let created = '';
+      let updated = '';
+      try {
+        const state = JSON.parse(fs.readFileSync(statePath, 'utf8'));
+        created = isoFromDate(state.createdAt);
+        updated = isoFromDate(state.updatedAt);
+      } catch (_) {}
+      if (!updated) { try { updated = fs.statSync(statePath).mtime.toISOString(); } catch (_) {} }
+      const startedAt = created || updated;
+      const lastUsedAt = updated || startedAt;
+      if (startedAt || lastUsedAt) metadata.set(`kimi:${sessionId}`, { startedAt, lastUsedAt });
+    }
+  }
+
+  // WorkBuddy: per-session JSONL transcripts under ~/.workbuddy/projects, same
+  // shape as Claude's, so the file-based path applies unchanged.
+  const workbuddyFiles = findSessionFiles(path.join(home, '.workbuddy', 'projects'), byClient.get('workbuddy') || []);
+  for (const [sessionId, filePath] of workbuddyFiles) applyFile('workbuddy', sessionId, filePath);
+
   for (const ref of refs.values()) {
     const key = `${ref.client}:${ref.sessionId}`;
     if (resolvedSessionKeys.has(key)) continue;
     if (metadata.has(key)) continue;
     const timestamp = timestampFromSessionId(ref.sessionId);
     if (timestamp) metadata.set(key, { startedAt: timestamp, lastUsedAt: timestamp });
-    if (!['claude', 'codex', 'opencode'].includes(ref.client)) resolvedSessionKeys.add(key);
+    if (!['claude', 'codex', 'opencode', 'kimi', 'workbuddy'].includes(ref.client)) resolvedSessionKeys.add(key);
   }
   for (const ref of refs.values()) attemptedSessionKeys.add(`${ref.client}:${ref.sessionId}`);
 

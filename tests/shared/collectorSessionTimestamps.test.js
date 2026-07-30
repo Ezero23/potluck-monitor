@@ -134,3 +134,46 @@ test('applySessionTimestamps retries a progressive miss in the final pass', () =
   assert.equal(reads, 2, 'the final pass should retry a prior miss once');
   assert.equal(periods.today.sessions['opencode:s1'].projectLabel, 'project');
 });
+
+test('applySessionTimestamps fills Kimi session start/last from state.json', () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'tm-kimi-'));
+  try {
+    const dir = path.join(home, '.kimi-code', 'sessions', 'wd_app_1234', 'session_abc-123');
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(path.join(dir, 'state.json'), JSON.stringify({
+      createdAt: '2026-07-30T09:00:00.000Z',
+      updatedAt: '2026-07-30T11:30:00.000Z'
+    }));
+
+    const periods = { today: { sessions: {
+      'kimi:session_abc-123': { client: 'kimi', sessionId: 'session_abc-123', startedAt: '', lastUsedAt: '' }
+    } } };
+    applySessionTimestamps(periods, home, {});
+
+    const s = periods.today.sessions['kimi:session_abc-123'];
+    assert.equal(s.startedAt, '2026-07-30T09:00:00.000Z');
+    assert.equal(s.lastUsedAt, '2026-07-30T11:30:00.000Z');
+  } finally {
+    fs.rmSync(home, { recursive: true, force: true });
+  }
+});
+
+test('applySessionTimestamps fills WorkBuddy session timestamps from the JSONL tail', () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'tm-workbuddy-'));
+  try {
+    const dir = path.join(home, '.workbuddy', 'projects', 'Users-test');
+    fs.mkdirSync(dir, { recursive: true });
+    const file = path.join(dir, 'wb-1.jsonl');
+    fs.writeFileSync(file, `${JSON.stringify({ cwd: '/work/app', timestamp: '2026-07-30T14:15:00.000Z' })}\n`);
+
+    const periods = { today: { sessions: {
+      'workbuddy:wb-1': { client: 'workbuddy', sessionId: 'wb-1', startedAt: '', lastUsedAt: '' }
+    } } };
+    applySessionTimestamps(periods, home, {});
+
+    const s = periods.today.sessions['workbuddy:wb-1'];
+    assert.equal(s.lastUsedAt, '2026-07-30T14:15:00.000Z');
+  } finally {
+    fs.rmSync(home, { recursive: true, force: true });
+  }
+});
