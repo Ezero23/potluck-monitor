@@ -30,7 +30,7 @@
 
 ### First launch
 
-**macOS:** release builds are signed and notarized. Open the `.dmg`, then drag Potluck Monitor to Applications.
+**macOS:** this release is unsigned. Open the `.dmg`, drag Potluck Monitor to Applications, then right-click the app and choose **Open** on first launch. Windows may likewise show a SmartScreen warning because no SignPath credential is configured for this repository.
 
 ### Other notes
 
@@ -78,7 +78,7 @@ open-source: https://github.com/junhoyeo/tokscale
 
 ### 首次启动
 
-**macOS：**正式发布包已经签名并经过 Apple 公证。打开 `.dmg`，把 Potluck Monitor 拖到 Applications 即可。
+**macOS：**本次发布包未签名。打开 `.dmg`，把 Potluck Monitor 拖到 Applications，首次启动时右键应用并选择「打开」。由于仓库尚未配置 SignPath 凭据，Windows 也可能显示 SmartScreen 提示。
 
 ### 其他说明
 
