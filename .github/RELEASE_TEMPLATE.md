@@ -10,6 +10,8 @@
 - **Home gateway card:** the Potluck Gateway card now lives with Multi-device Sync, shows the tunnel URL and gateway API key with one-tap copy, and can open the web console.
 
 ### Fixed
+- **Potluck gateway port:** discovery, status text, settings, and saved legacy configurations now converge on Potluck's single `21023` port instead of falling back to `20129`.
+- **Tunnel status:** the Home gateway card follows the live tunnel process and prefers its current direct URL, avoiding stale short-link state after a reconnect.
 - **Settings page:** expanded sections scroll internally, so the next section header stays in view instead of being pushed off screen.
 - **Day view:** activity and trends now distribute by hour instead of calendar date.
 - **Interface languages:** reduced to English and 简体中文; removed Discord integration and stale version/links from Settings → General.
@@ -18,21 +20,21 @@
 ## Download
 
 - **macOS Apple Silicon** — [potluck-monitor-0.1.2-arm64.dmg](https://github.com/Ezero23/potluck-monitor/releases/download/v0.1.2/potluck-monitor-0.1.2-arm64.dmg)
+- **macOS Intel** — [potluck-monitor-0.1.2-x64.dmg](https://github.com/Ezero23/potluck-monitor/releases/download/v0.1.2/potluck-monitor-0.1.2-x64.dmg)
+- **Windows installer** — [potluck-monitor-Setup-0.1.2.exe](https://github.com/Ezero23/potluck-monitor/releases/download/v0.1.2/potluck-monitor-Setup-0.1.2.exe)
+- **Windows portable** — [potluck-monitor-0.1.2.exe](https://github.com/Ezero23/potluck-monitor/releases/download/v0.1.2/potluck-monitor-0.1.2.exe)
+- **Linux** — [potluck-monitor-0.1.2.AppImage](https://github.com/Ezero23/potluck-monitor/releases/download/v0.1.2/potluck-monitor-0.1.2.AppImage)
 
 <details>
 <summary><strong>First launch and other notes</strong></summary>
 
 ### First launch
 
-**macOS:** the build is unsigned. Open the `.dmg`, drag Potluck Monitor to Applications, then either right-click → Open the first time, or run:
-
-```bash
-xattr -dr com.apple.quarantine "/Applications/Potluck Monitor.app"
-```
+**macOS:** release builds are signed and notarized. Open the `.dmg`, then drag Potluck Monitor to Applications.
 
 ### Other notes
 
-Only macOS Apple Silicon is pre-built — run from source per the [README](https://github.com/Ezero23/potluck-monitor#readme) for anything else. The macOS `.zip` is the same app repackaged for the auto-updater; ignore it unless you need it.
+The macOS `.zip` files are updater payloads for the same apps; most people should use the `.dmg` installers above.
 
 ### tokscale dependency
 
@@ -56,6 +58,8 @@ open-source: https://github.com/junhoyeo/tokscale
 - **主页网关卡片：** Potluck 网关卡片与多设备同步放在一起，显示隧道地址和网关 API 密钥并可一键复制，还能直接打开 Web 控制台。
 
 ### 修复
+- **Potluck 网关端口：**发现、状态文案、设置与旧配置迁移现在统一到 Potluck 唯一的 `21023` 端口，不再回退到 `20129`。
+- **隧道状态：**主页网关卡片会跟随真实隧道进程并优先显示当前直连地址，重连后不会继续使用过期短地址状态。
 - **设置页面：** 展开的分区改为内部滚动，下一个分区标题始终停留在视野内，不再被顶出屏幕。
 - **Day 视图：** 活动和趋势按当天小时分布，不再按日期。
 - **界面语言：** 只保留 English 和简体中文；移除 Discord 集成，清理设置 → 常规里过时的版本号与链接。
@@ -64,21 +68,21 @@ open-source: https://github.com/junhoyeo/tokscale
 ## 下载
 
 - **macOS Apple Silicon** — [potluck-monitor-0.1.2-arm64.dmg](https://github.com/Ezero23/potluck-monitor/releases/download/v0.1.2/potluck-monitor-0.1.2-arm64.dmg)
+- **macOS Intel** — [potluck-monitor-0.1.2-x64.dmg](https://github.com/Ezero23/potluck-monitor/releases/download/v0.1.2/potluck-monitor-0.1.2-x64.dmg)
+- **Windows 安装包** — [potluck-monitor-Setup-0.1.2.exe](https://github.com/Ezero23/potluck-monitor/releases/download/v0.1.2/potluck-monitor-Setup-0.1.2.exe)
+- **Windows 便携版** — [potluck-monitor-0.1.2.exe](https://github.com/Ezero23/potluck-monitor/releases/download/v0.1.2/potluck-monitor-0.1.2.exe)
+- **Linux** — [potluck-monitor-0.1.2.AppImage](https://github.com/Ezero23/potluck-monitor/releases/download/v0.1.2/potluck-monitor-0.1.2.AppImage)
 
 <details>
 <summary><strong>首次启动与其他说明</strong></summary>
 
 ### 首次启动
 
-**macOS：** 本构建未签名。打开 `.dmg`，把 Potluck Monitor 拖到 Applications，首次启动右键 → 打开，或者运行：
-
-```bash
-xattr -dr com.apple.quarantine "/Applications/Potluck Monitor.app"
-```
+**macOS：**正式发布包已经签名并经过 Apple 公证。打开 `.dmg`，把 Potluck Monitor 拖到 Applications 即可。
 
 ### 其他说明
 
-目前只提供 macOS Apple Silicon 预构建版本，其他平台请参考 [README](https://github.com/Ezero23/potluck-monitor#readme) 从源码运行。macOS 的 `.zip` 是给自动更新用的同一个 app，除非明确需要，否则可以忽略。
+macOS 的 `.zip` 是同一应用的自动更新载荷；大多数用户应使用上方的 `.dmg` 安装包。
 
 ### tokscale 依赖
 

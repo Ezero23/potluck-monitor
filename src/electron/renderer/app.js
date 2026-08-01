@@ -5150,7 +5150,7 @@ function renderPotluckGatewayCard() {
   const password = typeof potluck?.dashboardPassword === 'string' && potluck.dashboardPassword ? potluck.dashboardPassword : '';
   const apiKey = potluck?.apiKey && typeof potluck.apiKey === 'object' ? potluck.apiKey : null;
   if (!gatewayState && !tunnel && !password && !apiKey) return null;
-  const tunnelUrl = tunnel?.enabled ? (tunnel.publicUrl || tunnel.tunnelUrl || '') : '';
+  const tunnelUrl = tunnel?.enabled ? (tunnel.tunnelUrl || tunnel.publicUrl || '') : '';
   const card = document.createElement('section');
   card.className = 'home-module potluck-gateway-card';
   const head = document.createElement('div');
@@ -5167,7 +5167,7 @@ function renderPotluckGatewayCard() {
     const status = document.createElement('span');
     if (gatewayState.running) {
       status.className = 'potluck-gateway-status ok';
-      status.textContent = t('settings.potluck.statusRunning', { port: gatewayState.port || 20129 });
+      status.textContent = t('settings.potluck.statusRunning', { port: gatewayState.port || 21023 });
       if (gatewayState.autoPaired) status.textContent += ' \u00b7 ' + t('settings.potluck.autoPaired');
     } else if (gatewayState.status === 'spawning') {
       status.className = 'potluck-gateway-status';
@@ -6559,7 +6559,7 @@ function syncSettingsForm() {
   els.secretInput.value = state.settings.secret || '';
   els.deviceIdInput.value = state.settings.deviceId || '';
   if (els.potluckPathInput) els.potluckPathInput.value = state.settings.potluckPath || '';
-  if (els.potluckPortInput) els.potluckPortInput.value = String(state.settings.potluckPort || 20129);
+  if (els.potluckPortInput) els.potluckPortInput.value = String(state.settings.potluckPort || 21023);
   if (els.potluckAutoStartInput) els.potluckAutoStartInput.checked = state.settings.potluckAutoStart !== false;
   if (els.potluckKeepOnQuitInput) els.potluckKeepOnQuitInput.checked = state.settings.keepGatewayRunningOnQuit === true;
   renderPotluckGatewayStatus();
@@ -8224,7 +8224,7 @@ els.potluckGatewaySaveButton?.addEventListener('click', async () => {
   if (!window.tokenMonitor.potluckGateway?.updateSettings) return;
   const patch = {
     potluckPath: els.potluckPathInput.value.trim(),
-    potluckPort: Number(els.potluckPortInput.value) || 20129,
+    potluckPort: Number(els.potluckPortInput.value) || 21023,
     potluckAutoStart: Boolean(els.potluckAutoStartInput.checked),
     keepGatewayRunningOnQuit: Boolean(els.potluckKeepOnQuitInput.checked)
   };

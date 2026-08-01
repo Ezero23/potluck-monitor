@@ -237,6 +237,7 @@ let persistedSettingsSnapshot = null;
 let credentialStore = null;
 let credentialStorageErrorShown = false;
 let sessionUsageArchive = null;
+let pendingSettingsMigration = false;
 let rendererViewState = normalizeInitialRendererViewState();
 const serviceStatusClient = createServiceStatusClient();
 const STATUS_PAGE_HOSTS = new Set(SERVICE_STATUS_PROVIDERS.map((provider) => new URL(provider.pageUrl).hostname));
@@ -1509,13 +1510,16 @@ function ensureSettingsLoaded() {
   const persistedCodexAccounts = settings.codexManagedAccounts;
   const hydratedCodexAccounts = hydrateCodexManagedAccounts(persistedCodexAccounts);
   persistedSettingsSnapshot = cloneSettingsSnapshot(settings);
+  let settingsChanged = pendingSettingsMigration;
+  pendingSettingsMigration = false;
   if (JSON.stringify(hydratedCodexAccounts) !== JSON.stringify(persistedCodexAccounts)) {
     settings.codexManagedAccounts = hydratedCodexAccounts;
-    if (!saveSettings()) {
-      // Keep the runtime identity coherent even if the migration cannot be
-      // persisted yet; the next ordinary settings save will retry it.
-      settings.codexManagedAccounts = hydratedCodexAccounts;
-    }
+    settingsChanged = true;
+  }
+  if (settingsChanged && !saveSettings()) {
+    // Keep the runtime identity coherent even if the migration cannot be
+    // persisted yet; the next ordinary settings save will retry it.
+    settings.codexManagedAccounts = hydratedCodexAccounts;
   }
   rendererViewState = normalizeInitialRendererViewState(settings.lastViewState, rendererViewState);
   return settings;
@@ -1871,6 +1875,9 @@ function readSettings() {
       } catch (_) {}
     }
     const storedCredentials = loadCredentialSettings(saved);
+    if (POTLUCK_LEGACY_PORTS.has(Math.trunc(Number(saved.potluckPort)))) {
+      pendingSettingsMigration = true;
+    }
     if (!saved.secret && defaults.secret) delete saved.secret;
     const merged = { ...defaults, ...saved, ...storedCredentials };
     // Migrate older configs that predate hubMode: infer from hubUrl.

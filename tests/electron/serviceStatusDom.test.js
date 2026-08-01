@@ -316,10 +316,18 @@ test('view switcher preserves click-to-cycle and direct selection without crowdi
 
 test('Potluck gateway settings migrate legacy defaults to the canonical port', () => {
   const main = readRendererFile('../main.js');
+  const renderer = readRendererFile('app.js');
   assert.match(main, /const POTLUCK_DEFAULT_PORT = 21023/);
   assert.match(main, /const POTLUCK_LEGACY_PORTS = new Set\(\[20129, 20131\]\)/);
   assert.match(main, /merged\.potluckPort = normalizePotluckPort\(merged\.potluckPort\)/);
   assert.match(main, /potluckPort: POTLUCK_DEFAULT_PORT/);
+  assert.match(main, /POTLUCK_LEGACY_PORTS\.has\(Math\.trunc\(Number\(saved\.potluckPort\)\)\)/);
+  assert.match(main, /let settingsChanged = pendingSettingsMigration/);
+  assert.match(main, /settingsChanged && !saveSettings\(\)/);
+  assert.doesNotMatch(renderer, /potluckPort[^\n]*20129|gatewayState\.port \|\| 20129/);
+  assert.match(renderer, /gatewayState\.port \|\| 21023/);
+  assert.match(renderer, /state\.settings\.potluckPort \|\| 21023/);
+  assert.match(renderer, /tunnel\.tunnelUrl \|\| tunnel\.publicUrl/);
 });
 
 test('Home-launched secondary views expose an accessible return action', () => {
