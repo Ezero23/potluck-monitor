@@ -16,10 +16,9 @@ const childProcess = require('node:child_process');
 
 // The embedded hub port Potluck pushes to (fixed by the gateway contract).
 const HUB_PORT = 17321;
-// Ports probed when no gateway is configured/running yet: Potluck's
-// production/standalone port (docs, Docker, launchd), the long-standing
-// desktop default, then the dev-server port.
-const DISCOVERY_PORTS = [20129, 20131, 21023];
+// Canonical Potluck production/standalone port. A user-configured custom port
+// is still probed first; legacy defaults are migrated by the settings loader.
+const DISCOVERY_PORTS = [21023];
 const PROBE_TIMEOUT_MS = 1000;
 const SPAWN_HEALTH_TIMEOUT_MS = 60000;
 const SPAWN_HEALTH_POLL_MS = 500;
@@ -68,8 +67,8 @@ function normalizePort(value, fallback = null) {
   return n;
 }
 
-// Probe order: the configured port first (user intent wins), then the common
-// dev port, then Potluck's built-in default — deduplicated.
+// Probe order: the configured port first (user intent wins), then Potluck's
+// built-in default — deduplicated.
 function candidatePorts(settings) {
   const seen = new Set();
   const out = [];

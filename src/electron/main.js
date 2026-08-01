@@ -249,6 +249,8 @@ if (!gotLock) app.exit(0);
 
 const HOME_LIMIT_ACCOUNT_COUNT_DEFAULT = 3;
 const HOME_LIMIT_ACCOUNT_COUNT_MAX = 12;
+const POTLUCK_DEFAULT_PORT = 21023;
+const POTLUCK_LEGACY_PORTS = new Set([20129, 20131]);
 
 function normalizeHomeLimitAccountCount(value) {
   const count = Math.trunc(Number(value));
@@ -276,7 +278,7 @@ function defaultSettings() {
     // potluckAutoPaired marks a hub secret this app set itself, which is the
     // only secret the supervisor may rotate.
     potluckPath: '',
-    potluckPort: 20129,
+    potluckPort: POTLUCK_DEFAULT_PORT,
     potluckDataDir: '',
     nodePath: '',
     potluckAutoStart: true,
@@ -1447,6 +1449,11 @@ function normalizeHubPort(value, fallback = HUB_DEFAULT_PORT) {
   return n;
 }
 
+function normalizePotluckPort(value, fallback = POTLUCK_DEFAULT_PORT) {
+  const port = normalizeHubPort(value, fallback);
+  return POTLUCK_LEGACY_PORTS.has(port) ? POTLUCK_DEFAULT_PORT : port;
+}
+
 function clampZoom(value) {
   const n = Number(value);
   if (!Number.isFinite(n)) return 1;
@@ -1947,6 +1954,7 @@ function readSettings() {
     merged.currency = normalizeCurrency(merged.currency);
     merged.currencyRates = normalizeCurrencyOverrides(merged.currencyRates);
     merged.hubHostPort = normalizeHubPort(merged.hubHostPort);
+    merged.potluckPort = normalizePotluckPort(merged.potluckPort);
     merged.hubHostSecret = typeof merged.hubHostSecret === 'string' ? merged.hubHostSecret : '';
     merged.floatingBubbleEnabled = parseBoolean(merged.floatingBubbleEnabled ?? merged.edgeDrawerEnabled, false);
     merged.archivedClientUsage = normalizeArchivedClientUsage(merged.archivedClientUsage);
@@ -4374,7 +4382,7 @@ app.whenReady().then(() => {
       hubHostPort: patch.hubHostPort !== undefined ? normalizeHubPort(patch.hubHostPort, settings.hubHostPort) : settings.hubHostPort,
       hubHostSecret: patch.hubHostSecret !== undefined ? String(patch.hubHostSecret) : settings.hubHostSecret,
       potluckPath: patch.potluckPath !== undefined ? String(patch.potluckPath || '').trim() : (settings.potluckPath || ''),
-      potluckPort: patch.potluckPort !== undefined ? normalizeHubPort(patch.potluckPort, settings.potluckPort) : normalizeHubPort(settings.potluckPort, 20129),
+      potluckPort: patch.potluckPort !== undefined ? normalizePotluckPort(patch.potluckPort, settings.potluckPort) : normalizePotluckPort(settings.potluckPort),
       potluckDataDir: patch.potluckDataDir !== undefined ? String(patch.potluckDataDir || '').trim() : (settings.potluckDataDir || ''),
       nodePath: patch.nodePath !== undefined ? String(patch.nodePath || '').trim() : (settings.nodePath || ''),
       potluckAutoStart: parseBoolean(patch.potluckAutoStart ?? settings.potluckAutoStart, true),

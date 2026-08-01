@@ -289,12 +289,13 @@ test('view switcher preserves click-to-cycle and direct selection without crowdi
   assert.doesNotMatch(cssRule(css, '.view-switcher-current'), /color:\s*var\(--accent\)/);
   assert.match(cssRule(css, '.view-switcher-disclosure'), /flex:\s*0 0 24px/);
   assert.match(cssRule(css, '.view-switcher-menu'), /position:\s*absolute/);
-  assert.match(cssRule(css, '.view-switcher-menu'), /width:\s*100%/);
+  assert.match(cssRule(css, '.view-switcher-menu'), /width:\s*clamp\(154px, 42vw, 180px\)/);
+  assert.match(cssRule(css, '.view-switcher-menu'), /max-width:\s*calc\(100vw - 40px\)/);
   assert.match(cssRule(css, '.view-switcher-menu'), /max-height:\s*min\(280px, calc\(100vh - 84px\)\)/);
   assert.match(cssRule(css, '.view-switcher-menu'), /transform-origin:\s*left bottom/);
   assert.match(cssRule(css, '.view-switcher-menu'), /transition:[\s\S]*opacity 190ms/);
   assert.match(cssRule(css, '.view-switcher-menu'), /visibility 0s linear 0s/);
-  assert.doesNotMatch(cssRule(css, '.view-switcher-menu'), /width:\s*154px/);
+  assert.doesNotMatch(cssRule(css, '.view-switcher-menu'), /width:\s*100%/);
   assert.match(cssRule(css, '.view-switcher-menu'), /background:[\s\S]*var\(--glass-rgb\)/);
   assert.doesNotMatch(cssRule(css, '.view-switcher-menu'), /var\(--panel-rgb\)/);
   assert.doesNotMatch(cssRule(css, '.view-switcher-menu.hidden'), /display:\s*none/);
@@ -311,6 +312,14 @@ test('view switcher preserves click-to-cycle and direct selection without crowdi
   assert.doesNotMatch(css, /@media \(max-width: 280px\)[\s\S]*\.view-switcher-current > \.view-switcher-icon/);
   assert.match(cssRule(css, '.view-switcher-icon'), /flex:\s*0 0 auto/);
   assert.doesNotMatch(css, /\.view-dock/);
+});
+
+test('Potluck gateway settings migrate legacy defaults to the canonical port', () => {
+  const main = readRendererFile('../main.js');
+  assert.match(main, /const POTLUCK_DEFAULT_PORT = 21023/);
+  assert.match(main, /const POTLUCK_LEGACY_PORTS = new Set\(\[20129, 20131\]\)/);
+  assert.match(main, /merged\.potluckPort = normalizePotluckPort\(merged\.potluckPort\)/);
+  assert.match(main, /potluckPort: POTLUCK_DEFAULT_PORT/);
 });
 
 test('Home-launched secondary views expose an accessible return action', () => {

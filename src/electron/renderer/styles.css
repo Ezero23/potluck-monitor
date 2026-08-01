@@ -3923,7 +3923,8 @@ html.is-windows .limit-live-badge {
   left: 0;
   bottom: calc(100% + 6px);
   display: grid;
-  width: 100%;
+  width: clamp(154px, 42vw, 180px);
+  max-width: calc(100vw - 40px);
   max-height: min(280px, calc(100vh - 84px));
   gap: 2px;
   padding: 4px;
