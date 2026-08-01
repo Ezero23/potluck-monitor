@@ -88,6 +88,20 @@ Custom 会从一个 GET 余额端点映射数值 JSON 字段；仅兼容 OpenAI 
 
 大多数用量监控工具只在它运行的那台机器上有用。Potluck Monitor 是为多设备工作流而设计的：每台设备监视自己的本地日志、把汇总更新发送到你的 hub，每个连接中的小部件几乎都能实时看到 Token 变化。
 
+## Potluck 网关集成
+
+Potluck Monitor 还可以与本机的 [Potluck](https://github.com/Ezero23/potluck) AI 网关配对。这和 Monitor 可选的多设备同步 hub 是两件事：Potluck 网关负责转发 AI API 请求，Monitor 则在 Token 用量旁显示主服务与隧道的真实健康状态。
+
+| 状态 | Monitor 实际检查的内容 |
+|------|------------------------|
+| 本地网关 | Potluck 是否能通过唯一标准端点 `http://127.0.0.1:21023` 访问 |
+| Cloudflare 隧道 | `cloudflared` 进程是否真的运行，而不只是设置中写了“已启用” |
+| 可访问性 | 隧道直连状态和公网 URL 健康状态分别检查、统一对账 |
+| 重新连接 | 旧进程退出后，Monitor 是否识别替换后的新隧道进程与新公网地址 |
+| 升级迁移 | 设置中遗留的 `20129` 或 `20131` 会自动改写并保存为 `21023` |
+
+点击**重新连接**时，Monitor 会调用 Potluck 的隧道 API，再读取真实进程与可访问状态，不会因为按钮请求已发出就乐观地显示“连接成功”。Quick Tunnel 地址是临时地址，重新连接后可能改变。这套修复已随 [v0.1.2](https://github.com/Ezero23/potluck-monitor/releases/tag/v0.1.2) 发布。
+
 ## 功能特性
 
 ### 用量追踪
@@ -126,9 +140,14 @@ Custom 会从一个 GET 余额端点映射数值 JSON 字段；仅兼容 OpenAI 
 
 ## 安装
 
-从 [GitHub Releases](https://github.com/Ezero23/potluck-monitor/releases) 下载。
+下载当前正式版 [v0.1.2](https://github.com/Ezero23/potluck-monitor/releases/tag/v0.1.2)：
 
-- **macOS（Apple Silicon）** — `.dmg`（或 `.zip`），未签名：首次启动请右键点击 App 选择"打开"，或执行 `xattr -dr com.apple.quarantine "/Applications/Potluck Monitor.app"`
+- **macOS Apple Silicon** — [DMG](https://github.com/Ezero23/potluck-monitor/releases/download/v0.1.2/potluck-monitor-0.1.2-arm64.dmg) 或 [ZIP](https://github.com/Ezero23/potluck-monitor/releases/download/v0.1.2/potluck-monitor-0.1.2-arm64.zip)
+- **macOS Intel** — [DMG](https://github.com/Ezero23/potluck-monitor/releases/download/v0.1.2/potluck-monitor-0.1.2-x64.dmg) 或 [ZIP](https://github.com/Ezero23/potluck-monitor/releases/download/v0.1.2/potluck-monitor-0.1.2-x64.zip)
+- **Windows** — [安装包](https://github.com/Ezero23/potluck-monitor/releases/download/v0.1.2/potluck-monitor-Setup-0.1.2.exe) 或 [便携版](https://github.com/Ezero23/potluck-monitor/releases/download/v0.1.2/potluck-monitor-0.1.2.exe)
+- **Linux** — [AppImage](https://github.com/Ezero23/potluck-monitor/releases/download/v0.1.2/potluck-monitor-0.1.2.AppImage)
+
+当前 macOS 与 Windows 安装包尚未签名。macOS 首次启动请右键点击 App 选择**打开**，或执行 `xattr -dr com.apple.quarantine "/Applications/Potluck Monitor.app"`；Windows SmartScreen 可能需要选择**更多信息 → 仍要运行**。安装前可查看 [v0.1.2 发布说明](https://github.com/Ezero23/potluck-monitor/releases/tag/v0.1.2)。
 
 打包版会自动检查 GitHub Releases。有新版本时，界面会显示更新提示；受支持的平台也可在 设置 → 常规 中安装更新。
 

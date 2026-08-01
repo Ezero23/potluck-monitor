@@ -88,6 +88,20 @@ Custom maps numeric JSON fields from one GET balance endpoint; OpenAI or Anthrop
 
 Most usage monitors are useful on the machine they run on. Potluck Monitor is built for multi-device work: each device watches its own local logs, sends summary updates to your hub, and every connected widget sees token changes almost immediately.
 
+## Potluck gateway integration
+
+Potluck Monitor can also pair with the local [Potluck](https://github.com/Ezero23/potluck) AI gateway. This is separate from Monitor's optional multi-device sync hub: the gateway routes AI API traffic, while Monitor shows its live service and tunnel health alongside token usage.
+
+| Signal | What Monitor verifies |
+|--------|------------------------|
+| Local gateway | Potluck is reachable at its canonical `http://127.0.0.1:21023` endpoint |
+| Cloudflare tunnel | The `cloudflared` process is actually running, not merely enabled in saved settings |
+| Reachability | Direct tunnel and public URL health are reconciled independently |
+| Reconnect | The replacement tunnel process and its new public URL are reflected after the old process exits |
+| Upgrade migration | Saved `20129` or `20131` gateway ports are rewritten to `21023` |
+
+The **Reconnect** action calls Potluck's tunnel API and then reads back the real process and reachability state; the UI does not report success from an optimistic button click alone. Quick Tunnel URLs are temporary and may change after a reconnect. These fixes shipped in [v0.1.2](https://github.com/Ezero23/potluck-monitor/releases/tag/v0.1.2).
+
 ## Features
 
 ### Tracking usage
@@ -126,9 +140,14 @@ Most usage monitors are useful on the machine they run on. Potluck Monitor is bu
 
 ## Installation
 
-Download from [GitHub Releases](https://github.com/Ezero23/potluck-monitor/releases).
+Download the current stable release, [v0.1.2](https://github.com/Ezero23/potluck-monitor/releases/tag/v0.1.2):
 
-- **macOS (Apple Silicon)** — `.dmg` (or `.zip`), unsigned: on first launch, right-click the app and choose Open, or run `xattr -dr com.apple.quarantine "/Applications/Potluck Monitor.app"`
+- **macOS Apple Silicon** — [DMG](https://github.com/Ezero23/potluck-monitor/releases/download/v0.1.2/potluck-monitor-0.1.2-arm64.dmg) or [ZIP](https://github.com/Ezero23/potluck-monitor/releases/download/v0.1.2/potluck-monitor-0.1.2-arm64.zip)
+- **macOS Intel** — [DMG](https://github.com/Ezero23/potluck-monitor/releases/download/v0.1.2/potluck-monitor-0.1.2-x64.dmg) or [ZIP](https://github.com/Ezero23/potluck-monitor/releases/download/v0.1.2/potluck-monitor-0.1.2-x64.zip)
+- **Windows** — [installer](https://github.com/Ezero23/potluck-monitor/releases/download/v0.1.2/potluck-monitor-Setup-0.1.2.exe) or [portable executable](https://github.com/Ezero23/potluck-monitor/releases/download/v0.1.2/potluck-monitor-0.1.2.exe)
+- **Linux** — [AppImage](https://github.com/Ezero23/potluck-monitor/releases/download/v0.1.2/potluck-monitor-0.1.2.AppImage)
+
+The current macOS and Windows packages are unsigned. On macOS, right-click the app and choose **Open** on first launch, or run `xattr -dr com.apple.quarantine "/Applications/Potluck Monitor.app"`. Windows SmartScreen may require **More info → Run anyway**. See the [release notes](https://github.com/Ezero23/potluck-monitor/releases/tag/v0.1.2) before installing.
 
 Packaged builds check GitHub Releases automatically. When an update is available, the app shows an update indicator; supported platforms can also install from Settings → General.
 
