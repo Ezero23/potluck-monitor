@@ -547,6 +547,7 @@ async function fetchKimiLimits(options = {}, deps = {}) {
   return normalizeLimitProvider({
     provider: 'kimi',
     accountKey: accountSecret ? hashKey('kimi', accountSecret) : '',
+    accountName: options.kimiAccountLabel || '',
     source,
     status: windows.length ? 'ok' : failureStatus(errors),
     updatedAt,

@@ -483,3 +483,20 @@ test('fetchKimiLimits physically aborts a hung request within its configured bou
   assert.equal(provider.status, 'unavailable');
   assert.equal(signal.aborted, true);
 });
+
+test('fetchKimiLimits attaches kimiAccountLabel as accountName', async () => {
+  const provider = await fetchKimiLimits(
+    { kimiApiKey: 'key', kimiAccountLabel: 'Personal' },
+    {
+      env: {},
+      now: () => Date.parse('2026-07-08T00:00:00Z'),
+      fetch: async () => ({
+        ok: true,
+        status: 200,
+        json: async () => ({ limits: [{ detail: { used: 10, limit: 100, remaining: 90 }, window: { duration: 5, timeUnit: 'HOUR' } }] })
+      })
+    }
+  );
+  assert.equal(provider.status, 'ok');
+  assert.equal(provider.accountName, 'Personal');
+});

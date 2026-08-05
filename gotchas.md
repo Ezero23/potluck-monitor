@@ -9,3 +9,4 @@
 - A production app icon must remain a simple, symbolic mark that reads at 32 px. Do not substitute a detailed food illustration or marketing image for an icon.
 - A Potluck provider connection can exist while its latest health check is unauthorized or unavailable. Account presence, credential health, and quota availability are separate states; never turn a failed check into “not connected.”
 - GLM Coding Plan usage endpoints expect the official raw `Authorization` token, while the OpenAI-compatible model endpoint uses Bearer auth. Do not reuse model-call authentication rules for quota polling.
+- Provider identity on multi-account Home limit rows must never rest on a 16px mask icon alone; always prefix the provider name. An opt-in "show provider names" setting fails the users who never find it.

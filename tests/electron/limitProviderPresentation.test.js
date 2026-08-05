@@ -510,13 +510,30 @@ test('Claude limits render as one provider group with account subrows', () => {
 
 test('every multi-account Limits group uses its provider-localized account count', () => {
   const app = readRendererFile('app.js');
-  for (const provider of ['claude', 'codex', 'mimo', 'opencode', 'openrouter', 'thirdparty']) {
+  for (const provider of ['claude', 'codex', 'mimo', 'opencode', 'openrouter', 'thirdparty', 'kimi', 'zai', 'zaiteam', 'ollama']) {
     assert.match(
       app,
       new RegExp(`settings\\.${provider}\\.nAccounts`)
     );
   }
   assert.doesNotMatch(app, /settings\.limits\.nAccounts|accountCountText/);
+});
+
+test('Kimi, GLM, GLM Team, and Ollama limits render every account as a group subrow', () => {
+  const app = readRendererFile('app.js');
+  const renderLimits = functionBody(app, 'renderLimits', 'serviceStatusLabel');
+  const renderGroup = functionBody(app, 'renderNamedAccountGroup', 'opencodeAccountTitle');
+
+  assert.match(renderLimits, /id === 'kimi' \|\| id === 'zai' \|\| id === 'zaiteam' \|\| id === 'ollama'/);
+  assert.match(renderLimits, /renderNamedAccountGroup\(id, label, visibleProviders, color,/);
+  assert.match(renderLimits, /kimi: 'settings\.kimi\.nAccounts'/);
+  assert.match(renderLimits, /zai: 'settings\.zai\.nAccounts'/);
+  assert.match(renderLimits, /zaiteam: 'settings\.zaiteam\.nAccounts'/);
+  assert.match(renderLimits, /ollama: 'settings\.ollama\.nAccounts'/);
+  assert.match(renderGroup, /planText: t\(countKey, \{ count: providers\.length \}\)/);
+  assert.match(renderGroup, /limitAccountTitle\(id, provider, index, providers\)/);
+  assert.match(renderGroup, /accountRow: true/);
+  assert.match(renderGroup, /showIcon: false/);
 });
 
 test('tray primary-limit modes use the shared provider-aware resolver', () => {

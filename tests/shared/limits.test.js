@@ -178,6 +178,50 @@ test('aggregateLimits preserves distinct Potluck Kimi and GLM accounts even when
   );
 });
 
+test('aggregateLimits keeps a local Ollama account with windows alongside a synced one', () => {
+  // Two same-status Ollama accounts from different devices used to collapse to
+  // one row; the later updatedAt (the synced, windowless entry) won and the
+  // local usage meters disappeared from Home.
+  const aggregate = aggregateLimits([
+    {
+      deviceId: 'mac-mini-local',
+      limits: {
+        updatedAt: '2026-08-05T14:04:56.000Z',
+        providers: [{
+          provider: 'ollama',
+          accountKey: 'sha256:local',
+          accountEmail: 'local@example.com',
+          status: 'ok',
+          source: 'api',
+          updatedAt: '2026-08-05T14:04:56.000Z',
+          windows: [{ kind: 'session', usedPercent: 5.7, showMeter: true }]
+        }]
+      }
+    },
+    {
+      deviceId: 'potluck',
+      limits: {
+        updatedAt: '2026-08-05T14:05:03.000Z',
+        providers: [{
+          provider: 'ollama',
+          accountKey: 'estherzhu',
+          accountName: 'estherzhu',
+          status: 'ok',
+          source: 'web',
+          updatedAt: '2026-08-05T14:05:03.000Z',
+          windows: []
+        }]
+      }
+    }
+  ], 0, Date.parse('2026-08-05T14:06:00.000Z'));
+
+  const ollama = aggregate.providers.filter((item) => item.provider === 'ollama');
+  assert.deepEqual(new Set(ollama.map((item) => item.accountKey)), new Set(['sha256:local', 'estherzhu']));
+  const local = ollama.find((item) => item.accountKey === 'sha256:local');
+  assert.equal(local.windows.length, 1);
+  assert.equal(local.windows[0].usedPercent, 5.7);
+});
+
 test('aggregateLimits preserves same-email Codex workspaces by hashed account key', () => {
   const aggregate = aggregateLimits([{
     deviceId: 'macbook',

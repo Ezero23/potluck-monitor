@@ -47,41 +47,21 @@ test('Home low-limit indicator setting is translated in every locale', () => {
   }
 });
 
-test('Home multi-account provider names are opt-in and persist through the settings boundary', () => {
+test('Home multi-account rows always carry the provider name', () => {
   const main = read('src/electron/main.js');
   const app = read('src/electron/renderer/app.js');
-  const css = read('src/electron/renderer/styles.css');
 
-  assert.match(main, /showHomeLimitProviderNames:\s*false/);
-  assert.match(main, /merged\.showHomeLimitProviderNames = parseBoolean\(merged\.showHomeLimitProviderNames, false\)/);
-  assert.match(main, /showHomeLimitProviderNames:\s*parseBoolean\(patch\.showHomeLimitProviderNames \?\? settings\.showHomeLimitProviderNames, false\)/);
   assert.match(app, /providerEntries\.length > 1/);
   assert.match(app, /limitAccountTitle\(id, provider, index, providerEntries\)/);
-  assert.match(app, /state\.settings\?\.showHomeLimitProviderNames === true \|\| state\.settings\?\.showToolIcons === false/);
   assert.match(app, /`\$\{providerTitle\} · \$\{accountTitle\}`/);
-  assert.match(app, /const providerNamesRequired = state\.settings\?\.showToolIcons === false/);
-  assert.match(app, /providerNamesInput\.checked = providerNamesRequired \|\| state\.settings\?\.showHomeLimitProviderNames === true/);
-  assert.match(app, /providerNamesInput\.disabled = providerNamesRequired/);
-  assert.match(app, /settings\.home\.providerNamesRequiredWithoutIcons/);
-  assert.match(app, /requiredReasonText\.className = 'home-limit-provider-names-reason'/);
-  assert.match(app, /providerNamesInput\.setAttribute\('aria-describedby', requiredReasonText\.id\)/);
-  assert.match(css, /\.home-limit-provider-names-copy\s*\{[^}]*display:\s*grid/s);
-  assert.match(css, /\.home-limit-provider-names-reason\s*\{[^}]*font-size:\s*10px/s);
-  assert.match(app, /saveSettings\(\{ showHomeLimitProviderNames: providerNamesInput\.checked \}\)/);
-  assert.match(app, /renderHomeIfVisible\(\)/);
-  assert.match(app, /els\.toolIconsInput\.addEventListener\('change', async \(\) => \{\s*state\.settings\.showToolIcons = els\.toolIconsInput\.checked;\s*renderHomeIfVisible\(\);\s*await saveAppearanceFromControls\(\);\s*\}\);/);
+  // No opt-out: provider identity must never rest on a 16px mask icon alone.
+  assert.doesNotMatch(app, /showHomeLimitProviderNames|providerNamesRequiredWithoutIcons/);
+  assert.doesNotMatch(main, /showHomeLimitProviderNames/);
 });
 
-test('Home provider name setting is translated in every locale', () => {
-  const { MESSAGES } = require('../../src/electron/renderer/i18n');
-  const expected = {
-    en: 'Show provider names for multiple accounts',
-    'zh-CN': '多账号显示提供商名称'
-  };
-  for (const [locale, label] of Object.entries(expected)) {
-    assert.equal(MESSAGES[locale]['settings.home.showLimitProviderNames'], label);
-    assert.ok(MESSAGES[locale]['settings.home.providerNamesRequiredWithoutIcons']);
-  }
+test('Tool icons toggle re-renders Home and persists appearance', () => {
+  const app = read('src/electron/renderer/app.js');
+  assert.match(app, /els\.toolIconsInput\.addEventListener\('change', async \(\) => \{\s*state\.settings\.showToolIcons = els\.toolIconsInput\.checked;\s*renderHomeIfVisible\(\);\s*await saveAppearanceFromControls\(\);\s*\}\);/);
 });
 
 test('Home account display count defaults to three and is configurable', () => {

@@ -433,7 +433,8 @@ function providerCollapseKey(provider) {
       || provider.provider === 'mimo'
       || provider.provider === 'kimi'
       || provider.provider === 'zai'
-      || provider.provider === 'zaiteam')
+      || provider.provider === 'zaiteam'
+      || provider.provider === 'ollama')
     && isConfiguredProvider(provider)
   ) {
     return providerAggregateKey(provider);
