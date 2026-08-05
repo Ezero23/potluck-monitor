@@ -3450,6 +3450,30 @@ function renderMimoAccountGroup(label, providers, color) {
   return row;
 }
 
+// Generic account group for collapsed providers without special row options
+// (kimi, zai, zaiteam). Without it the limits view renders only the first
+// account and silently drops the rest.
+function renderNamedAccountGroup(id, label, providers, color, countKey) {
+  const row = document.createElement('div');
+  row.className = `limit-row limit-row-group${providers.some((provider) => provider.stale) ? ' stale' : ''}`;
+  const groupProvider = { provider: id, status: 'ok', windows: [] };
+  const head = renderLimitProviderHead(id, label, groupProvider, color, {
+    planText: t(countKey, { count: providers.length }),
+    hideMeta: true
+  });
+  const accountList = document.createElement('div');
+  accountList.className = 'limit-account-list';
+  providers.forEach((provider, index) => {
+    accountList.append(renderLimitProviderRow(id, limitAccountTitle(id, provider, index, providers), provider, color, {
+      accountRow: true,
+      accountTitle: true,
+      showIcon: false
+    }));
+  });
+  row.append(head, accountList);
+  return row;
+}
+
 function opencodeAccountTitle(provider, index) {
   const name = String(provider?.accountName || '').trim();
   if (name) return name;
@@ -3646,6 +3670,15 @@ function renderLimits() {
     }
     if (id === 'mimo' && Array.isArray(visibleProviders) && visibleProviders.length > 1) {
       nodes.push(renderMimoAccountGroup(label, visibleProviders, color));
+      continue;
+    }
+    if ((id === 'kimi' || id === 'zai' || id === 'zaiteam' || id === 'ollama') && Array.isArray(visibleProviders) && visibleProviders.length > 1) {
+      nodes.push(renderNamedAccountGroup(id, label, visibleProviders, color, {
+        kimi: 'settings.kimi.nAccounts',
+        zai: 'settings.zai.nAccounts',
+        zaiteam: 'settings.zaiteam.nAccounts',
+        ollama: 'settings.ollama.nAccounts'
+      }[id]));
       continue;
     }
     const provider = Array.isArray(visibleProviders) ? visibleProviders[0] : visibleProviders;
@@ -4454,9 +4487,10 @@ function homeLimitRows() {
       const providerTitle = option?.label || id;
       if (providerEntries.length > 1) {
         const accountTitle = limitAccountTitle(id, provider, index, providerEntries);
-        return state.settings?.showHomeLimitProviderNames === true || state.settings?.showToolIcons === false
-          ? `${providerTitle} · ${accountTitle}`
-          : accountTitle;
+        // Multi-account rows always carry the provider name: a 16px mask icon
+        // alone cannot tell Kimi from GLM/Ollama, and an unnamed account
+        // ("Account 2") is meaningless without it.
+        return `${providerTitle} · ${accountTitle}`;
       }
       return providerTitle;
     }
@@ -7096,33 +7130,6 @@ function renderHomeLimitProviderList() {
   statusText.textContent = t('settings.home.showLimitBars');
   statusInput.addEventListener('change', () => void saveSettings({ showHomeLimitBars: statusInput.checked }));
   statusLabel.append(statusInput, statusText);
-  const providerNamesLabel = document.createElement('label');
-  providerNamesLabel.className = 'checkbox-label home-limit-status-setting';
-  const providerNamesInput = document.createElement('input');
-  providerNamesInput.type = 'checkbox';
-  const providerNamesRequired = state.settings?.showToolIcons === false;
-  providerNamesInput.checked = providerNamesRequired || state.settings?.showHomeLimitProviderNames === true;
-  providerNamesInput.disabled = providerNamesRequired;
-  const providerNamesText = document.createElement('span');
-  providerNamesText.textContent = t('settings.home.showLimitProviderNames');
-  const providerNamesCopy = document.createElement('span');
-  providerNamesCopy.className = 'home-limit-provider-names-copy';
-  providerNamesCopy.append(providerNamesText);
-  if (providerNamesRequired) {
-    const requiredReason = t('settings.home.providerNamesRequiredWithoutIcons');
-    const requiredReasonText = document.createElement('span');
-    requiredReasonText.id = 'homeLimitProviderNamesReason';
-    requiredReasonText.className = 'home-limit-provider-names-reason';
-    requiredReasonText.textContent = requiredReason;
-    providerNamesCopy.append(requiredReasonText);
-    providerNamesLabel.title = requiredReason;
-    providerNamesInput.setAttribute('aria-describedby', requiredReasonText.id);
-  }
-  providerNamesInput.addEventListener('change', async () => {
-    await saveSettings({ showHomeLimitProviderNames: providerNamesInput.checked });
-    renderHomeIfVisible();
-  });
-  providerNamesLabel.append(providerNamesInput, providerNamesCopy);
   const countLabel = document.createElement('label');
   countLabel.className = 'settings-item home-limit-account-count-setting';
   const countText = document.createElement('span');
@@ -7171,7 +7178,7 @@ function renderHomeLimitProviderList() {
   showAll.addEventListener('click', () => void showAllHomeLimitProviders());
   headerActions.append(reset, showAll);
   header.append(note, headerActions);
-  wrap.append(statusLabel, providerNamesLabel, countLabel, header);
+  wrap.append(statusLabel, countLabel, header);
   for (const { id, label, settingsLabel } of providers) {
     const isHidden = hidden.has(id);
     const row = document.createElement('div');
@@ -10254,8 +10261,8 @@ const externalLimitAccountConfig = {
     pendingKey: 'kimiPendingCheckSince'
   },
   ollama: {
-    configuredKey: 'ollamaCookieConfigured',
-    sourceKey: 'ollamaCookieSource',
+    configuredKey: 'ollamaCredentialConfigured',
+    sourceKey: 'ollamaCredentialSource',
     pendingKey: 'ollamaPendingCheckSince'
   }
 };
@@ -10504,7 +10511,7 @@ function kimiPlatformUrl() {
 }
 
 function ollamaPlatformUrl() {
-  return 'https://ollama.com/settings';
+  return 'https://ollama.com/settings/keys';
 }
 
 function ollamaValidationError(provider) {
@@ -10513,6 +10520,14 @@ function ollamaValidationError(provider) {
     return t('settings.ollama.validationRateLimited');
   }
   return t('settings.ollama.validationUnavailable');
+}
+
+function ollamaApiKeyValidationError(provider) {
+  if (provider?.status === 'unauthorized') return t('settings.ollama.validationInvalidApiKey');
+  if (provider?.status === 'rateLimited' || provider?.status === 'sourceRateLimited') {
+    return t('settings.ollama.validationRateLimited');
+  }
+  return t('settings.ollama.validationUnavailableApiKey');
 }
 
 function renderPotluckProviderAccounts(providerName, providers) {
@@ -10577,6 +10592,8 @@ function renderExternalProviderStatus(providerName) {
     if (siteInput) siteInput.value = state.settings?.qoderSite === 'cn' ? 'cn' : 'global';
     updateQoderUsagePageHint();
   }
+  const labelInput = document.getElementById(`${providerName}AccountLabelInput`);
+  if (labelInput) labelInput.value = state.settings?.[`${providerName}AccountLabel`] || '';
   const potluckLinked = potluckAccounts.length > 0;
   renderPotluckProviderAccounts(providerName, potluckAccounts);
   setCursorStatusText(
@@ -12257,7 +12274,7 @@ function setupCursorAccountUI() {
       window.tokenMonitor.openExternal(ollamaPlatformUrl());
     });
     document.getElementById('ollamaLogoutButton').addEventListener('click', async () => {
-      await saveSettings({ ollamaCookie: '' });
+      await saveSettings({ ollamaCookie: '', ollamaApiKey: '' });
       clearExternalProviderCheckPending('ollama');
       clearExternalProviderPendingStatus('ollama');
       renderExternalProviderStatus('ollama');
@@ -12295,6 +12312,47 @@ function setupCursorAccountUI() {
           clearExternalProviderCheckPending('ollama');
           renderExternalProviderStatus('ollama');
           errorEl.textContent = t('settings.ollama.validationInvalid');
+          errorEl.classList.remove('hidden');
+          return;
+        }
+        input.value = '';
+        renderExternalProviderStatus('ollama');
+      } catch (err) {
+        clearExternalProviderCheckPending('ollama');
+        renderExternalProviderStatus('ollama');
+        errorEl.textContent = t('settings.ollama.saveFailed', { message: err.message });
+        errorEl.classList.remove('hidden');
+      }
+    });
+    document.getElementById('ollamaApiKeySubmit').addEventListener('click', async () => {
+      const input = document.getElementById('ollamaApiKeyInput');
+      const errorEl = document.getElementById('ollamaErrorMessage');
+      errorEl.classList.add('hidden');
+      if (!String(input.value || '').trim()) {
+        errorEl.textContent = t('settings.ollama.statusNotSet');
+        errorEl.classList.remove('hidden');
+        return;
+      }
+      try {
+        markExternalProviderCheckPending('ollama');
+        renderExternalProviderStatus('ollama');
+        const validation = await window.tokenMonitor.ollama.validateApiKey(input.value);
+        if (!validation?.ok) {
+          clearExternalProviderCheckPending('ollama');
+          renderExternalProviderStatus('ollama');
+          errorEl.textContent = ollamaApiKeyValidationError(validation);
+          errorEl.classList.remove('hidden');
+          return;
+        }
+        await saveSettings({
+          ollamaApiKey: input.value,
+          limitProviders: limitProviderSelectionIncluding('ollama'),
+          limitsEnabled: true
+        });
+        if (!state.settings?.ollamaApiKeyConfigured) {
+          clearExternalProviderCheckPending('ollama');
+          renderExternalProviderStatus('ollama');
+          errorEl.textContent = t('settings.ollama.validationInvalidApiKey');
           errorEl.classList.remove('hidden');
           return;
         }
@@ -12377,6 +12435,28 @@ function setupCursorAccountUI() {
         errorEl.textContent = t('settings.kimi.saveFailed', { message: err.message });
         errorEl.classList.remove('hidden');
       }
+    });
+
+    const kimiLabelInput = document.getElementById('kimiAccountLabelInput');
+    const kimiLabelSaveBtn = document.getElementById('kimiAccountLabelSave');
+    if (kimiLabelInput && kimiLabelSaveBtn) {
+      kimiLabelInput.value = state.settings?.kimiAccountLabel || '';
+      kimiLabelSaveBtn.addEventListener('click', async () => {
+        const next = String(kimiLabelInput.value || '').trim().slice(0, 64);
+        await saveSettings({ kimiAccountLabel: next });
+        await refreshStats({ force: true });
+      });
+    }
+  }
+
+  const ollamaLabelInput = document.getElementById('ollamaAccountLabelInput');
+  const ollamaLabelSaveBtn = document.getElementById('ollamaAccountLabelSave');
+  if (ollamaLabelInput && ollamaLabelSaveBtn) {
+    ollamaLabelInput.value = state.settings?.ollamaAccountLabel || '';
+    ollamaLabelSaveBtn.addEventListener('click', async () => {
+      const next = String(ollamaLabelInput.value || '').trim().slice(0, 64);
+      await saveSettings({ ollamaAccountLabel: next });
+      await refreshStats({ force: true });
     });
   }
 

@@ -117,7 +117,8 @@ const bridge = {
     saveCookie: (cookie) => ipcRenderer.invoke('claude:saveCookie', cookie)
   },
   ollama: {
-    validateCookie: (cookie) => ipcRenderer.invoke('ollama:validateCookie', cookie)
+    validateCookie: (cookie) => ipcRenderer.invoke('ollama:validateCookie', cookie),
+    validateApiKey: (apiKey) => ipcRenderer.invoke('ollama:validateApiKey', apiKey)
   },
   opencode: {
     saveCookie: (cookie) => ipcRenderer.invoke('opencode:saveCookie', cookie),

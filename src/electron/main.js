@@ -37,7 +37,7 @@ const { customPricingPath } = require('../shared/tokscaleConfig');
 const { applyCustomPricing, normalizeCustomPricingSetting } = require('../shared/tokscaleCustomPricing');
 const { createHub } = require('../hub/server');
 const { claudeWebCookie, deepseekToken, fetchClaudeLimits, normalizeClaudeWebCookieInput, normalizeLimitsRefreshMs, parseBoolean, parseLimitProviders, runCodexLogin, minimaxToken, copilotToken, zaiToken, zaiRegion, zaiTeamToken, volcengineCredentials, qoderCookie, kimiToken, kimiWebToken, ollamaSessionCookie } = require('../shared/limitCollector');
-const { fetchOllamaLimits, rememberOllamaValidation } = require('../shared/ollamaLimits');
+const { fetchOllamaLimits, ollamaApiKey, rememberOllamaValidation } = require('../shared/ollamaLimits');
 const { copilotLoginErrorMessage, isAllowedVerificationUrl, runCopilotDeviceFlowLogin } = require('../shared/copilotDeviceFlow');
 const {
   codexAuthIdentity,
@@ -319,7 +319,6 @@ function defaultSettings() {
     homeModuleOrder: defaultHomeModulePreferences().homeModuleOrder,
     hiddenHomeModules: defaultHomeModulePreferences().hiddenHomeModules,
     showHomeLimitBars: false,
-    showHomeLimitProviderNames: false,
     projectsEnabled: parseBoolean(process.env.TOKEN_MONITOR_PROJECTS_ENABLED, false),
     historyEnabled: true,
     historyIntervalMs: normalizeHistoryIntervalMs(process.env.TOKEN_MONITOR_HISTORY_INTERVAL_MS),
@@ -381,7 +380,10 @@ function defaultSettings() {
     qoderSite: 'global',
     kimiApiKey: '',
     kimiWebAccessToken: '',
+    kimiAccountLabel: '',
     ollamaCookie: '',
+    ollamaApiKey: '',
+    ollamaAccountLabel: '',
     codexManagedAccounts: [],
     mimoManagedAccounts: [],
     appUpdate: {
@@ -589,6 +591,14 @@ function normalizeOllamaCookie(value) {
 
 function currentOllamaCookie() {
   return settings?.ollamaCookie || ollamaSessionCookie(process.env);
+}
+
+function normalizeOllamaApiKey(value) {
+  return ollamaApiKey({}, { ollamaApiKey: String(value || '') });
+}
+
+function currentOllamaApiKey() {
+  return settings?.ollamaApiKey || ollamaApiKey(process.env);
 }
 
 function normalizeKimiApiKey(value) {
@@ -1912,7 +1922,6 @@ function readSettings() {
       merged.hiddenHomeModules = normalizeHiddenHomeModules(saved.hiddenHomeModules, DEFAULT_HOME_MODULE_LIST);
     }
     merged.showHomeLimitBars = parseBoolean(merged.showHomeLimitBars, false);
-    merged.showHomeLimitProviderNames = parseBoolean(merged.showHomeLimitProviderNames, false);
     merged.automaticAppUpdates = parseBoolean(merged.automaticAppUpdates, false);
     if (saved.homeLimitProviderOrder !== undefined) {
       merged.homeLimitProviderOrder = migrateHomeLimitProviderOrder(saved.homeLimitProviderOrder);
@@ -2968,6 +2977,11 @@ function settingsForRenderer() {
     : ollamaSessionCookie(process.env)
       ? 'env'
       : '';
+  const ollamaApiKeySource = settings?.ollamaApiKey
+    ? 'settings'
+    : ollamaApiKey(process.env)
+      ? 'env'
+      : '';
   const kimiApiKeySource = settings?.kimiApiKey
     ? 'settings'
     : kimiToken(process.env)
@@ -2994,6 +3008,7 @@ function settingsForRenderer() {
     claudeWebCookie: settings?.claudeWebCookie ? 'set' : '',
     qoderCookie: settings?.qoderCookie ? 'set' : '',
     ollamaCookie: settings?.ollamaCookie ? 'set' : '',
+    ollamaApiKey: settings?.ollamaApiKey ? 'set' : '',
     // Never ship OpenCode session cookies to the renderer; the UI only needs to
     // know whether a cookie is configured, not its value.
     opencodeCookie: settings?.opencodeCookie ? 'set' : '',
@@ -3028,6 +3043,10 @@ function settingsForRenderer() {
     qoderCookieSource,
     ollamaCookieConfigured: Boolean(currentOllamaCookie()),
     ollamaCookieSource,
+    ollamaApiKeyConfigured: Boolean(currentOllamaApiKey()),
+    ollamaApiKeySource,
+    ollamaCredentialConfigured: Boolean(currentOllamaApiKey() || currentOllamaCookie()),
+    ollamaCredentialSource: ollamaApiKeySource || ollamaCookieSource,
     kimiApiKeyConfigured: Boolean(currentKimiApiKey()),
     kimiApiKeySource,
     kimiWebAccessTokenConfigured: Boolean(currentKimiWebAccessToken()),
@@ -4377,6 +4396,7 @@ app.whenReady().then(() => {
     if (patch.kimiApiKey !== undefined) normalizedPatch.kimiApiKey = normalizeKimiApiKey(patch.kimiApiKey);
     if (patch.kimiWebAccessToken !== undefined) normalizedPatch.kimiWebAccessToken = normalizeKimiWebAccessToken(patch.kimiWebAccessToken);
     if (patch.ollamaCookie !== undefined) normalizedPatch.ollamaCookie = normalizeOllamaCookie(patch.ollamaCookie);
+    if (patch.ollamaApiKey !== undefined) normalizedPatch.ollamaApiKey = normalizeOllamaApiKey(patch.ollamaApiKey);
     if (patch.collectionMode !== undefined) normalizedPatch.collectionMode = normalizeCollectionMode(patch.collectionMode, settings.collectionMode);
     if (patch.collectionIntervalMs !== undefined) normalizedPatch.collectionIntervalMs = normalizeCollectionIntervalMs(patch.collectionIntervalMs, settings.collectionIntervalMs);
     if (patch.syncUploadIntervalMs !== undefined) normalizedPatch.syncUploadIntervalMs = normalizeSyncUploadIntervalMs(patch.syncUploadIntervalMs, settings.syncUploadIntervalMs);
@@ -4419,7 +4439,6 @@ app.whenReady().then(() => {
       homeModuleOrder: patch.homeModuleOrder !== undefined ? normalizeHomeModuleOrder(patch.homeModuleOrder, DEFAULT_HOME_MODULE_LIST).join(',') : normalizeHomeModuleOrder(settings.homeModuleOrder, DEFAULT_HOME_MODULE_LIST).join(','),
       hiddenHomeModules: patch.hiddenHomeModules !== undefined ? normalizeHiddenHomeModules(patch.hiddenHomeModules, DEFAULT_HOME_MODULE_LIST) : normalizeHiddenHomeModules(settings.hiddenHomeModules, DEFAULT_HOME_MODULE_LIST),
       showHomeLimitBars: parseBoolean(patch.showHomeLimitBars ?? settings.showHomeLimitBars, false),
-      showHomeLimitProviderNames: parseBoolean(patch.showHomeLimitProviderNames ?? settings.showHomeLimitProviderNames, false),
       homeLimitProviderOrder: patch.homeLimitProviderOrder !== undefined ? migrateHomeLimitProviderOrder(patch.homeLimitProviderOrder) : (settings.homeLimitProviderOrder || ''),
       hiddenHomeLimitProviders: patch.hiddenHomeLimitProviders !== undefined ? normalizeHiddenLimitProviders(patch.hiddenHomeLimitProviders) : normalizeHiddenLimitProviders(settings.hiddenHomeLimitProviders),
       homeLimitAccountCount: normalizeHomeLimitAccountCount(patch.homeLimitAccountCount ?? settings.homeLimitAccountCount),
@@ -4472,6 +4491,7 @@ app.whenReady().then(() => {
       qoderCookie: patch.qoderCookie !== undefined ? normalizeQoderCookie(patch.qoderCookie) : (settings.qoderCookie || ''),
       qoderSite: patch.qoderSite !== undefined ? normalizeQoderSite(patch.qoderSite) : normalizeQoderSite(settings.qoderSite || 'global'),
       ollamaCookie: patch.ollamaCookie !== undefined ? normalizeOllamaCookie(patch.ollamaCookie) : (settings.ollamaCookie || ''),
+      ollamaApiKey: patch.ollamaApiKey !== undefined ? normalizeOllamaApiKey(patch.ollamaApiKey) : (settings.ollamaApiKey || ''),
       customModelPricing: patch.customModelPricing !== undefined
         ? normalizeCustomPricingSetting(patch.customModelPricing)
         : normalizeCustomPricingSetting(settings.customModelPricing)
@@ -4861,6 +4881,13 @@ app.whenReady().then(() => {
     if (!cookie) return { ok: false, status: 'notConfigured' };
     const provider = await fetchOllamaLimits({ ollamaCookie: cookie }, { bypassValidationCache: true });
     rememberOllamaValidation(cookie, provider);
+    return { ok: provider.status === 'ok', status: provider.status };
+  });
+  ipcMain.handle('ollama:validateApiKey', async (_event, raw) => {
+    const apiKey = normalizeOllamaApiKey(raw);
+    if (!apiKey) return { ok: false, status: 'notConfigured' };
+    const provider = await fetchOllamaLimits({ ollamaApiKey: apiKey }, { bypassValidationCache: true });
+    rememberOllamaValidation(apiKey, provider);
     return { ok: provider.status === 'ok', status: provider.status };
   });
   ipcMain.handle('opencode:saveCookie', async (_event, raw) => {

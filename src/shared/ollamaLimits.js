@@ -4,6 +4,8 @@ const { normalizeLimitProvider } = require('./limits');
 const { hashKey } = require('./hashKey');
 
 const OLLAMA_SETTINGS_URL = 'https://ollama.com/settings';
+const OLLAMA_USAGE_URL = 'https://ollama.com/api/usage';
+const OLLAMA_ME_URL = 'https://ollama.com/api/me';
 const OLLAMA_USER_AGENT = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36';
 const VALIDATION_CACHE_MS = 30 * 1000;
 let validationCache = null;
@@ -67,6 +69,16 @@ function ollamaSessionCookie(env = process.env, options = {}) {
   return '';
 }
 
+function ollamaApiKey(env = process.env, options = {}) {
+  const explicit = cleanSecret(options.ollamaApiKey);
+  if (explicit) return explicit;
+  for (const name of ['OLLAMA_API_KEY', 'TOKEN_MONITOR_OLLAMA_API_KEY']) {
+    const key = cleanSecret(env[name]);
+    if (key) return key;
+  }
+  return '';
+}
+
 function toIso(value) {
   if (!value) return null;
   const parsed = new Date(String(value));
@@ -83,13 +95,13 @@ function firstCapture(text, pattern) {
   return String(text || '').match(pattern)?.[1] || '';
 }
 
-function validationCacheKey(cookieHeader) {
-  return hashKey('ollama-validation', cookieHeader);
+function validationCacheKey(credential) {
+  return hashKey('ollama-validation', credential);
 }
 
-function rememberOllamaValidation(cookieHeader, provider, nowMs = Date.now()) {
-  if (!cookieHeader) return;
-  const key = validationCacheKey(cookieHeader);
+function rememberOllamaValidation(credential, provider, nowMs = Date.now()) {
+  if (!credential) return;
+  const key = validationCacheKey(credential);
   if (validationCache?.key === key) validationCache = null;
   if (provider?.status !== 'ok') return;
   validationCache = {
@@ -99,8 +111,8 @@ function rememberOllamaValidation(cookieHeader, provider, nowMs = Date.now()) {
   };
 }
 
-function consumeOllamaValidation(cookieHeader, nowMs = Date.now()) {
-  const key = validationCacheKey(cookieHeader);
+function consumeOllamaValidation(credential, nowMs = Date.now()) {
+  const key = validationCacheKey(credential);
   const cached = validationCache;
   if (!cached) return null;
   if (cached.expiresAt < nowMs) {
@@ -219,19 +231,127 @@ async function requestSettings(fetchFn, cookieHeader, controller) {
   throw errorWithStatus('unavailable', 'Ollama returned too many redirects');
 }
 
+function ratioUsageWindow(kind, usage) {
+  const ratio = Number(usage);
+  if (!Number.isFinite(ratio)) return null;
+  // One-decimal precision matches the HTML scraping path (e.g. 14.5% used).
+  const usedPercent = clampPercent(Math.round(ratio * 1000) / 10);
+  if (usedPercent === null) return null;
+  return {
+    kind,
+    usedPercent,
+    resetsAt: null,
+    windowMinutes: kind === 'weekly' ? 7 * 24 * 60 : 5 * 60,
+    showMeter: true
+  };
+}
+
+// GET /api/usage reports each window's `usage` as a 0..1 ratio (1.0 = limit
+// reached). No reset timestamps are exposed.
+function parseOllamaUsageJson(data) {
+  const limits = data && typeof data === 'object' && data.limits && typeof data.limits === 'object'
+    ? data.limits
+    : {};
+  const session = ratioUsageWindow('session', limits.session?.usage);
+  const weekly = ratioUsageWindow('weekly', limits.weekly?.usage);
+  return {
+    windows: [session, weekly].filter(Boolean),
+    session,
+    weekly
+  };
+}
+
+function normalizePlanLabel(value) {
+  const raw = typeof value === 'string' ? value.trim() : '';
+  if (!raw) return '';
+  return raw.charAt(0).toUpperCase() + raw.slice(1).toLowerCase();
+}
+
+// POST /api/me is best-effort: the plan label must never block quota data.
+async function fetchOllamaPlanLabel(fetchFn, apiKey, controller) {
+  try {
+    const response = await fetchFn(OLLAMA_ME_URL, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        Accept: 'application/json',
+        'Content-Length': '0'
+      },
+      ...(controller ? { signal: controller.signal } : {})
+    });
+    if (!response.ok) return '';
+    return normalizePlanLabel((await response.json())?.Plan);
+  } catch (_) {
+    return '';
+  }
+}
+
+async function fetchOllamaLimitsWithApiKey(apiKey, updatedAt, deps = {}, options = {}) {
+  const fetchFn = deps.fetch || fetch;
+  const timeoutMs = Number(deps.fetchTimeoutMs || 12000);
+  const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+  const timer = controller ? setTimeout(() => controller.abort(), timeoutMs) : null;
+  try {
+    const response = await fetchFn(OLLAMA_USAGE_URL, {
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        Accept: 'application/json'
+      },
+      ...(controller ? { signal: controller.signal } : {})
+    });
+    if (response.status === 401 || response.status === 403) {
+      throw errorWithStatus('unauthorized', `Ollama usage API returned ${response.status}`);
+    }
+    if (response.status === 429) throw errorWithStatus('sourceRateLimited', 'Ollama usage API returned 429');
+    if (!response.ok) throw errorWithStatus('unavailable', `Ollama usage API returned ${response.status}`);
+    let data;
+    try {
+      data = await response.json();
+    } catch (_) {
+      throw errorWithStatus('unavailable', 'Ollama usage response was not JSON');
+    }
+    const parsed = parseOllamaUsageJson(data);
+    const planLabel = await fetchOllamaPlanLabel(fetchFn, apiKey, controller);
+    return normalizeLimitProvider({
+      provider: 'ollama',
+      accountKey: hashKey('ollama', apiKey),
+      accountName: options.ollamaAccountLabel || '',
+      accountLabel: planLabel,
+      source: 'api',
+      status: 'ok',
+      updatedAt,
+      windows: parsed.windows
+    });
+  } catch (error) {
+    return normalizeLimitProvider({
+      provider: 'ollama',
+      source: 'api',
+      status: error?.name === 'AbortError' ? 'unavailable' : (error?.status || 'unavailable'),
+      updatedAt,
+      windows: []
+    });
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
 async function fetchOllamaLimits(options = {}, deps = {}) {
   const env = deps.env || process.env;
   const now = (deps.now || Date.now)();
   const updatedAt = new Date(now).toISOString();
-  const cookieHeader = ollamaSessionCookie(env, options);
-  if (!cookieHeader) {
+  const apiKey = ollamaApiKey(env, options);
+  const cookieHeader = apiKey ? '' : ollamaSessionCookie(env, options);
+  const credential = apiKey || cookieHeader;
+  if (!credential) {
     return normalizeLimitProvider({ provider: 'ollama', source: 'web', status: 'notConfigured', updatedAt, windows: [] });
   }
 
   if (!deps.bypassValidationCache) {
-    const cached = consumeOllamaValidation(cookieHeader, now);
+    const cached = consumeOllamaValidation(credential, now);
     if (cached) return cached;
   }
+
+  if (apiKey) return fetchOllamaLimitsWithApiKey(apiKey, updatedAt, deps, options);
 
   const fetchFn = deps.fetch || fetch;
   const timeoutMs = Number(deps.fetchTimeoutMs || 12000);
@@ -255,6 +375,7 @@ async function fetchOllamaLimits(options = {}, deps = {}) {
     return normalizeLimitProvider({
       provider: 'ollama',
       accountKey: hashKey('ollama', identity),
+      accountName: options.ollamaAccountLabel || '',
       accountEmail: parsed.accountEmail,
       accountLabel: parsed.planName,
       source: 'web',
@@ -283,10 +404,14 @@ function errorWithStatus(status, message) {
 
 module.exports = {
   OLLAMA_SETTINGS_URL,
+  OLLAMA_USAGE_URL,
+  OLLAMA_ME_URL,
   OLLAMA_SESSION_COOKIE_NAMES,
   normalizeOllamaCookieHeader,
   ollamaSessionCookie,
+  ollamaApiKey,
   rememberOllamaValidation,
   parseOllamaUsageHtml,
+  parseOllamaUsageJson,
   fetchOllamaLimits
 };

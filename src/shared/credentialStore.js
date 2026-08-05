@@ -28,6 +28,7 @@ const CREDENTIAL_SETTING_PATHS = Object.freeze({
   kimiApiKey: ['providers', 'kimi', 'apiKey'],
   kimiWebAccessToken: ['providers', 'kimi', 'webAccessToken'],
   ollamaCookie: ['providers', 'ollama', 'cookie'],
+  ollamaApiKey: ['providers', 'ollama', 'apiKey'],
   thirdPartyProfiles: ['providers', 'thirdparty', 'profiles']
 });
 
