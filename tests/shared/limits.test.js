@@ -144,6 +144,40 @@ test('aggregateLimits preserves distinct Codex accounts by hashed account key', 
   );
 });
 
+test('aggregateLimits preserves distinct Potluck Kimi and GLM accounts even when one needs attention', () => {
+  const provider = (name, accountKey, status, updatedAt) => ({
+    provider: name,
+    accountKey,
+    accountName: accountKey,
+    status,
+    source: 'oauth',
+    sourceDetail: 'web',
+    updatedAt,
+    windows: []
+  });
+  const aggregate = aggregateLimits([{
+    deviceId: 'potluck',
+    limits: {
+      updatedAt: '2026-08-01T10:04:00.000Z',
+      providers: [
+        provider('kimi', 'kimi-a', 'ok', '2026-08-01T10:00:00.000Z'),
+        provider('kimi', 'kimi-b', 'unauthorized', '2026-08-01T10:01:00.000Z'),
+        provider('zai', 'glm-a', 'ok', '2026-08-01T10:02:00.000Z'),
+        provider('zai', 'glm-b', 'unavailable', '2026-08-01T10:03:00.000Z')
+      ]
+    }
+  }], 0, Date.parse('2026-08-01T10:05:00.000Z'));
+
+  assert.deepEqual(
+    new Set(aggregate.providers.filter((item) => item.provider === 'kimi').map((item) => item.accountKey)),
+    new Set(['kimi-a', 'kimi-b'])
+  );
+  assert.deepEqual(
+    new Set(aggregate.providers.filter((item) => item.provider === 'zai').map((item) => item.accountKey)),
+    new Set(['glm-a', 'glm-b'])
+  );
+});
+
 test('aggregateLimits preserves same-email Codex workspaces by hashed account key', () => {
   const aggregate = aggregateLimits([{
     deviceId: 'macbook',

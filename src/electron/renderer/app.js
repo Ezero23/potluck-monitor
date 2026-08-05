@@ -5150,7 +5150,9 @@ function renderPotluckGatewayCard() {
   const password = typeof potluck?.dashboardPassword === 'string' && potluck.dashboardPassword ? potluck.dashboardPassword : '';
   const apiKey = potluck?.apiKey && typeof potluck.apiKey === 'object' ? potluck.apiKey : null;
   if (!gatewayState && !tunnel && !password && !apiKey) return null;
-  const tunnelUrl = tunnel?.enabled ? (tunnel.tunnelUrl || tunnel.publicUrl || '') : '';
+  // Match Potluck's Web endpoint page exactly: prefer the stable public
+  // abc-tunnel.us address and fall back to the direct Quick Tunnel URL.
+  const tunnelUrl = tunnel?.enabled ? (tunnel.publicUrl || tunnel.tunnelUrl || '') : '';
   const card = document.createElement('section');
   card.className = 'home-module potluck-gateway-card';
   const head = document.createElement('div');
@@ -10272,6 +10274,40 @@ function timestampMs(value) {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+function potluckProviderStatuses(providerName) {
+  const normalized = String(providerName || '').trim().toLowerCase();
+  const matches = [];
+  for (const device of (state.stats?.devices || [])) {
+    if (String(device?.deviceId || '') !== 'potluck') continue;
+    for (const provider of (device?.limits?.providers || [])) {
+      if (String(provider?.provider || '').trim().toLowerCase() !== normalized) continue;
+      matches.push({ ...provider, sourceDeviceId: 'potluck' });
+    }
+  }
+  if (matches.length === 0) {
+    for (const provider of (state.stats?.limits?.providers || [])) {
+      if (provider?.sourceDeviceId !== 'potluck') continue;
+      if (String(provider?.provider || '').trim().toLowerCase() !== normalized) continue;
+      matches.push(provider);
+    }
+  }
+  const byAccount = new Map();
+  for (const provider of matches) {
+    const key = String(
+      provider.accountKey
+      || provider.accountEmail
+      || provider.accountName
+      || provider.accountLabel
+      || `${provider.provider}:${provider.source}`
+    );
+    const previous = byAccount.get(key);
+    if (!previous || timestampMs(provider.updatedAt) >= timestampMs(previous.updatedAt)) {
+      byAccount.set(key, provider);
+    }
+  }
+  return [...byAccount.values()].sort((a, b) => timestampMs(b.updatedAt) - timestampMs(a.updatedAt));
+}
+
 function potluckProviderStatus(providerName) {
   const normalized = String(providerName || '').trim().toLowerCase();
   // Search both the collapsed aggregate and every device's raw providers. The
@@ -10324,8 +10360,11 @@ function externalProviderAccountLinked(providerName) {
   if (!config) return false;
   // Locally configured and verified.
   if (Boolean(state.settings?.[config.configuredKey]) && localProviderStatus(providerName)?.status === 'ok') return true;
-  // Or synced from Potluck as an active connection.
-  return potluckProviderStatus(providerName)?.status === 'ok';
+  // A Potluck Web connection remains linked even when its latest health check
+  // fails. Account existence and quota health are separate states.
+  return potluckProviderStatuses(providerName).some((provider) => (
+    provider.status !== 'notConfigured' && provider.status !== 'disabled'
+  ));
 }
 
 function markExternalProviderCheckPending(providerName) {
@@ -10476,6 +10515,33 @@ function ollamaValidationError(provider) {
   return t('settings.ollama.validationUnavailable');
 }
 
+function renderPotluckProviderAccounts(providerName, providers) {
+  const list = document.getElementById(`${providerName}PotluckAccountList`);
+  if (!list) return;
+  list.replaceChildren();
+  for (const provider of providers) {
+    const row = document.createElement('div');
+    row.className = `managed-account-row${provider.status === 'ok' ? '' : ' disabled'}`;
+    const dot = document.createElement('span');
+    dot.className = `potluck-conn-dot${provider.status === 'ok' ? ' active' : ''}`;
+    const main = document.createElement('div');
+    main.className = 'managed-account-main';
+    const identity = document.createElement('div');
+    identity.className = 'managed-account-email';
+    identity.textContent = provider.accountName
+      || provider.accountLabel
+      || provider.accountEmail
+      || provider.accountKey
+      || providerName;
+    const info = document.createElement('span');
+    info.className = 'managed-account-info';
+    info.textContent = translatedLimitCapabilityTag(limitStatusLabel(provider.status));
+    main.append(identity);
+    row.append(dot, main, info);
+    list.append(row);
+  }
+}
+
 function renderExternalProviderStatus(providerName) {
   const config = externalLimitAccountConfig[providerName];
   const statusEl = document.getElementById(`${providerName}AccountStatus`);
@@ -10496,6 +10562,9 @@ function renderExternalProviderStatus(providerName) {
   const enabled = limitProviderEnabled(providerName);
   const pending = enabled && Number(state[config.pendingKey] || 0) > 0;
   const linked = externalProviderAccountLinked(providerName);
+  const potluckAccounts = potluckProviderStatuses(providerName).filter((account) => (
+    account.status !== 'notConfigured' && account.status !== 'disabled'
+  ));
   if (providerName === 'ollama' && wasPending && !pending && linked) {
     setExternalAccountExpanded('ollama', false);
   }
@@ -10508,13 +10577,16 @@ function renderExternalProviderStatus(providerName) {
     if (siteInput) siteInput.value = state.settings?.qoderSite === 'cn' ? 'cn' : 'global';
     updateQoderUsagePageHint();
   }
-  const potluckLinked = !configured && linked && provider?.sourceDeviceId === 'potluck';
+  const potluckLinked = potluckAccounts.length > 0;
+  renderPotluckProviderAccounts(providerName, potluckAccounts);
   setCursorStatusText(
     statusEl,
     pending
       ? t('settings.common.checking')
       : potluckLinked
-        ? t('settings.common.linkedFromPotluck')
+        ? (potluckAccounts.length > 1
+            ? t('settings.codex.nAccounts', { count: potluckAccounts.length })
+            : t('settings.common.linkedFromPotluck'))
         : apiKeyAccountStatusText(providerName, provider, configured, source, enabled)
   );
   manualPanel.classList.toggle('hidden', linked);

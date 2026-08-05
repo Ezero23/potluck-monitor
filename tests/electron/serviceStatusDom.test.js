@@ -327,7 +327,8 @@ test('Potluck gateway settings migrate legacy defaults to the canonical port', (
   assert.doesNotMatch(renderer, /potluckPort[^\n]*20129|gatewayState\.port \|\| 20129/);
   assert.match(renderer, /gatewayState\.port \|\| 21023/);
   assert.match(renderer, /state\.settings\.potluckPort \|\| 21023/);
-  assert.match(renderer, /tunnel\.tunnelUrl \|\| tunnel\.publicUrl/);
+  assert.match(renderer, /tunnel\.publicUrl \|\| tunnel\.tunnelUrl/);
+  assert.doesNotMatch(renderer, /tunnel\.tunnelUrl \|\| tunnel\.publicUrl/);
 });
 
 test('Home-launched secondary views expose an accessible return action', () => {

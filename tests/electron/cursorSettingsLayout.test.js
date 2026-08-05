@@ -588,6 +588,7 @@ test('Copilot account panel provides GitHub sign-in plus manual token fallback',
 test('Z.ai, Volcengine, Qoder, and Ollama account panels are exposed in settings', () => {
   const html = readRendererFile('index.html');
   assert.match(html, /<div id="zaiAccountGroup"[\s\S]*?<select id="zaiApiRegionInput">[\s\S]*?<input id="zaiApiKeyInput" type="password"[\s\S]*?<button id="zaiApiKeySubmit"[\s\S]*data-i18n="settings\.zai\.saveApiKey">/);
+  assert.match(html, /<div id="zaiPotluckAccountList" class="managed-account-list"><\/div>/);
   assert.match(html, /<div id="volcengineAccountGroup"[\s\S]*?data-i18n="settings\.volcengine\.accessKeyId">API key \/ Access key ID[\s\S]*?<input id="volcengineAccessKeyInput" type="password"[\s\S]*placeholder="ark-\.\.\. or AKLT\.\.\."[\s\S]*?<input id="volcengineSecretAccessKeyInput" type="password"[\s\S]*?<input id="volcengineRegionInput" type="text"[\s\S]*?<button id="volcengineCredentialsSubmit"[\s\S]*data-i18n="settings\.volcengine\.saveCredentials">/);
   assert.match(html, /<div id="qoderAccountGroup"[\s\S]*?<select id="qoderSiteInput">[\s\S]*?<textarea id="qoderCookieInput"[\s\S]*?<button id="qoderCookieSubmit"[\s\S]*data-i18n="settings\.qoder\.saveCookie">/);
   assert.match(html, /<div id="ollamaAccountGroup"[\s\S]*?<textarea id="ollamaCookieInput"[\s\S]*?<button id="ollamaCookieSubmit"[\s\S]*data-i18n="settings\.ollama\.saveCookie">/);
@@ -664,6 +665,7 @@ test('Kimi account panel stores web access separately and opens the allowlisted 
   assert.match(html, /settings\.kimi\.step2[\s\S]*Application\/Storage[\s\S]*Cookies[\s\S]*www\.kimi\.com/);
   assert.match(html, /settings\.kimi\.step3[\s\S]*Find kimi-auth and copy its Value/);
   assert.match(html, /<div id="kimiAccountGroup"[\s\S]*?<textarea id="kimiWebAccessTokenInput" rows="3" autocomplete="off"[\s\S]*placeholder="kimi-auth=\.\.\."[\s\S]*?<button id="kimiWebAccessTokenSubmit"[\s\S]*?<details class="kimi-api-fallback">[\s\S]*?<input id="kimiApiKeyInput" type="password"[\s\S]*?<button id="kimiApiKeySubmit"[\s\S]*data-i18n="settings\.kimi\.saveApiKey">/);
+  assert.match(html, /<div id="kimiPotluckAccountList" class="managed-account-list"><\/div>/);
 
   const app = readRendererFile('app.js');
   const setupBody = functionBodyBeforeMarker(app, 'setupCursorAccountUI', '\nsetupCursorAccountUI();');
@@ -673,6 +675,13 @@ test('Kimi account panel stores web access separately and opens the allowlisted 
   assert.match(setupBody, /window\.tokenMonitor\.openExternal\(kimiPlatformUrl\(\)\)/);
   const urlBody = functionBody(app, 'kimiPlatformUrl', 'renderExternalProviderStatus');
   assert.match(urlBody, /return 'https:\/\/www\.kimi\.com\/code\/console';/);
+
+  const linkedBody = functionBody(app, 'externalProviderAccountLinked', 'markExternalProviderCheckPending');
+  assert.match(linkedBody, /potluckProviderStatuses\(providerName\)/);
+  assert.match(linkedBody, /provider\.status !== 'notConfigured' && provider\.status !== 'disabled'/);
+  const renderBody = functionBody(app, 'renderExternalProviderStatus', 'renderPotluckUniqueAccountGroups');
+  assert.match(renderBody, /renderPotluckProviderAccounts\(providerName, potluckAccounts\)/);
+  assert.match(renderBody, /t\('settings\.codex\.nAccounts', \{ count: potluckAccounts\.length \}\)/);
 
   const main = fs.readFileSync(path.join(__dirname, '..', '..', 'src', 'electron', 'main.js'), 'utf8');
   const allowlist = functionBody(main, 'isAllowedExternalUrl', 'revealWindow');

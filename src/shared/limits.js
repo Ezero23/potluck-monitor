@@ -430,7 +430,10 @@ function providerCollapseKey(provider) {
       || provider.provider === 'opencode'
       || provider.provider === 'openrouter'
       || provider.provider === 'thirdparty'
-      || provider.provider === 'mimo')
+      || provider.provider === 'mimo'
+      || provider.provider === 'kimi'
+      || provider.provider === 'zai'
+      || provider.provider === 'zaiteam')
     && isConfiguredProvider(provider)
   ) {
     return providerAggregateKey(provider);

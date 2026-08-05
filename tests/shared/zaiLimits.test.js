@@ -113,7 +113,7 @@ test('fetchZaiLimits returns notConfigured without an API key', async () => {
   assert.equal(provider.status, 'notConfigured');
 });
 
-test('fetchZaiLimits requests quota and subscription with bearer auth', async () => {
+test('fetchZaiLimits requests quota and subscription with Coding Plan token auth', async () => {
   const urls = [];
   const auth = [];
   const provider = await fetchZaiLimits(
@@ -153,18 +153,20 @@ test('fetchZaiLimits requests quota and subscription with bearer auth', async ()
     'https://api.z.ai/api/monitor/usage/quota/limit',
     'https://api.z.ai/api/biz/subscription/list'
   ]);
-  assert.deepEqual(auth, ['Bearer zai-token', 'Bearer zai-token']);
+  assert.deepEqual(auth, ['zai-token', 'zai-token']);
 });
 
-test('fetchZaiLimits requests the selected BigModel CN region', async () => {
+test('fetchZaiLimits requests the selected BigModel CN region with the raw Coding Plan token', async () => {
   const urls = [];
+  const auth = [];
   const provider = await fetchZaiLimits(
     { zaiApiKey: 'zai-token', zaiApiRegion: 'bigmodel-cn' },
     {
       env: {},
       now: () => Date.parse('2026-07-06T00:00:00Z'),
-      fetch: async (url) => {
+      fetch: async (url, init) => {
         urls.push(String(url));
+        auth.push(init.headers.Authorization);
         if (String(url).includes('/quota/limit')) {
           return {
             ok: true,
@@ -193,6 +195,7 @@ test('fetchZaiLimits requests the selected BigModel CN region', async () => {
     'https://open.bigmodel.cn/api/monitor/usage/quota/limit',
     'https://open.bigmodel.cn/api/biz/subscription/list'
   ]);
+  assert.deepEqual(auth, ['zai-token', 'zai-token']);
 });
 
 test('fetchZaiLimits physically aborts a hung request within its configured bound', async () => {

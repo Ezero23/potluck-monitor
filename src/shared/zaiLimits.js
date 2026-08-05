@@ -271,7 +271,11 @@ async function fetchJson(url, key, deps = {}) {
   return runWithProbeDeadline(async ({ signal }) => {
     const response = await (deps.fetch || fetch)(url, {
       headers: {
-        Authorization: `Bearer ${key}`,
+        // The official GLM Coding Plan usage client sends the API token as the
+        // complete Authorization value. This endpoint does not use the Bearer
+        // form required by the OpenAI-compatible model endpoint.
+        Authorization: key,
+        'Accept-Language': 'en-US,en',
         Accept: 'application/json'
       },
       signal
