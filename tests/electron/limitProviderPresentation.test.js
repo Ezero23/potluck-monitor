@@ -819,11 +819,13 @@ test('Home uses explicit billing labels so Copilot Premium and Chat stay distinc
   const homeModule = functionBody(app, 'renderHomeLimitModule', 'renderHomeModelModule');
   const valueFormatter = functionBody(app, 'formatHomeLimitWindowValue', 'mimoTokenPlanWindowFromBalance');
 
-  assert.match(homeLabel, /if \(window\?\.kind === 'billing'\) \{/);
+  assert.match(homeLabel, /if \(window\?\.kind === 'billing' && explicitLabel\) return explicitLabel;/);
   assert.match(homeLabel, /limitProviderCompactWindowLabel\(providerId, window, visibleWindows\)/);
   assert.match(homeRows, /limitProviderCompactWindows\(provider, provider\.windows\)/);
-  assert.match(homeLabel, /const label = String\(window\?\.label \|\| ''\)\.trim\(\);/);
-  assert.match(homeLabel, /if \(label\) return label;/);
+  assert.match(homeLabel, /const explicitLabel = String\(window\?\.label \|\| ''\)\.trim\(\);/);
+  // Same-kind windows (Codex main quota vs. its Code Review bucket) fall back
+  // to the explicit label so the rows stay distinguishable.
+  assert.match(homeLabel, /visibleWindows\.filter\(\(entry\) => entry\?\.kind === window\.kind\)\.length > 1/);
   assert.match(homeLabel, /billing: 'home\.limit\.billing'/);
   // Balance windows arrive as real `billing` windows carrying their own label
   // ('Balance' / 'Token quota'), so the label branch above already covers them

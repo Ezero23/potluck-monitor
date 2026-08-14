@@ -23,6 +23,7 @@ const thirdPartyLimits = require('./thirdPartyLimits');
 const { sharedDataDir } = require('./config');
 const { recordConsumption } = require('./deepseekBalanceHistory');
 const { codexAccountKey, codexAuthIdentity } = require('./codexAuth');
+const { refreshCodexAuthFile } = require('./codexTokenRefresh');
 const minimaxLimits = require('./minimaxLimits');
 const { minimaxToken, minimaxBaseUrl, parseMinimaxTiers, fetchMinimaxLimits } = minimaxLimits;
 const mimoLimits = require('./mimoLimits');
@@ -1633,6 +1634,16 @@ function codexWindowKind(name, window) {
   return 'session';
 }
 
+// Extra quota buckets the Codex RPC can carry alongside the main `codex` one
+// (e.g. code review allowances). Exact names only — fuzzy matching would keep
+// misclassifying future unknown buckets.
+const CODEX_REVIEW_BUCKET_IDS = new Set(['code_review', 'codex_review', 'review']);
+const CODEX_REVIEW_WINDOW_LABEL = 'Code Review';
+
+function isCodexReviewBucketId(id) {
+  return CODEX_REVIEW_BUCKET_IDS.has(String(id || '').trim().toLowerCase());
+}
+
 function hasCodexRateLimitWindows(snapshot) {
   return Boolean(snapshot && typeof snapshot === 'object' && (snapshot.primary || snapshot.secondary));
 }
@@ -1672,8 +1683,10 @@ function codexAlternateResetCredits(snapshot) {
 function unambiguousAlternateCodexRateLimits(rateLimitsById) {
   // Object key order is not a quota-selection contract. Keep agreed window
   // data, but only carry optional metadata when every alternate agrees too.
+  // Review buckets hold a separate allowance, never the main account quota,
+  // so they must not participate in (or veto) the alternate consensus.
   const candidates = Object.entries(rateLimitsById)
-    .filter(([id, snapshot]) => id !== 'codex' && hasCodexRateLimitWindows(snapshot))
+    .filter(([id, snapshot]) => id !== 'codex' && !isCodexReviewBucketId(id) && hasCodexRateLimitWindows(snapshot))
     .sort(([left], [right]) => left.localeCompare(right));
   if (candidates.length === 0) return null;
   const signatures = new Set(candidates.map(([, snapshot]) => codexRateLimitWindowSignature(snapshot)));
@@ -1705,6 +1718,16 @@ function codexRateLimitSnapshot(payload = {}) {
   const alternate = unambiguousAlternateCodexRateLimits(rateLimitsById);
   if (alternate) return alternate;
   return rateLimitsById.codex || direct || {};
+}
+
+function codexReviewRateLimitSnapshot(payload = {}) {
+  const rateLimitsById = codexRateLimitsById(payload);
+  for (const [id, snapshot] of Object.entries(rateLimitsById)) {
+    if (isCodexReviewBucketId(id) && hasCodexRateLimitWindows(snapshot)) return snapshot;
+  }
+  const direct = payload.code_review_rate_limit || payload.review_rate_limit;
+  if (hasCodexRateLimitWindows(direct)) return direct;
+  return null;
 }
 
 function codexResetCreditsSnapshot(payload = {}) {
@@ -1925,16 +1948,21 @@ async function waitForCodexEmptyQuotaRetry(deps = {}) {
 function mapCodexRateLimitsToProvider(payload, meta = {}) {
   const rateLimits = codexRateLimitSnapshot(payload);
   const windows = [];
-  for (const key of ['primary', 'secondary']) {
-    const window = rateLimits[key];
-    if (!window) continue;
-    windows.push({
-      kind: codexWindowKind(key, window),
-      usedPercent: window.usedPercent ?? window.used_percent,
-      resetsAt: window.resetsAt ?? window.resets_at,
-      windowMinutes: window.windowDurationMins ?? window.window_duration_mins
-    });
-  }
+  const pushWindows = (snapshot, label) => {
+    for (const key of ['primary', 'secondary']) {
+      const window = snapshot?.[key];
+      if (!window) continue;
+      windows.push({
+        kind: codexWindowKind(key, window),
+        ...(label ? { label } : {}),
+        usedPercent: window.usedPercent ?? window.used_percent,
+        resetsAt: window.resetsAt ?? window.resets_at,
+        windowMinutes: window.windowDurationMins ?? window.window_duration_mins
+      });
+    }
+  };
+  pushWindows(rateLimits);
+  pushWindows(codexReviewRateLimitSnapshot(payload), CODEX_REVIEW_WINDOW_LABEL);
   return normalizeLimitProvider({
     provider: 'codex',
     accountKey: meta.accountKey || '',
@@ -2538,6 +2566,10 @@ async function fetchManagedCodexAccountLimits(account, _options = {}, deps = {})
     codexAuthPath: account.authPath || pathApi.join(account.homePath, 'auth.json')
   };
   const reader = deps.readCodexRpc || readCodexRpc;
+  // The managed home's CLI never runs on its own, so its auth.json would rot;
+  // refresh it before the RPC read. Fail-open: a stale file still gets tried.
+  const tokenRefresher = deps.refreshCodexAuthFile || refreshCodexAuthFile;
+  await tokenRefresher(accountDeps.codexAuthPath, {}, deps).catch(() => {});
   const authIdentity = readLiveCodexIdentity(accountDeps);
   try {
     const payload = await withCodexOAuthResetCredits(await reader(accountDeps), accountDeps);
@@ -2586,6 +2618,10 @@ function readLiveCodexIdentity(deps = {}) {
 
 async function fetchLiveCodexAccount(deps = {}, nowMs = Date.now(), managedAccounts = []) {
   const reader = deps.readCodexRpc || readCodexRpc;
+  // Keep the live login fresh even when the user has not run the Codex CLI in
+  // days; the reset-credits HTTP path consumes this token directly.
+  const tokenRefresher = deps.refreshCodexAuthFile || refreshCodexAuthFile;
+  await tokenRefresher(deps.codexAuthPath || codexAuthPath(deps.env || process.env), {}, deps).catch(() => {});
   const payload = await withCodexOAuthResetCredits(await reader(deps), deps);
   const authIdentity = readLiveCodexIdentity(deps);
   const email = authIdentity.email || payload.account?.email || '';

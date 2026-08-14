@@ -59,6 +59,7 @@ const {
   readCodexAuthMaterial,
   writeCodexAuthFile
 } = require('../shared/codexSystemSwitch');
+const { refreshCodexAuthFile } = require('../shared/codexTokenRefresh');
 const {
   normalizeClientDisplayOrder,
   normalizeHiddenClients,
@@ -3815,6 +3816,31 @@ function startAppUpdateBackgroundChecks() {
   appUpdateBackgroundTimer.unref?.();
 }
 
+let codexAuthRefreshTimer = null;
+
+async function runCodexAuthBackgroundRefresh() {
+  const authPaths = [liveCodexAuthPath()];
+  for (const account of codexManagedAccountsForCollector()) {
+    authPaths.push(account.authPath || path.join(account.homePath, 'auth.json'));
+  }
+  const results = await Promise.allSettled(
+    [...new Set(authPaths)].map((authPath) => refreshCodexAuthFile(authPath))
+  );
+  for (const result of results) {
+    if (result.status === 'rejected') {
+      console.warn('[codex-auth-refresh]', result.reason?.message || result.reason);
+    }
+  }
+}
+
+function startCodexAuthBackgroundRefresh() {
+  if (codexAuthRefreshTimer) return;
+  const initialTimer = setTimeout(() => { runCodexAuthBackgroundRefresh().catch(() => {}); }, 10 * 1000);
+  initialTimer.unref?.();
+  codexAuthRefreshTimer = setInterval(() => { runCodexAuthBackgroundRefresh().catch(() => {}); }, 5 * 60 * 1000);
+  codexAuthRefreshTimer.unref?.();
+}
+
 function dismissAppUpdateVersion(version) {
   if (typeof version !== 'string' || !version) return deriveAppUpdateState();
   settings.appUpdate = {
@@ -5490,6 +5516,7 @@ app.whenReady().then(() => {
   app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
   maybeRunBackgroundUpdateCheck();
   startAppUpdateBackgroundChecks();
+  startCodexAuthBackgroundRefresh();
   // Resolve the codesign probe early so a later download picks the right
   // (native vs. custom) update path without waiting on codesign first.
   void probeMacAppSigning();
@@ -5497,7 +5524,7 @@ app.whenReady().then(() => {
 
 app.on('second-instance', focusExistingWindow);
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
-app.on('before-quit', () => { quitRequested = true; if (rateRefreshTimer) clearInterval(rateRefreshTimer); if (appUpdateBackgroundTimer) clearInterval(appUpdateBackgroundTimer); unregisterWindowToggleShortcut(); potluckSupervisor.onAppQuit(settings); stopAll(); });
+app.on('before-quit', () => { quitRequested = true; if (rateRefreshTimer) clearInterval(rateRefreshTimer); if (appUpdateBackgroundTimer) clearInterval(appUpdateBackgroundTimer); if (codexAuthRefreshTimer) clearInterval(codexAuthRefreshTimer); unregisterWindowToggleShortcut(); potluckSupervisor.onAppQuit(settings); stopAll(); });
 for (const signal of ['SIGINT', 'SIGTERM', 'SIGHUP']) {
   process.once(signal, requestAppQuit);
 }

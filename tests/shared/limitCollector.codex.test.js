@@ -1232,3 +1232,80 @@ test('LimitsRuntime compatibility snapshot probes initially and reuses the confi
   assert.equal(calls, 2);
   collector.stop();
 });
+
+test('Codex provider surfaces the code review bucket as labeled extra windows', () => {
+  const provider = mapCodexRateLimitsToProvider({
+    account: { email: 'user@example.com', planType: 'plus' },
+    rateLimitsByLimitId: {
+      codex: {
+        primary: { usedPercent: 10, resetsAt: '2026-06-01T05:00:00Z', windowDurationMins: 300 },
+        secondary: { usedPercent: 25, resetsAt: '2026-06-07T00:00:00Z', windowDurationMins: 10080 }
+      },
+      code_review: {
+        primary: { usedPercent: 60, resetsAt: '2026-06-01T05:00:00Z', windowDurationMins: 300 },
+        secondary: { usedPercent: 80, resetsAt: '2026-06-07T00:00:00Z', windowDurationMins: 10080 }
+      }
+    }
+  }, { source: 'rpc', updatedAt: '2026-06-01T00:00:00Z' });
+
+  assert.deepEqual(provider.windows.map((window) => [window.kind, window.label || '']), [
+    ['session', ''],
+    ['session', 'Code Review'],
+    ['weekly', ''],
+    ['weekly', 'Code Review']
+  ]);
+  assert.equal(provider.windows[1].usedPercent, 60);
+  assert.equal(provider.windows[3].usedPercent, 80);
+});
+
+test('Codex provider keeps the alternate consensus when a review bucket disagrees', () => {
+  const shared = {
+    primary: { usedPercent: 10, resetsAt: '2026-06-01T05:00:00Z', windowDurationMins: 300 },
+    secondary: { usedPercent: 25, resetsAt: '2026-06-07T00:00:00Z', windowDurationMins: 10080 }
+  };
+  const provider = mapCodexRateLimitsToProvider({
+    rateLimitsByLimitId: {
+      'gpt-5.4': shared,
+      'gpt-5.4-mini': shared,
+      code_review: {
+        primary: { usedPercent: 99, resetsAt: '2026-06-01T02:00:00Z', windowDurationMins: 300 }
+      }
+    }
+  }, { source: 'rpc', updatedAt: '2026-06-01T00:00:00Z' });
+
+  assert.deepEqual(provider.windows.map((window) => [window.kind, window.usedPercent, window.label || '']), [
+    ['session', 10, ''],
+    ['session', 99, 'Code Review'],
+    ['weekly', 25, '']
+  ]);
+});
+
+test('Codex provider never promotes a review bucket to the main quota', () => {
+  const provider = mapCodexRateLimitsToProvider({
+    rateLimitsByLimitId: {
+      code_review: {
+        primary: { usedPercent: 40, resetsAt: '2026-06-01T05:00:00Z', windowDurationMins: 300 }
+      }
+    }
+  }, { source: 'rpc', updatedAt: '2026-06-01T00:00:00Z' });
+
+  assert.deepEqual(provider.windows.map((window) => [window.kind, window.label || '']), [
+    ['session', 'Code Review']
+  ]);
+});
+
+test('Codex provider reads a review bucket from direct payload keys', () => {
+  const provider = mapCodexRateLimitsToProvider({
+    rateLimits: {
+      primary: { usedPercent: 5, resetsAt: '2026-06-01T05:00:00Z', windowDurationMins: 300 }
+    },
+    code_review_rate_limit: {
+      primary: { usedPercent: 70, resetsAt: '2026-06-01T05:00:00Z', windowDurationMins: 300 }
+    }
+  }, { source: 'rpc', updatedAt: '2026-06-01T00:00:00Z' });
+
+  assert.deepEqual(provider.windows.map((window) => [window.usedPercent, window.label || '']), [
+    [5, ''],
+    [70, 'Code Review']
+  ]);  // both session kind: main first, labeled review second (stable sort)
+});

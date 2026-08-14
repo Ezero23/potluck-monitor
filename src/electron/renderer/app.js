@@ -2933,8 +2933,11 @@ function renderProviderWindows(provider, color) {
   const windows = document.createElement('div');
   windows.className = 'limit-windows';
   if (provider.provider === 'codex') {
-    const session = windowForKind(provider, 'session');
-    const weekly = windowForKind(provider, 'weekly');
+    const allWindows = provider.windows || [];
+    const baseWindows = allWindows.filter((window) => !String(window?.label || '').trim());
+    const labeledWindows = allWindows.filter((window) => String(window?.label || '').trim());
+    const session = baseWindows.find((window) => window.kind === 'session') || null;
+    const weekly = baseWindows.find((window) => window.kind === 'weekly') || null;
     if (session) {
       const sessionNode = limitWindowNode(session.label || 'Session', session, color, 0.95);
       if (!weekly) sessionNode.classList.add('limit-window-wide');
@@ -2944,6 +2947,9 @@ function renderProviderWindows(provider, color) {
       const weeklyNode = limitWindowNode(weekly.label || 'Weekly', weekly, color, 0.68);
       if (!session) weeklyNode.classList.add('limit-window-wide');
       windows.append(weeklyNode);
+    }
+    for (const extra of labeledWindows) {
+      windows.append(limitWindowNode(extra.label, extra, color, 0.68));
     }
     const resetNode = codexResetCreditsNode(provider.resetCredits);
     if (resetNode) windows.append(resetNode);
@@ -4500,10 +4506,13 @@ function homeLimitRows() {
 function homeLimitWindowLabel(window, providerId = '', visibleWindows = []) {
   const compactLabel = limitProviderPresentationApi.limitProviderCompactWindowLabel(providerId, window, visibleWindows);
   if (compactLabel) return compactLabel;
-  if (window?.kind === 'billing') {
-    const label = String(window?.label || '').trim();
-    if (label) return label;
+  const explicitLabel = String(window?.label || '').trim();
+  // When several windows share a kind (e.g. Codex main quota vs. its Code
+  // Review bucket), the kind name alone cannot tell them apart.
+  if (explicitLabel && visibleWindows.filter((entry) => entry?.kind === window.kind).length > 1) {
+    return explicitLabel;
   }
+  if (window?.kind === 'billing' && explicitLabel) return explicitLabel;
   const key = {
     session: 'home.limit.session',
     weekly: 'home.limit.weekly',
