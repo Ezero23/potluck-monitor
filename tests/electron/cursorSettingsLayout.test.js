@@ -1261,3 +1261,11 @@ test('renderer cleanup drops unused startupGroup handle and leftover console.log
   assert.doesNotMatch(app, /\bdebugger\b/);
   assert.match(app, /console\.error\('Could not persist settings:'/);
 });
+
+test('settings provider summary module loads before app.js', () => {
+  const html = readRendererFile('index.html');
+  const summaryIndex = html.indexOf('<script src="limitProviderSummary.js"></script>');
+  assert.notEqual(summaryIndex, -1, 'limitProviderSummary.js script tag should exist');
+  assert.ok(summaryIndex < html.indexOf('<script src="app.js"></script>'));
+  assert.ok(html.indexOf('<script src="limitProviderPresentation.js"></script>') < summaryIndex);
+});

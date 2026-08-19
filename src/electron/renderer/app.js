@@ -119,6 +119,7 @@ const TRAY_ICON_PROVIDERS = [
 const DEFAULT_LIMIT_PROVIDER_ORDER = LIMIT_PROVIDERS.map((provider) => provider.id).join(',');
 const limitProviderOrderApi = window.TokenMonitorLimitProviderOrder;
 const limitProviderPresentationApi = window.TokenMonitorLimitProviderPresentation;
+const limitProviderSummaryApi = window.TokenMonitorLimitProviderSummary;
 const appUpdatePresentationApi = window.TokenMonitorAppUpdatePresentation;
 const accountIdentityApi = window.TokenMonitorAccountIdentity;
 const clientStatusPresentationApi = window.TokenMonitorClientStatusPresentation;
@@ -7693,12 +7694,15 @@ function renderToolPreferences() {
 function renderLimitProviderCheckboxes() {
   if (!els.limitProviderCheckboxes) return;
   const enabled = enabledLimitProviderSet();
-  const collected = new Map((state.stats?.limits?.providers || []).map((provider) => [provider.provider, provider]));
+  const collected = limitProviderSummaryApi.connectionsByProvider(state.stats?.limits?.providers || []);
   const providers = limitProviderOrderApi.orderedLimitProviders(LIMIT_PROVIDERS, state.settings?.limitProviderOrder);
   els.limitProviderCheckboxes.replaceChildren();
   for (const { id, label, settingsLabel } of providers) {
+    const summary = limitProviderSummaryApi.summarizeLimitProvider(id, collected.get(id) || [], {
+      missingStatus: state.stats ? missingLimitProviderStatus() : ''
+    });
     const provider = enabled.has(id)
-      ? (collected.get(id) || { provider: id, ...(state.stats ? { status: missingLimitProviderStatus() } : {}), windows: [] })
+      ? summary.representative
       : { provider: id, status: 'disabled', windows: [] };
     const row = document.createElement('div');
     row.className = 'limit-provider-row';
