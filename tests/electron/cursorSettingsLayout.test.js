@@ -1269,3 +1269,43 @@ test('settings provider summary module loads before app.js', () => {
   assert.ok(summaryIndex < html.indexOf('<script src="app.js"></script>'));
   assert.ok(html.indexOf('<script src="limitProviderPresentation.js"></script>') < summaryIndex);
 });
+
+test('Providers & Limits puts global settings above the provider list and adds data health', () => {
+  const html = readRendererFile('index.html');
+  const details = html.match(/<div id="limitsSettingsDetails"[\s\S]*?<div class="settings-group settings-collapsible-group settings-accounts-group">/)?.[0] || '';
+  assert.match(html, /data-i18n="settings\.limits\.title">Providers & Limits</);
+  const refreshAt = details.indexOf('id="limitsRefreshInput"');
+  const listAt = details.indexOf('id="limitProviderCheckboxes"');
+  const healthAt = details.indexOf('id="limitsDataHealth"');
+  assert.ok(refreshAt > -1 && listAt > refreshAt, 'local refresh should sit above the provider list');
+  assert.ok(healthAt > listAt, 'data health entry should follow the provider list');
+  assert.match(details, /data-i18n="settings\.limits\.refreshNote"/);
+  assert.match(details, /data-i18n="settings\.limits\.trackNote"/);
+  assert.match(details, /id="limitsDataHealthToggle"/);
+  assert.match(details, /id="limitsDataHealthBody"/);
+  assert.doesNotMatch(html, /data-i18n="settings\.limits\.title">AI Tool Limits/);
+});
+
+test('settings provider rows drill into connections without collapsing the collapsed summary', () => {
+  const app = readRendererFile('app.js');
+  const renderSettings = functionBody(app, 'renderLimitProviderCheckboxes', 'onToolTrackingToggle');
+  assert.match(renderSettings, /limitProviderSettingsSummaryText\(summary, enabled\.has\(id\)\)/);
+  assert.match(renderSettings, /limit-provider-summary-line/);
+  assert.match(renderSettings, /limit-provider-details/);
+  assert.match(renderSettings, /appendLimitProviderConnectionCard/);
+  assert.match(renderSettings, /settings\.limits\.trackProvider/);
+  assert.match(renderSettings, /settings\.limits\.summary\.trackingNoAccount|headline === 'missing'/);
+  assert.match(renderSettings, /limitProviderSettingsTags\(provider, provenance/);
+  assert.match(renderSettings, /renderLimitsDataHealth\(\)/);
+  assert.doesNotMatch(renderSettings, /copy\.append\(text, tags\)/);
+});
+
+test('Home limit-provider row styles stay independent of settings drill-down', () => {
+  const css = readRendererFile('styles.css');
+  assert.match(cssRule(css, '.settings-panel .limit-provider-row'), /grid-template-columns:\s*minmax\(0,\s*1fr\) auto/);
+  assert.doesNotMatch(cssRule(css, '.settings-panel .limit-provider-row'), /transform/);
+  assert.match(css, /\.limit-provider-summary-line\s*\{/);
+  assert.match(css, /\.limit-provider-connection\s*\{/);
+  assert.match(css, /\.limits-data-health-list\s*\{/);
+  assert.doesNotMatch(cssRule(css, '.home-limit-provider-row'), /limit-provider-details/);
+});

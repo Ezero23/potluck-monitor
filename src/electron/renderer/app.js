@@ -270,6 +270,8 @@ state.potluckConnections = null;
 state.potluckConnectionsFetched = false;
 state.potluckGateway = null;
 state.settingsSections = Object.fromEntries(SETTINGS_SECTION_IDS.map((id) => [id, false]));
+state.limitProviderDetailsOpen = new Set();
+state.limitsDataHealthOpen = false;
 const defaultAppearance = { glassOpacity: 68, glassBlur: 32, zoomFactor: 1, systemGlass: true, windowsBackdrop: 'acrylic', reduceMotion: 'system', showLiveDot: true, showToolIcons: true, titleIconOnly: true, showCompactTotalTokens: false, settingsInTitlebar: false };
 let preferenceDrag = null;
 let viewSwitcherLongPressTimer = null;
@@ -7698,7 +7700,9 @@ function renderLimitProviderCheckboxes() {
   const providers = limitProviderOrderApi.orderedLimitProviders(LIMIT_PROVIDERS, state.settings?.limitProviderOrder);
   els.limitProviderCheckboxes.replaceChildren();
   for (const { id, label, settingsLabel } of providers) {
-    const summary = limitProviderSummaryApi.summarizeLimitProvider(id, collected.get(id) || [], {
+    const name = settingsLabel || label;
+    const rows = collected.get(id) || [];
+    const summary = limitProviderSummaryApi.summarizeLimitProvider(id, rows, {
       missingStatus: state.stats ? missingLimitProviderStatus() : ''
     });
     const provider = enabled.has(id)
@@ -7707,18 +7711,58 @@ function renderLimitProviderCheckboxes() {
     const row = document.createElement('div');
     row.className = 'limit-provider-row';
     row.dataset.provider = id;
+    const main = document.createElement('div');
+    main.className = 'limit-provider-main';
     const wrap = document.createElement('label');
     wrap.className = 'client-checkbox limit-provider-toggle';
     const cb = document.createElement('input');
     cb.type = 'checkbox';
     cb.dataset.provider = id;
     cb.checked = enabled.has(id);
+    cb.setAttribute('aria-label', t('settings.limits.trackProvider', { name }));
     cb.addEventListener('change', onLimitProviderToggle);
     const copy = document.createElement('span');
     copy.className = 'limit-provider-copy';
     const text = document.createElement('span');
     text.className = 'limit-provider-name';
-    text.textContent = settingsLabel || label;
+    text.textContent = name;
+    copy.append(text);
+    wrap.append(cb, copy);
+    const sub = document.createElement('div');
+    sub.className = 'limit-provider-sub';
+    const summaryLine = document.createElement('button');
+    summaryLine.type = 'button';
+    summaryLine.className = 'limit-provider-summary-line';
+    summaryLine.textContent = limitProviderSettingsSummaryText(summary, enabled.has(id));
+    const detailsOpen = state.limitProviderDetailsOpen.has(id);
+    summaryLine.setAttribute('aria-expanded', String(detailsOpen));
+    summaryLine.setAttribute('aria-label', t(detailsOpen ? 'settings.limits.collapseProvider' : 'settings.limits.expandProvider', { name }));
+    summaryLine.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      setLimitProviderDetailsOpen(id, !state.limitProviderDetailsOpen.has(id));
+      renderLimitProviderCheckboxes();
+    });
+    sub.append(summaryLine);
+    if (enabled.has(id) && summary.headline === 'missing') {
+      const connect = document.createElement('button');
+      connect.type = 'button';
+      connect.className = 'limit-provider-connect';
+      connect.textContent = t('settings.limits.connect');
+      connect.addEventListener('click', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        if (!focusProviderAccountSettings(id)) {
+          setLimitProviderDetailsOpen(id, true);
+          renderLimitProviderCheckboxes();
+        }
+      });
+      sub.append(connect);
+    }
+    const details = document.createElement('div');
+    details.className = `limit-provider-details${detailsOpen ? '' : ' hidden'}`;
+    details.id = `limit-provider-details-${id}`;
+    summaryLine.setAttribute('aria-controls', details.id);
     const tags = document.createElement('span');
     tags.className = 'limit-provider-tags';
     const provenance = limitProviderProvenance(provider);
@@ -7729,17 +7773,32 @@ function renderLimitProviderCheckboxes() {
       tag.textContent = translatedLimitProviderTag(tagInfo);
       tags.append(tag);
     }
-    copy.append(text, tags);
-    wrap.append(cb, copy);
+    details.append(tags);
+    if (enabled.has(id)) {
+      rows.forEach((connection, index) => appendLimitProviderConnectionCard(details, connection, index, rows, id));
+      if (providerAccountSettingsEl(id) && (summary.sources.potluck > 0 || summary.headline === 'missing')) {
+        const addLocal = document.createElement('button');
+        addLocal.type = 'button';
+        addLocal.textContent = t('settings.limits.addMonitorAccount');
+        addLocal.addEventListener('click', (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          focusProviderAccountSettings(id);
+        });
+        details.append(addLocal);
+      }
+    }
+    main.append(wrap, sub, details);
     const handle = createPreferenceOrderHandle({
       kind: 'provider',
       id,
-      label: settingsLabel || label,
+      label: name,
       count: providers.length
     });
-    row.append(wrap, handle);
+    row.append(main, handle);
     els.limitProviderCheckboxes.appendChild(row);
   }
+  renderLimitsDataHealth();
 }
 
 async function onToolTrackingToggle() {
@@ -7749,6 +7808,228 @@ async function onToolTrackingToggle() {
   await saveSettings({ clients: checked.join(',') });
   await refreshStats({ force: true });
 }
+
+function formatSettingsAge(value) {
+  const date = value ? new Date(value) : null;
+  if (!date || Number.isNaN(date.getTime())) return t('settings.limits.age.unknown');
+  const diffMs = Math.max(0, Date.now() - date.getTime());
+  if (diffMs < 45_000) return t('settings.limits.age.justNow');
+  const minutes = Math.round(diffMs / 60000);
+  if (minutes < 60) return t('settings.limits.age.minutes', { n: minutes });
+  const hours = Math.round(minutes / 60);
+  if (hours < 24) return t('settings.limits.age.hours', { n: hours });
+  return t('settings.limits.age.days', { n: Math.round(hours / 24) });
+}
+
+function settingsManagedByLabel(row) {
+  const bucket = limitProviderSummaryApi.sourceBucket(row);
+  if (bucket === 'potluck') return t('settings.limits.summary.potluck');
+  if (bucket === 'external') return t('settings.limits.summary.external');
+  return t('settings.limits.summary.monitor');
+}
+
+function settingsHeadlineCount(summary) {
+  if (summary.headline === 'unauthorized' || summary.headline === 'error') return summary.needsAttention;
+  if (summary.headline === 'stale') return summary.stale;
+  return summary.connections;
+}
+
+function limitProviderSettingsSummaryText(summary, enabled) {
+  if (!enabled) return t('settings.limits.summary.notTracking');
+  const parts = [];
+  const mixed = [summary.sources.potluck, summary.sources.monitor, summary.sources.external].filter((count) => count > 0).length > 1;
+  if (summary.sources.potluck) {
+    parts.push(mixed || summary.sources.potluck > 1
+      ? t('settings.limits.summary.potluckCount', { count: summary.sources.potluck })
+      : t('settings.limits.summary.potluck'));
+  }
+  if (summary.sources.monitor) {
+    parts.push(mixed || summary.sources.monitor > 1
+      ? t('settings.limits.summary.monitorCount', { count: summary.sources.monitor })
+      : t('settings.limits.summary.monitor'));
+  }
+  if (summary.sources.external) {
+    parts.push(t('settings.limits.summary.externalCount', { count: summary.sources.external }));
+  }
+  if (summary.connections > 0) parts.push(t('settings.limits.summary.connectionCount', { count: summary.connections }));
+  if (summary.pools > 0 && summary.pools !== summary.connections) {
+    parts.push(t('settings.limits.summary.poolCount', { count: summary.pools }));
+  }
+  const headlineKeys = {
+    unauthorized: 'settings.limits.summary.needsSignIn',
+    error: 'settings.limits.summary.needsAttention',
+    stale: 'settings.limits.summary.stale',
+    partial: 'settings.limits.summary.partial',
+    ok: 'settings.limits.summary.allOk',
+    missing: 'settings.limits.summary.trackingNoAccount',
+    disabled: 'settings.limits.summary.disabled'
+  };
+  const headlineKey = headlineKeys[summary.headline];
+  if (headlineKey) parts.push(t(headlineKey, { count: settingsHeadlineCount(summary) }));
+  return parts.join(' · ');
+}
+
+function settingsConnectionStatusLabel(row) {
+  const status = String(row?.connectionStatus || row?.status || '').trim();
+  if (status === 'ok') return t('settings.limits.status.ok');
+  const tag = limitProviderPresentationApi.limitProviderStatusLabel(row);
+  return tag ? translatedLimitProviderTag(tag) : (status || t('settings.limits.age.unknown'));
+}
+
+function settingsQuotaLabel(row) {
+  const quota = String(row?.quotaStatus || '').trim();
+  if (row?.stale === true || quota === 'stale') {
+    return t('settings.limits.quota.staleSince', { age: formatSettingsAge(row.lastSuccessAt || row.updatedAt) });
+  }
+  if (quota === 'unsupported') return t('settings.limits.quota.unsupported');
+  if (quota === 'fresh' || ((row?.status === 'ok' || row?.connectionStatus === 'ok') && !quota)) {
+    return `${t('settings.limits.status.fresh')} · ${formatSettingsAge(row.lastSuccessAt || row.updatedAt)}`;
+  }
+  if (quota === 'notChecked' || !quota) return t('settings.common.notChecked');
+  return quota;
+}
+
+function settingsWindowLine(window) {
+  const label = String(window?.label || window?.kind || '').trim() || 'quota';
+  const remaining = Number.isFinite(Number(window?.remainingPercent))
+    ? Math.round(Number(window.remainingPercent))
+    : (Number.isFinite(Number(window?.usedPercent)) ? Math.round(100 - Number(window.usedPercent)) : null);
+  const reset = formatReset(window?.resetsAt || window?.resetAt);
+  if (remaining == null) return reset ? `${label} · ${reset}` : label;
+  return t('settings.limits.windowRemaining', { label, remaining, reset: reset || t('settings.limits.age.unknown') });
+}
+
+function providerAccountSettingsEl(providerId) {
+  return document.getElementById(`${providerId}AccountGroup`);
+}
+
+function focusProviderAccountSettings(providerId) {
+  const group = providerAccountSettingsEl(providerId);
+  if (!group) return false;
+  setSettingsSectionExpanded('accounts', true);
+  group.scrollIntoView({ block: 'nearest' });
+  return true;
+}
+
+function setLimitProviderDetailsOpen(providerId, open) {
+  if (open) state.limitProviderDetailsOpen.add(providerId);
+  else state.limitProviderDetailsOpen.delete(providerId);
+}
+
+function appendLimitProviderConnectionCard(details, row, index, rows, providerId) {
+  const card = document.createElement('div');
+  card.className = 'limit-provider-connection';
+  const title = document.createElement('div');
+  title.className = 'limit-provider-connection-title';
+  title.textContent = limitAccountTitle(providerId, row, index, rows);
+  const source = document.createElement('div');
+  source.className = 'limit-provider-connection-meta';
+  source.textContent = t('settings.limits.connection.source', { source: settingsManagedByLabel(row) });
+  const connection = document.createElement('div');
+  connection.className = 'limit-provider-connection-meta';
+  connection.textContent = t('settings.limits.connection.status', { status: settingsConnectionStatusLabel(row) });
+  const quota = document.createElement('div');
+  quota.className = 'limit-provider-connection-meta';
+  quota.textContent = t('settings.limits.connection.quota', { status: settingsQuotaLabel(row) });
+  card.append(title, source, connection, quota);
+  const poolKey = String(row?.quotaPoolKey || '').trim();
+  if (poolKey) {
+    const pool = document.createElement('div');
+    pool.className = 'limit-provider-connection-meta';
+    pool.textContent = t('settings.limits.connection.pool', { pool: poolKey });
+    card.append(pool);
+  }
+  for (const window of row?.windows || []) {
+    const line = document.createElement('div');
+    line.className = 'limit-provider-window-line';
+    line.textContent = settingsWindowLine(window);
+    card.append(line);
+  }
+  const actions = document.createElement('div');
+  actions.className = 'limit-provider-connection-actions';
+  const refresh = document.createElement('button');
+  refresh.type = 'button';
+  refresh.textContent = t('settings.common.refresh');
+  refresh.addEventListener('click', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    refreshStats({ force: true });
+  });
+  actions.append(refresh);
+  if (limitProviderSummaryApi.sourceBucket(row) === 'potluck') {
+    const manage = document.createElement('button');
+    manage.type = 'button';
+    manage.textContent = t('settings.limits.manageInPotluck');
+    manage.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      window.tokenMonitor.potluckGateway?.openWeb?.();
+    });
+    actions.append(manage);
+  } else if (providerAccountSettingsEl(providerId)) {
+    const edit = document.createElement('button');
+    edit.type = 'button';
+    edit.textContent = t('settings.limits.editInAccounts');
+    edit.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      focusProviderAccountSettings(providerId);
+    });
+    actions.append(edit);
+  }
+  card.append(actions);
+  details.append(card);
+}
+
+function renderLimitsDataHealth() {
+  const summaryEl = document.getElementById('limitsDataHealthSummary');
+  const body = document.getElementById('limitsDataHealthBody');
+  const details = document.getElementById('limitsDataHealthDetails');
+  const toggle = document.getElementById('limitsDataHealthToggle');
+  if (!summaryEl || !body || !details || !toggle) return;
+  const limits = state.stats?.limits || {};
+  const providers = limits.providers || [];
+  const staleCount = providers.filter((row) => row?.stale === true || row?.quotaStatus === 'stale').length;
+  const lastAttempt = providers.reduce((latest, row) => {
+    const value = row?.lastAttemptAt || '';
+    return value > latest ? value : latest;
+  }, limits.generatedAt || limits.updatedAt || '');
+  const lastSuccess = providers.reduce((latest, row) => {
+    const value = row?.lastSuccessAt || '';
+    return value > latest ? value : latest;
+  }, '');
+  const generatedAt = limits.generatedAt || limits.updatedAt || lastSuccess;
+  const schema = limits.schemaVersion || t('settings.limits.age.unknown');
+  summaryEl.textContent = generatedAt
+    ? (staleCount > 0
+      ? t('settings.limits.dataHealth.summaryStale', { count: staleCount, age: formatSettingsAge(generatedAt) })
+      : t('settings.limits.dataHealth.summaryOk', { schema, age: formatSettingsAge(generatedAt) }))
+    : t('settings.limits.dataHealth.summaryUnknown');
+  const rows = [
+    [t('settings.limits.dataHealth.device'), state.stats?.hostname || state.settings?.deviceId || t('settings.limits.age.unknown')],
+    [t('settings.limits.dataHealth.agent'), state.stats?.agentVersion ? `v${state.stats.agentVersion}` : t('settings.limits.age.unknown')],
+    [t('settings.limits.dataHealth.tokscale'), state.tokscaleStatus?.current || state.tokscaleStatus?.bundled || t('settings.limits.age.unknown')],
+    [t('settings.limits.dataHealth.schema'), String(schema)],
+    [t('settings.limits.dataHealth.snapshot'), limits.snapshotType || t('settings.limits.age.unknown')],
+    [t('settings.limits.dataHealth.generated'), generatedAt ? formatSettingsAge(generatedAt) : t('settings.limits.age.unknown')],
+    [t('settings.limits.dataHealth.lastAttempt'), lastAttempt ? formatSettingsAge(lastAttempt) : t('settings.limits.age.unknown')],
+    [t('settings.limits.dataHealth.lastSuccess'), lastSuccess ? formatSettingsAge(lastSuccess) : t('settings.limits.age.unknown')],
+    [t('settings.limits.dataHealth.staleCount'), String(staleCount)],
+    [t('settings.limits.dataHealth.capabilities'), Array.isArray(limits.capabilities) && limits.capabilities.length ? limits.capabilities.join(', ') : t('settings.limits.age.unknown')]
+  ];
+  body.replaceChildren();
+  for (const [label, value] of rows) {
+    const dt = document.createElement('dt');
+    dt.textContent = label;
+    const dd = document.createElement('dd');
+    dd.textContent = value;
+    body.append(dt, dd);
+  }
+  details.classList.toggle('hidden', !state.limitsDataHealthOpen);
+  toggle.setAttribute('aria-expanded', String(state.limitsDataHealthOpen));
+  document.getElementById('limitsDataHealth')?.classList.toggle('expanded', state.limitsDataHealthOpen);
+}
+
 
 async function onClientVisibilityToggle(clientId) {
   const hidden = hiddenClientSet();
@@ -8333,6 +8614,11 @@ els.secretPasteButton?.addEventListener('click', async () => {
 els.limitsRefreshInput.addEventListener('change', async () => {
   await saveSettings({ limitsRefreshMs: Number(els.limitsRefreshInput.value) });
   await refreshStats({ force: true });
+});
+document.getElementById('limitsDataHealthToggle')?.addEventListener('click', () => {
+  state.limitsDataHealthOpen = !state.limitsDataHealthOpen;
+  document.getElementById('limitsDataHealth')?.classList.toggle('expanded', state.limitsDataHealthOpen);
+  renderLimitsDataHealth();
 });
 els.showLimitSourceInput.addEventListener('change', async () => {
   await saveSettings({ showLimitSource: els.showLimitSourceInput.checked });
