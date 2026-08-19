@@ -9,7 +9,7 @@ const wslStatusPresentationApi = window.TokenMonitorWslStatusPresentation;
 const reducedMotionMedia = window.matchMedia?.('(prefers-reduced-motion: reduce)');
 const clientsWithIcon = new Set([
   'claude', 'codex', 'gemini', 'cursor', 'opencode', 'openclaw', 'hermes', 'antigravity', 'cline', 'kimi', 'qwen', 'grok', 'copilot', 'pi', 'zed', 'kilocode', 'micode', 'zcode', 'kiro', 'codebuddy', 'workbuddy', 'proma',
-  'xai', 'openrouter', 'deepseek', 'meta', 'mistral', 'qwen', 'moonshot', 'zai', 'zaiteam', 'cohere', 'xiaomi', 'mimo', 'minimax', 'doubao', 'volcengine', 'qoder', 'ollama', 'thirdparty'
+  'xai', 'openrouter', 'deepseek', 'meta', 'mistral', 'moonshot', 'zai', 'zaiteam', 'cohere', 'xiaomi', 'mimo', 'minimax', 'doubao', 'volcengine', 'qoder', 'ollama', 'thirdparty'
 ]);
 
 function osIconFor(platform) {
@@ -305,7 +305,6 @@ Object.assign(els, {
   windowsBackdropInput: document.getElementById('windowsBackdropInput'),
   windowsBackdropNote: document.getElementById('windowsBackdropNote'),
   clearSessionUsageArchiveButton: document.getElementById('clearSessionUsageArchiveButton'),
-  startupGroup: document.getElementById('startupGroup'),
   startAtLoginInput: document.getElementById('startAtLoginInput'),
   startupNote: document.getElementById('startupNote'),
   tokscaleGroup: document.getElementById('tokscaleGroup'),
@@ -2855,10 +2854,7 @@ function renderLimitProviderHead(id, label, provider, color, options = {}) {
           renderLimits();
           window.tokenMonitor.codex.refreshAccountLimits(switchAccount.id).then((refreshResult) => {
             if (refreshResult?.ok) applyCodexAccountLimitsRefresh(refreshResult.providers || []);
-            else if (refreshResult?.error) console.log(`[codex] refresh account limits failed: ${refreshResult.error}`);
-          }).catch((refreshError) => {
-            console.log(`[codex] refresh account limits failed: ${refreshError?.message || refreshError}`);
-          });
+          }).catch(() => {});
         }
       } catch (error) {
         const message = error?.message || t('limits.codex.switchFailed');
@@ -4160,8 +4156,9 @@ async function loadHomeHistory() {
     // a newer one.
     fetchedHistory = await window.tokenMonitor.getDashboardHistory();
     resolved = true;
-  } catch (error) {
-    console.log(`[home] history failed: ${error.message}`);
+  } catch {
+    // Home history stays on the last good snapshot; the overview renderer
+    // already has an empty/retry path for a failed fetch.
   } finally {
     state.homeHistoryBusy = false;
     const outcome = homeOverviewApi.homeHistoryFetchOutcome({
@@ -5588,11 +5585,10 @@ async function refreshStats(options = {}) {
     renderCopilotStatus();
     maybeUpdateBarsIcon();
     if (feedback) settleRefreshButtonState('refreshed');
-  } catch (error) {
+  } catch {
     // The dot colour shows the offline state and the reason lives in the
     // live-dot tooltip + sync settings line, so keep the header status pill
     // hidden instead of surfacing the raw hub error (e.g. a 404 HTML page).
-    console.log(`[refresh] getStats failed: ${error.message}`);
     setStatus(statusTextFor(state.mode, state.streamConnected));
     if (feedback) settleRefreshButtonState('error');
   } finally {

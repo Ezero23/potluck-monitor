@@ -1252,3 +1252,12 @@ test('Home limits groups multiple MiMo accounts like Codex', () => {
   assert.match(renderLimitsBody, /if \(id === 'mimo' && Array\.isArray\(visibleProviders\) && visibleProviders\.length > 1\) \{/);
   assert.match(renderLimitsBody, /nodes\.push\(renderMimoAccountGroup\(label, visibleProviders, color\)\);/);
 });
+
+test('renderer cleanup drops unused startupGroup handle and leftover console.log debug', () => {
+  const app = readRendererFile('app.js');
+  assert.doesNotMatch(app, /startupGroup:\s*document\.getElementById\('startupGroup'\)/);
+  assert.doesNotMatch(app, /els\.startupGroup/);
+  assert.doesNotMatch(app, /console\.log\(/);
+  assert.doesNotMatch(app, /\bdebugger\b/);
+  assert.match(app, /console\.error\('Could not persist settings:'/);
+});
