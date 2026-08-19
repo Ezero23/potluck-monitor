@@ -123,6 +123,100 @@ test('Hub keeps same-email Codex Personal and Team workspaces distinct across de
   }
 });
 
+test('Hub aggregates quota pools by key, keeps same-label pools distinct, and drops deleted live pools', () => {
+  const dataFile = tempDataFile();
+  const hub = createHub({ port: 0, host: '127.0.0.1', secret: '', staleAfterMs: 0, dataFile, logger: { error() {} } });
+  const poolWindow = (usedPercent) => [{ kind: 'session', usedPercent, remainingPercent: 100 - usedPercent }];
+  const ingestClaude = (deviceId, poolKey, label, usedPercent, connectionKey, updatedAt) => {
+    hub.ingest({
+      deviceId,
+      updatedAt,
+      limits: {
+        schemaVersion: 2,
+        snapshotType: 'full',
+        snapshotId: `${deviceId}-${updatedAt}`,
+        sourceInstanceId: `monitor:${deviceId}`,
+        updatedAt,
+        quotaPools: [{
+          quotaPoolKey: poolKey,
+          provider: 'claude',
+          label,
+          connectionKeys: [connectionKey],
+          windows: poolWindow(usedPercent)
+        }],
+        providers: [{
+          provider: 'claude',
+          connectionKey,
+          accountKey: connectionKey,
+          quotaPoolKey: poolKey,
+          accountLabel: label,
+          status: 'ok',
+          updatedAt,
+          windows: poolWindow(usedPercent)
+        }]
+      }
+    });
+  };
+  try {
+    ingestClaude('mac', 'pool-team', 'Team', 12, 'monitor:mac:conn-a', '2026-08-19T10:00:00.000Z');
+    ingestClaude('pc', 'pool-team', '团队', 40, 'monitor:pc:conn-b', '2026-08-19T10:05:00.000Z');
+    ingestClaude('laptop', 'pool-other', 'Team', 12, 'monitor:laptop:conn-c', '2026-08-19T10:05:00.000Z');
+
+    const stats = hub.getStats();
+    const pools = stats.limits.quotaPools;
+    assert.equal(pools.length, 2);
+    const team = pools.find((pool) => pool.quotaPoolKey === 'pool-team');
+    const other = pools.find((pool) => pool.quotaPoolKey === 'pool-other');
+    assert.equal(team.windows[0].usedPercent, 40);
+    assert.equal(team.conflict, true);
+    assert.deepEqual(team.connectionKeys, ['monitor:mac:conn-a', 'monitor:pc:conn-b']);
+    assert.equal(other.label, 'Team');
+    assert.equal(stats.limits.providers.filter((row) => row.quotaPoolKey === 'pool-team').every((row) => row.windows[0].usedPercent === 40), true);
+
+    hub.ingest({
+      deviceId: 'mac',
+      updatedAt: '2026-08-19T11:00:00.000Z',
+      limits: {
+        schemaVersion: 2,
+        snapshotType: 'full',
+        snapshotId: 'mac-cleared',
+        sourceInstanceId: 'monitor:mac',
+        updatedAt: '2026-08-19T11:00:00.000Z',
+        providers: [{
+          provider: 'claude',
+          accountKey: 'monitor:mac:conn-a',
+          status: 'ok',
+          updatedAt: '2026-08-19T11:00:00.000Z',
+          windows: []
+        }]
+      }
+    });
+    hub.ingest({
+      deviceId: 'pc',
+      updatedAt: '2026-08-19T11:01:00.000Z',
+      limits: {
+        schemaVersion: 2,
+        snapshotType: 'full',
+        snapshotId: 'pc-cleared',
+        sourceInstanceId: 'monitor:pc',
+        updatedAt: '2026-08-19T11:01:00.000Z',
+        providers: [{
+          provider: 'claude',
+          accountKey: 'monitor:pc:conn-b',
+          status: 'ok',
+          updatedAt: '2026-08-19T11:01:00.000Z',
+          windows: []
+        }]
+      }
+    });
+    const afterDelete = hub.getStats().limits.quotaPools;
+    assert.equal(afterDelete.length, 1);
+    assert.equal(afterDelete[0].quotaPoolKey, 'pool-other');
+  } finally {
+    fs.rmSync(dataFile, { force: true });
+  }
+});
+
 test('ingest without a deviceId throws', () => {
   const dataFile = tempDataFile();
   const hub = createHub({ port: 0, host: '127.0.0.1', secret: '', dataFile, logger: { error() {} } });

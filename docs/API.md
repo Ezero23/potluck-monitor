@@ -236,10 +236,11 @@ Response includes:
 - `projectsIncomplete` plus the corresponding `devices[].allTimeProjectsOmitted`, `devices[].allTimeProjectsIncomplete`, or `devices[].projectsEnabled` diagnostic
 - `historyPreview.daily[].activeTimeMs`, `historyPreview.monthly[].activeTimeMs`, and `historyPreview.summary.activeTimeMs` when tokscale graph exposes session active-time metrics
 - `limits.providers` aggregated by provider account
+- `limits.quotaPools` aggregated only by `quotaPoolKey` when present
 - `devices`, including each device's normalized `periods`, `limits`, `receivedAt`, `osName` / `osVersion` when reported, optional `syncUploadIntervalMs`, and optional `periodWindows`
 - stale status for devices that have not reported recently
 
-If multiple devices report the same provider account, the hub keeps the freshest valid limits status for that account. Public Worker stats omit account identifiers.
+If multiple devices report the same provider account, the hub keeps the freshest valid limits status for that account. When devices also send `quotaPoolKey` / `quotaPools`, the hub merges **only** by that opaque pool id: same key across devices is one pool (connection rows stay, and their `windows` are a projection of the pool); the same display label or matching percentages without a key never become a shared pool. Conflicting fresh windows on one key keep the newest source, set `conflict: true`, and mark window `precision` as `unavailable`. A pool disappears from the live aggregate once no stored device still reports its key. Public Worker stats omit account identifiers.
 
 ## `GET /api/devices`
 
