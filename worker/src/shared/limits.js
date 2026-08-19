@@ -4,9 +4,9 @@
 'use strict';
 
 const { staleAfterMsForSyncUpload } = require('./syncUploadInterval');
+const { resolveProviderIdentity, collapsesByAccount } = require('./limitProviderRegistry');
 
 const DEFAULT_LIMITS_REFRESH_MS = 5 * 60 * 1000;
-const VALID_PROVIDERS = new Set(['claude', 'codex', 'cursor', 'antigravity', 'opencode', 'openrouter', 'deepseek', 'minimax', 'mimo', 'grok', 'copilot', 'kiro', 'zai', 'volcengine', 'qoder', 'zaiteam', 'kimi', 'ollama', 'thirdparty', 'brave-search', 'gemini-cli', 'kimchi', 'nvidia', 'opencode-go', 'qoder-cn', 'tavily']);
 const VALID_STATUSES = new Set(['ok', 'disabled', 'notConfigured', 'unauthorized', 'rateLimited', 'sourceRateLimited', 'unavailable', 'error']);
 const VALID_SOURCES = new Set(['oauth', 'cli', 'web', 'rpc', 'local', 'api']);
 const VALID_SOURCE_DETAILS = new Set(['app', 'cli', 'ide', 'managed', 'unknown']);
@@ -67,9 +67,8 @@ function clamp(value, min, max) {
 }
 
 function normalizeProviderId(value) {
-  const raw = String(value || '').trim().toLowerCase();
-  if (!VALID_PROVIDERS.has(raw)) return null;
-  return raw;
+  const identity = resolveProviderIdentity(value);
+  return identity ? identity.id : null;
 }
 
 function normalizeStatus(value) {
@@ -624,8 +623,9 @@ function normalizeWorkspaceKind(value) {
 
 function normalizeLimitProvider(input) {
   if (!input || typeof input !== 'object') return null;
-  const provider = normalizeProviderId(input.provider);
-  if (!provider) return null;
+  const identity = resolveProviderIdentity(input.provider);
+  if (!identity) return null;
+  const provider = identity.id;
   const accountLabel = normalizeAccountLabel(input.accountLabel);
   const windows = Array.isArray(input.windows)
     ? input.windows.map(normalizeLimitWindow).filter(Boolean)
@@ -691,7 +691,7 @@ function normalizeLimitProvider(input) {
     balanceUsd: numberOrNull(input.balanceUsd),
     balance,
     resetCredits: normalizeProviderResetCredits(input.resetCredits ?? input.rateLimitResetCredits ?? input.rate_limit_reset_credits),
-    region: normalizeRegion(input.region)
+    region: normalizeRegion(input.region) || identity.region || ''
   };
   if (connectionKey) record.connectionKey = connectionKey;
   if (identityKind) record.identityKind = identityKind;
@@ -788,15 +788,7 @@ function isConfiguredProvider(provider) {
 }
 
 function providerCollapseKey(provider) {
-  if (
-    (provider.provider === 'claude'
-      || provider.provider === 'codex'
-      || provider.provider === 'opencode'
-      || provider.provider === 'openrouter'
-      || provider.provider === 'thirdparty'
-      || provider.provider === 'mimo')
-    && isConfiguredProvider(provider)
-  ) {
+  if (collapsesByAccount(provider.provider) && isConfiguredProvider(provider)) {
     return providerAggregateKey(provider);
   }
   return provider.provider;

@@ -13,6 +13,8 @@ const {
   publicLimits,
   syncLimits
 } = require('../../src/shared/limits');
+const srcRegistry = require('../../src/shared/limitProviderRegistry');
+const workerRegistry = require('../../worker/src/shared/limitProviderRegistry');
 const { collectLimitsOnce } = require('../../src/shared/limitCollector');
 const { codexAccountKey } = require('../../src/shared/codexAuth');
 
@@ -1273,6 +1275,123 @@ test('publicLimits strips v2 identity keys while syncLimits keeps them', () => {
   assert.equal(Object.hasOwn(publicPayload.quotaPools[0], 'connectionKeys'), false);
   assert.equal(publicPayload.quotaPools[0].quotaPoolKey, 'zai-pool-1');
   assert.equal(publicPayload.providers[0].connectionStatus, 'ok');
+});
+
+test('canonical provider ids fold case and drop unknown or display-name values', () => {
+  assert.equal(srcRegistry.canonicalProviderId('Claude'), 'claude');
+  assert.equal(srcRegistry.canonicalProviderId('CODEX'), 'codex');
+  assert.equal(srcRegistry.canonicalProviderId('not-a-provider'), null);
+  assert.equal(srcRegistry.canonicalProviderId('GitHub Copilot'), null);
+  assert.equal(srcRegistry.canonicalProviderId('Z.ai'), null);
+  assert.equal(srcRegistry.canonicalProviderId('GLM Team'), null);
+  assert.equal(normalizeLimitProvider({
+    provider: 'GitHub Copilot',
+    status: 'ok',
+    updatedAt: '2026-08-19T12:00:00.000Z'
+  }), null);
+});
+
+test('legacy provider aliases rewrite to one canonical id', () => {
+  assert.equal(srcRegistry.canonicalProviderId('glm'), 'zai');
+  assert.equal(srcRegistry.canonicalProviderId('GLM'), 'zai');
+  assert.equal(srcRegistry.canonicalProviderId('glm-cn'), 'zai');
+  assert.equal(srcRegistry.canonicalProviderId('zai-team'), 'zaiteam');
+  assert.equal(srcRegistry.canonicalProviderId('ZAI-TEAM'), 'zaiteam');
+  assert.equal(srcRegistry.canonicalProviderId('minimax-cn'), 'minimax');
+  assert.equal(srcRegistry.canonicalProviderId('qoder-cn'), 'qoder-cn');
+  assert.equal(srcRegistry.canonicalProviderId('qoder'), 'qoder');
+
+  const glm = normalizeLimitProvider({
+    provider: 'glm',
+    status: 'ok',
+    updatedAt: '2026-08-19T12:00:00.000Z'
+  });
+  const glmCn = normalizeLimitProvider({
+    provider: 'glm-cn',
+    status: 'ok',
+    updatedAt: '2026-08-19T12:00:00.000Z'
+  });
+  assert.equal(glm.provider, 'zai');
+  assert.equal(glm.region, 'global');
+  assert.equal(glmCn.provider, 'zai');
+  assert.equal(glmCn.region, 'cn');
+  // Duplicate aliases of the same vendor stay one id; an explicit region wins.
+  const glmCnGlobal = normalizeLimitProvider({
+    provider: 'glm-cn',
+    region: 'global',
+    status: 'ok',
+    updatedAt: '2026-08-19T12:00:00.000Z'
+  });
+  assert.equal(glmCnGlobal.provider, 'zai');
+  assert.equal(glmCnGlobal.region, 'global');
+});
+
+test('ollama-local maps to the local ollama provider, not a cloud quota vendor', () => {
+  assert.equal(srcRegistry.canonicalProviderId('ollama-local'), 'ollama');
+  assert.equal(srcRegistry.isLocalQuotaProvider('ollama'), true);
+  assert.equal(srcRegistry.isLocalQuotaProvider('openrouter'), false);
+  assert.equal(srcRegistry.isLocalQuotaProvider('zai'), false);
+  const row = normalizeLimitProvider({
+    provider: 'ollama-local',
+    status: 'ok',
+    source: 'local',
+    updatedAt: '2026-08-19T12:00:00.000Z'
+  });
+  assert.equal(row.provider, 'ollama');
+  assert.notEqual(row.provider, 'openrouter');
+  assert.notEqual(row.provider, 'cursor');
+});
+
+test('hub collapse policy stays account-scoped only for configured multi-account providers', () => {
+  assert.equal(srcRegistry.collapsesByAccount('claude'), true);
+  assert.equal(srcRegistry.collapsesByAccount('minimax'), false);
+  assert.equal(srcRegistry.providerCapabilities('claude').supportsAccountScope, true);
+  assert.equal(srcRegistry.providerCapabilities('minimax').supportsAccountScope, false);
+
+  const aggregate = aggregateLimits([
+    {
+      deviceId: 'mac',
+      limits: {
+        updatedAt: '2026-08-19T12:00:00.000Z',
+        providers: [{
+          provider: 'glm',
+          accountKey: 'sha256:glm-a',
+          status: 'ok',
+          updatedAt: '2026-08-19T12:00:00.000Z',
+          windows: []
+        }]
+      }
+    },
+    {
+      deviceId: 'pc',
+      limits: {
+        updatedAt: '2026-08-19T12:01:00.000Z',
+        providers: [{
+          provider: 'zai',
+          accountKey: 'sha256:zai-b',
+          status: 'ok',
+          updatedAt: '2026-08-19T12:01:00.000Z',
+          windows: []
+        }]
+      }
+    }
+  ], 0, Date.parse('2026-08-19T12:02:00.000Z'));
+
+  const zaiRows = aggregate.providers.filter((provider) => provider.provider === 'zai');
+  assert.equal(zaiRows.length, 1);
+  assert.equal(zaiRows[0].accountKey, 'sha256:zai-b');
+});
+
+test('worker vendored provider registry stays in lockstep with src', () => {
+  assert.deepEqual(srcRegistry.CANONICAL_PROVIDER_IDS, workerRegistry.CANONICAL_PROVIDER_IDS);
+  assert.equal(workerRegistry.canonicalProviderId('glm-cn'), 'zai');
+  assert.equal(workerRegistry.canonicalProviderId('zai-team'), 'zaiteam');
+  assert.equal(workerRegistry.canonicalProviderId('ollama-local'), 'ollama');
+  assert.equal(workerRegistry.canonicalProviderId('unknown'), null);
+  assert.deepEqual(
+    srcRegistry.providerCapabilities('codex'),
+    workerRegistry.providerCapabilities('codex')
+  );
 });
 
 test('v2 writers remain readable by the v1 status field', () => {
