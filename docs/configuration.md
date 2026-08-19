@@ -20,7 +20,7 @@ Click the `⚙` button in the bottom-right corner of the widget to open the sett
 | **Window** | Window behavior (float above other apps / normal / desktop-pinned), tray mode (macOS menu bar or Windows system tray, and what shows next to the icon), the floating bubble, and the global show/hide shortcut. |
 | **Appearance** | Interface theme (presets such as Default and Obsidian, a porcelain light mode, or custom colors), per-vendor tool colors, and system glass opacity / blur. |
 | **Collection** | Tracked tools (and hide / pin / drag-reorder for the main list), collection cadence, **Keep usage from deleted sessions**, custom pricing, data export, and — on Windows — the built-in WSL scan toggle. |
-| **AI Tool Limits** | Which providers to probe for session / weekly / billing / credit windows, and how often to refresh. |
+| **AI Tool Limits** | Which providers to probe for session / weekly / billing / credit windows, and how often to refresh. The widget keeps a local quota history (`quota-history.json` in the shared data directory): raw changed samples for 14 days, hourly rollups for 90 days, and cycle summaries for 370 days, capped at 25 MiB. Clearing retained session usage also clears this file; credentials are left untouched. |
 | **Accounts** | Credentials for providers that need them (DeepSeek, GLM, Volcengine, Qoder, Ollama, Kimi, …) and multiple accounts per provider — including switching which tracked Codex account is the active local one. |
 | **Multi-device Sync** | **Local only** (no hub), **Connect to a hub** (paste another machine's Hub URL + secret), or **Host hub on this device** (run a hub locally; the panel lists reachable LAN / Tailscale / ZeroTier addresses). |
 

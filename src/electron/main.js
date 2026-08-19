@@ -119,6 +119,7 @@ const {
   writeSessionUsageArchive
 } = require('../shared/sessionUsageArchive');
 const { clearDailyHistoryArchive } = require('../shared/dailyHistoryArchive');
+const { clearQuotaHistory, retainQuotaHistoryFromLimits } = require('../shared/quotaHistory');
 const { aggregateDevices, aggregateHistory, applyProjectRollups, todayHoursFromSessions } = require('../shared/usage');
 const { postSyncPayload, syncPayload } = require('../shared/syncPayload');
 const { mergedLocalAllTimeSessions } = require('../shared/localSessions');
@@ -2406,6 +2407,16 @@ function isExternalAgentActive() {
   } catch (_) { return false; }
 }
 
+function retainDeviceQuotaHistory(record) {
+  try {
+    retainQuotaHistoryFromLimits(record, {
+      writeEnabled: () => !isExternalAgentActive()
+    });
+  } catch (error) {
+    console.log(`[quota-history] ${error.message}`);
+  }
+}
+
 async function deleteDeviceFromHub(deviceId) {
   const { url: hubUrl, secret } = effectiveHubConfig();
   if (!hubUrl) return;
@@ -2454,6 +2465,7 @@ function startSyncCollector() {
   });
   const sink = {
     async enqueue(summary, revision) {
+      retainDeviceQuotaHistory(summary);
       if (isExternalAgentActive()) { sessionUsageArchive = null; return; }
       const visibleSummary = {
         ...summary,
@@ -2491,6 +2503,7 @@ function startHostCollector() {
   stopSyncCollector();
   const sink = {
     enqueue(summary) {
+      retainDeviceQuotaHistory(summary);
       if (isExternalAgentActive()) { sessionUsageArchive = null; return; }
       const visibleSummary = summary;
       // Approximate hourly buckets from today's session activity so the DAY tab
@@ -2734,6 +2747,7 @@ function startLocalCollector() {
     onRecord: (summary, meta) => {
       const reason = meta.reason;
       const visibleSummary = summary;
+      retainDeviceQuotaHistory(visibleSummary);
       localDevice = { ...visibleSummary, receivedAt: new Date().toISOString() };
       // Approximate hourly buckets from today's session activity so the DAY tab
       // can render an hourly distribution for the local device too.
@@ -4317,6 +4331,7 @@ app.whenReady().then(() => {
     try {
       clearSessionUsageArchive();
       clearDailyHistoryArchive();
+      clearQuotaHistory();
       sessionUsageArchive = normalizeSessionUsageArchive({});
       return { ok: true };
     } catch (error) {
