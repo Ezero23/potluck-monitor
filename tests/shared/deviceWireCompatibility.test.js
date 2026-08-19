@@ -4,6 +4,7 @@ const assert = require('node:assert/strict');
 const test = require('node:test');
 
 const { createDeviceState } = require('../../src/shared/deviceState');
+const { LIMITS_SCHEMA_VERSION, normalizeLimitsSummary } = require('../../src/shared/limits');
 const { syncPayload } = require('../../src/shared/syncPayload');
 const { mergeDeviceRecord, normalizeDeviceRecord } = require('../../src/shared/usage');
 
@@ -96,4 +97,99 @@ test('sync payload keeps retained public status/windows and drops runtime-only p
   assert.equal(Object.hasOwn(provider, 'error'), false);
   assert.equal(Object.hasOwn(provider, 'credentialDigest'), false);
   assert.equal(Object.hasOwn(provider, 'revision'), false);
+});
+
+test('v1 device limits remain readable after hub normalization', () => {
+  const normalized = normalizeDeviceRecord({
+    deviceId: 'macbook',
+    hostname: 'macbook.local',
+    platform: 'darwin-arm64',
+    updatedAt: '2026-05-18T00:00:00.000Z',
+    today: period(1234),
+    month: period(4567),
+    allTime: period(8901),
+    limits: {
+      updatedAt: '2026-05-18T00:00:00.000Z',
+      refreshMs: 300000,
+      providers: [{
+        provider: 'claude',
+        accountKey: 'sha256:v1',
+        status: 'ok',
+        updatedAt: '2026-05-18T00:00:00.000Z',
+        windows: [{
+          kind: 'session',
+          usedPercent: 42,
+          remainingPercent: 58,
+          resetAt: '2026-05-18T05:00:00.000Z'
+        }]
+      }]
+    }
+  });
+  const provider = normalized.limits.providers[0];
+  assert.equal(provider.status, 'ok');
+  assert.equal(provider.connectionStatus, 'ok');
+  assert.equal(provider.quotaStatus, 'fresh');
+  assert.equal(provider.windows[0].resetsAt, '2026-05-18T05:00:00.000Z');
+  assert.equal(Object.hasOwn(normalized.limits, 'schemaVersion'), false);
+});
+
+test('v2 device limits survive hub normalization and sync projection', () => {
+  const limits = {
+    schemaVersion: LIMITS_SCHEMA_VERSION,
+    snapshotType: 'full',
+    sourceInstanceId: 'monitor:macbook',
+    capabilities: ['connection_status_v2', 'quota_status_v2'],
+    updatedAt: '2026-08-19T10:30:00.000Z',
+    refreshMs: 300000,
+    providers: [{
+      provider: 'zai',
+      connectionKey: 'monitor:macbook:conn-1',
+      accountKey: 'monitor:macbook:conn-1',
+      connectionStatus: 'ok',
+      quotaStatus: 'stale',
+      lastAttemptAt: '2026-08-19T10:30:00.000Z',
+      lastSuccessAt: '2026-08-19T10:20:00.000Z',
+      error: {
+        code: 'provider_unavailable',
+        category: 'unavailable',
+        messageKey: 'limits.error.unavailable',
+        safeDetail: 'HTTP 503',
+        recoverable: true
+      },
+      windows: [{ kind: 'session', usedPercent: 40, resetAt: '2026-08-19T12:00:00.000Z' }],
+      lastAttempt: { status: 'unavailable' },
+      credentialDigest: 'private digest'
+    }]
+  };
+  const record = {
+    deviceId: 'device-1',
+    updatedAt: '2026-08-19T10:00:00.000Z',
+    today: period(10),
+    month: period(20),
+    allTime: period(30),
+    limits
+  };
+  const normalized = normalizeDeviceRecord(record);
+  assert.equal(normalized.limits.schemaVersion, 2);
+  assert.equal(normalized.limits.snapshotType, 'full');
+  assert.equal(normalized.limits.providers[0].status, 'ok');
+  assert.equal(normalized.limits.providers[0].quotaStatus, 'stale');
+  assert.equal(normalized.limits.providers[0].connectionKey, 'monitor:macbook:conn-1');
+  assert.equal(normalized.limits.providers[0].error.code, 'provider_unavailable');
+  assert.equal(normalized.limits.providers[0].windows[0].resetsAt, '2026-08-19T12:00:00.000Z');
+  assert.equal(Object.hasOwn(normalized.limits.providers[0], 'lastAttempt'), false);
+  assert.equal(Object.hasOwn(normalized.limits.providers[0], 'credentialDigest'), false);
+
+  const payload = syncPayload(record);
+  assert.equal(payload.limits.schemaVersion, 2);
+  assert.equal(payload.limits.snapshotType, 'full');
+  assert.equal(payload.limits.providers[0].lastAttemptAt, '2026-08-19T10:30:00.000Z');
+  assert.equal(payload.limits.providers[0].error.safeDetail, 'HTTP 503');
+  assert.equal(Object.hasOwn(payload.limits.providers[0], 'lastAttempt'), false);
+  assert.equal(Object.hasOwn(payload.limits.providers[0], 'credentialDigest'), false);
+
+  const roundTrip = normalizeLimitsSummary(payload.limits);
+  assert.equal(roundTrip.providers[0].status, 'ok');
+  assert.equal(roundTrip.providers[0].connectionStatus, 'ok');
+  assert.equal(roundTrip.providers[0].quotaStatus, 'stale');
 });

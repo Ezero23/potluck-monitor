@@ -10,11 +10,48 @@ const VALID_PROVIDERS = new Set(['claude', 'codex', 'cursor', 'antigravity', 'op
 const VALID_STATUSES = new Set(['ok', 'disabled', 'notConfigured', 'unauthorized', 'rateLimited', 'sourceRateLimited', 'unavailable', 'error']);
 const VALID_SOURCES = new Set(['oauth', 'cli', 'web', 'rpc', 'local', 'api']);
 const VALID_SOURCE_DETAILS = new Set(['app', 'cli', 'ide', 'managed', 'unknown']);
+const LIMITS_SCHEMA_VERSION = 2;
+const VALID_CONNECTION_STATUSES = new Set([
+  'ok', 'disabled', 'unauthorized', 'rateLimited', 'unavailable', 'error', 'notChecked', 'notConfigured'
+]);
+const VALID_QUOTA_STATUSES = new Set([
+  'fresh', 'stale', 'unsupported', 'unavailable', 'unauthorized', 'rateLimited', 'error', 'notChecked'
+]);
+const VALID_IDENTITY_KINDS = new Set(['connection', 'legacy_account_key']);
+const VALID_MANAGED_BY = new Set(['monitor', 'potluck', 'external']);
+const VALID_AUTH_TYPES = new Set(['apikey', 'oauth', 'cookie', 'cli', 'rpc', 'unknown']);
+const VALID_PRECISION = new Set(['exact', 'providerReported', 'derived', 'estimated', 'stale', 'unavailable']);
+const VALID_RESET_POLICIES = new Set(['fixed', 'rolling', 'unknown']);
+const VALID_ERROR_CATEGORIES = new Set([
+  'rate_limit', 'auth', 'network', 'parse', 'unavailable', 'internal', 'unknown'
+]);
+const VALID_LIMITS_CAPABILITIES = new Set([
+  'connection_status_v2',
+  'quota_status_v2',
+  'quota_pool_key',
+  'forecast_read',
+  'status_v2',
+  'multi_connection',
+  'quota_pool',
+  'daily_archive'
+]);
+const MAX_OPAQUE_KEY_LENGTH = 256;
+const MAX_ERROR_DETAIL_LENGTH = 96;
+const MAX_SNAPSHOT_ID_LENGTH = 128;
+const MAX_SOURCE_INSTANCE_ID_LENGTH = 128;
+const MAX_WINDOW_KEY_LENGTH = 64;
+const MAX_CAPABILITIES = 32;
+const MAX_QUOTA_POOLS = 256;
+const MAX_SCOPE_KEYS = 512;
 const WINDOW_ORDER = ['session', 'weekly', 'billing'];
 const CODEX_TRANSIENT_WINDOW_RETENTION_MS = 10 * 60 * 1000;
 const CODEX_TRANSIENT_PROVIDER_STATUSES = new Set(['unavailable', 'error', 'rateLimited', 'sourceRateLimited']);
 const MAX_ACCOUNT_LABEL_INPUT_LENGTH = 256;
 const MAX_ACCOUNT_NAME_INPUT_LENGTH = 512;
+
+function hasOwn(object, key) {
+  return Object.prototype.hasOwnProperty.call(object || {}, key);
+}
 
 function asNumber(value) {
   if (typeof value === 'number' && Number.isFinite(value)) return value;
@@ -140,6 +177,234 @@ function numberOrNull(value) {
   return number === null ? null : number;
 }
 
+function normalizeOpaqueKey(value, maxLength = MAX_OPAQUE_KEY_LENGTH) {
+  const raw = String(value == null ? '' : value).trim();
+  if (!raw || raw.length > maxLength) return '';
+  if (/[\u0000-\u001f\u007f]/.test(raw) || /\s/.test(raw) || raw.includes('://')) return '';
+  if (/^(sk-|rk-|Bearer)/i.test(raw)) return '';
+  return raw;
+}
+
+function normalizeConnectionStatus(value) {
+  const raw = String(value || '').trim();
+  if (raw === 'checking') return 'notChecked';
+  if (raw === 'connected') return 'ok';
+  return VALID_CONNECTION_STATUSES.has(raw) ? raw : '';
+}
+
+function normalizeQuotaStatus(value) {
+  const raw = String(value || '').trim();
+  return VALID_QUOTA_STATUSES.has(raw) ? raw : '';
+}
+
+function normalizeIdentityKind(value) {
+  const raw = String(value || '').trim();
+  return VALID_IDENTITY_KINDS.has(raw) ? raw : '';
+}
+
+function normalizeManagedBy(value) {
+  const raw = String(value || '').trim().toLowerCase();
+  return VALID_MANAGED_BY.has(raw) ? raw : '';
+}
+
+function normalizeAuthType(value) {
+  const raw = String(value || '').trim().toLowerCase().replace(/[\s-]+/g, '');
+  if (raw === 'apikey' || raw === 'api_key') return 'apikey';
+  return VALID_AUTH_TYPES.has(raw) ? raw : '';
+}
+
+function normalizePrecision(value) {
+  const raw = String(value || '').trim();
+  return VALID_PRECISION.has(raw) ? raw : '';
+}
+
+function normalizeResetPolicy(value) {
+  const raw = String(value || '').trim().toLowerCase();
+  return VALID_RESET_POLICIES.has(raw) ? raw : '';
+}
+
+function normalizeResetConfidence(value) {
+  const number = asNumber(value);
+  return number === null ? null : clamp(number, 0, 1);
+}
+
+function normalizeOptionalBoolean(value) {
+  if (value === true || value === false) return value;
+  return null;
+}
+
+function looksLikeSecretText(value) {
+  return /authorization|api[_-]?key|access[_-]?token|refresh[_-]?token|cookie|client[_-]?secret|secret[_-]?access/i.test(value);
+}
+
+function projectLegacyStatus(connectionStatus, quotaStatus) {
+  if (connectionStatus === 'disabled') return 'disabled';
+  if (connectionStatus === 'notConfigured') return 'notConfigured';
+  if (connectionStatus === 'unauthorized' || quotaStatus === 'unauthorized') return 'unauthorized';
+  if (quotaStatus === 'rateLimited' || connectionStatus === 'rateLimited') return 'rateLimited';
+  if (
+    connectionStatus === 'ok'
+    && (quotaStatus === 'fresh' || quotaStatus === 'unsupported' || quotaStatus === 'stale' || quotaStatus === 'notChecked')
+  ) {
+    return 'ok';
+  }
+  if (connectionStatus === 'unavailable' || quotaStatus === 'unavailable') return 'unavailable';
+  if (connectionStatus === 'error' || quotaStatus === 'error') return 'error';
+  return 'error';
+}
+
+function deriveSplitStatuses(status, windows) {
+  if (status === 'disabled') return { connectionStatus: 'disabled', quotaStatus: 'notChecked' };
+  if (status === 'notConfigured') return { connectionStatus: 'notConfigured', quotaStatus: 'notChecked' };
+  if (status === 'unauthorized') return { connectionStatus: 'unauthorized', quotaStatus: 'unauthorized' };
+  if (status === 'rateLimited') return { connectionStatus: 'rateLimited', quotaStatus: 'rateLimited' };
+  if (status === 'sourceRateLimited') return { connectionStatus: 'ok', quotaStatus: 'rateLimited' };
+  if (status === 'unavailable') return { connectionStatus: 'unavailable', quotaStatus: 'unavailable' };
+  if (status === 'ok') {
+    return {
+      connectionStatus: 'ok',
+      quotaStatus: Array.isArray(windows) && windows.length > 0 ? 'fresh' : 'unsupported'
+    };
+  }
+  return { connectionStatus: 'error', quotaStatus: 'error' };
+}
+
+function defaultQuotaStatusForConnection(connectionStatus, windows) {
+  if (connectionStatus === 'ok') return Array.isArray(windows) && windows.length > 0 ? 'fresh' : 'unsupported';
+  if (connectionStatus === 'unauthorized') return 'unauthorized';
+  if (connectionStatus === 'rateLimited') return 'rateLimited';
+  if (connectionStatus === 'unavailable') return 'unavailable';
+  if (connectionStatus === 'notConfigured' || connectionStatus === 'disabled' || connectionStatus === 'notChecked') {
+    return 'notChecked';
+  }
+  return 'error';
+}
+
+function defaultConnectionStatusForQuota(quotaStatus) {
+  if (quotaStatus === 'unauthorized') return 'unauthorized';
+  if (quotaStatus === 'rateLimited') return 'rateLimited';
+  if (quotaStatus === 'error') return 'error';
+  if (quotaStatus === 'unavailable') return 'unavailable';
+  return 'ok';
+}
+
+function resolveProviderStatuses(input, windows) {
+  const legacyStatus = hasOwn(input, 'status') ? normalizeStatus(input.status) : null;
+  let connectionStatus = normalizeConnectionStatus(input.connectionStatus ?? input.connection_status);
+  let quotaStatus = normalizeQuotaStatus(input.quotaStatus ?? input.quota_status);
+  const hasSplit = Boolean(connectionStatus || quotaStatus);
+  if (!hasSplit) {
+    const status = legacyStatus || 'error';
+    const split = deriveSplitStatuses(status, windows);
+    return { status, connectionStatus: split.connectionStatus, quotaStatus: split.quotaStatus };
+  }
+  if (!connectionStatus) connectionStatus = defaultConnectionStatusForQuota(quotaStatus);
+  if (!quotaStatus) quotaStatus = defaultQuotaStatusForConnection(connectionStatus, windows);
+  return {
+    status: projectLegacyStatus(connectionStatus, quotaStatus),
+    connectionStatus,
+    quotaStatus
+  };
+}
+
+function normalizeLimitError(input) {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) return null;
+  const categoryRaw = String(input.category || '').trim().toLowerCase().replace(/[\s-]+/g, '_');
+  const category = VALID_ERROR_CATEGORIES.has(categoryRaw) ? categoryRaw : 'unknown';
+  const code = String(input.code || '').trim().slice(0, 64).replace(/[^a-zA-Z0-9._-]/g, '');
+  const messageKey = String(input.messageKey || input.message_key || '').trim().slice(0, 96);
+  const safeMessageKey = /^[a-zA-Z][a-zA-Z0-9._-]*$/.test(messageKey) ? messageKey : '';
+  let safeDetail = String(input.safeDetail || input.safe_detail || '')
+    .replace(/[\u0000-\u001f\u007f]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, MAX_ERROR_DETAIL_LENGTH);
+  if (looksLikeSecretText(code) || looksLikeSecretText(safeDetail) || safeDetail.includes('://')) safeDetail = '';
+  const retryAt = normalizeIsoTimestamp(input.retryAt ?? input.retry_at);
+  if (!code && !safeMessageKey && !safeDetail && !retryAt) return null;
+  return {
+    code,
+    category,
+    retryAt,
+    messageKey: safeMessageKey,
+    safeDetail,
+    recoverable: input.recoverable !== false
+  };
+}
+
+function normalizeSchemaVersion(value) {
+  const parsed = asNumber(value);
+  return parsed === 1 || parsed === 2 ? parsed : null;
+}
+
+function normalizeCapabilities(value) {
+  if (!Array.isArray(value)) return [];
+  const seen = new Set();
+  const capabilities = [];
+  for (const item of value) {
+    if (capabilities.length >= MAX_CAPABILITIES) break;
+    const raw = String(item || '').trim();
+    const token = VALID_LIMITS_CAPABILITIES.has(raw)
+      ? raw
+      : (/^[a-z][a-z0-9_]{0,63}$/.test(raw) ? raw : '');
+    if (!token || seen.has(token)) continue;
+    seen.add(token);
+    capabilities.push(token);
+  }
+  return capabilities;
+}
+
+function normalizeOpaqueKeyList(value, maxItems = MAX_SCOPE_KEYS) {
+  if (!Array.isArray(value)) return [];
+  const seen = new Set();
+  const keys = [];
+  for (const item of value) {
+    if (keys.length >= maxItems) break;
+    const key = normalizeOpaqueKey(item);
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    keys.push(key);
+  }
+  return keys;
+}
+
+function normalizeSnapshotScope(input) {
+  if (!input || typeof input !== 'object') return null;
+  const connectionKeys = normalizeOpaqueKeyList(input.connectionKeys ?? input.connection_keys);
+  const providers = [];
+  const seenProviders = new Set();
+  for (const item of Array.isArray(input.providers) ? input.providers : []) {
+    const id = normalizeProviderId(item);
+    if (!id || seenProviders.has(id)) continue;
+    seenProviders.add(id);
+    providers.push(id);
+  }
+  if (connectionKeys.length === 0 && providers.length === 0) return null;
+  return {
+    ...(connectionKeys.length > 0 ? { connectionKeys } : {}),
+    ...(providers.length > 0 ? { providers } : {})
+  };
+}
+
+function normalizeQuotaPool(input) {
+  if (!input || typeof input !== 'object') return null;
+  const quotaPoolKey = normalizeOpaqueKey(
+    input.quotaPoolKey ?? input.quota_pool_key ?? input.poolId ?? input.pool_id
+  );
+  if (!quotaPoolKey) return null;
+  const provider = normalizeProviderId(input.provider) || '';
+  const windows = Array.isArray(input.windows)
+    ? input.windows.map(normalizeLimitWindow).filter(Boolean)
+    : [];
+  return {
+    quotaPoolKey,
+    ...(provider ? { provider } : {}),
+    label: normalizeAccountLabel(input.label ?? input.displayLabel),
+    connectionKeys: normalizeOpaqueKeyList(input.connectionKeys ?? input.connection_keys),
+    windows
+  };
+}
+
 function percentFromWindow(input, used, limit) {
   const explicit = numberOrNull(input.usedPercent ?? input.used_percent ?? input.utilization ?? input.percent);
   if (explicit !== null) return clamp(explicit, 0, 100);
@@ -157,17 +422,41 @@ function normalizeLimitWindow(input) {
   const limit = numberOrNull(input.limit);
   const remaining = numberOrNull(input.remaining);
   const usedPercent = percentFromWindow(input, used, limit);
+  const windowDurationMsInput = numberOrNull(input.windowDurationMs ?? input.window_duration_ms);
+  const windowMinutesInput = numberOrNull(
+    input.windowMinutes ?? input.window_minutes ?? input.windowDurationMins
+  );
+  const windowMinutes = windowMinutesInput !== null
+    ? windowMinutesInput
+    : (windowDurationMsInput === null ? null : windowDurationMsInput / 60000);
+  const windowDurationMs = windowDurationMsInput !== null
+    ? Math.max(0, Math.round(windowDurationMsInput))
+    : (windowMinutes === null ? null : Math.max(0, Math.round(windowMinutes * 60000)));
+  const windowKey = normalizeOpaqueKey(input.windowKey ?? input.window_key, MAX_WINDOW_KEY_LENGTH);
+  const windowStartedAt = normalizeIsoTimestamp(
+    input.windowStartedAt ?? input.window_started_at ?? input.startedAt
+  );
+  const resetPolicy = normalizeResetPolicy(input.resetPolicy ?? input.reset_policy);
+  const resetConfidence = normalizeResetConfidence(input.resetConfidence ?? input.reset_confidence);
+  const precision = normalizePrecision(input.precision);
   return {
     kind,
     ...(metric ? { metric } : {}),
+    ...(windowKey ? { windowKey } : {}),
     label: normalizeWindowLabel(input.label || input.displayLabel || input.title),
     used,
     limit,
     remaining,
     usedPercent,
     remainingPercent: usedPercent === null ? null : Number((100 - usedPercent).toFixed(3)),
+    // Canonical writer field is resetsAt; readers also accept resetAt / resets_at.
     resetsAt: normalizeIsoTimestamp(input.resetsAt ?? input.resets_at ?? input.resetAt ?? input.reset_at),
-    windowMinutes: numberOrNull(input.windowMinutes ?? input.window_minutes ?? input.windowDurationMins),
+    windowMinutes,
+    ...(windowDurationMs !== null ? { windowDurationMs } : {}),
+    ...(windowStartedAt ? { windowStartedAt } : {}),
+    ...(resetPolicy ? { resetPolicy } : {}),
+    ...(resetConfidence !== null ? { resetConfidence } : {}),
+    ...(precision ? { precision } : {}),
     resetDescription: input.resetDescription ? String(input.resetDescription) : '',
     detail: normalizeWindowDetail(input.detail ?? input.detailText ?? input.detail_text),
     currency: normalizeWindowCurrency(input.currency),
@@ -358,15 +647,32 @@ function normalizeLimitProvider(input) {
       currency: balance.currency
     }));
   }
-  return {
+  const statuses = resolveProviderStatuses(input, windows);
+  const connectionKey = normalizeOpaqueKey(input.connectionKey ?? input.connection_key);
+  const accountKey = input.accountKey ? String(input.accountKey) : '';
+  const identityKind = normalizeIdentityKind(input.identityKind ?? input.identity_kind)
+    || (connectionKey ? 'connection' : (accountKey ? 'legacy_account_key' : ''));
+  const managedBy = normalizeManagedBy(input.managedBy ?? input.managed_by);
+  const authType = normalizeAuthType(input.authType ?? input.auth_type);
+  const enabled = normalizeOptionalBoolean(input.enabled);
+  const tracked = normalizeOptionalBoolean(input.tracked);
+  const lastAttemptAt = normalizeIsoTimestamp(input.lastAttemptAt ?? input.last_attempt_at);
+  const lastSuccessAt = normalizeIsoTimestamp(input.lastSuccessAt ?? input.last_success_at);
+  const upstreamAccountKey = normalizeOpaqueKey(input.upstreamAccountKey ?? input.upstream_account_key);
+  const quotaPoolKey = normalizeOpaqueKey(input.quotaPoolKey ?? input.quota_pool_key);
+  const precision = normalizePrecision(input.precision);
+  const error = normalizeLimitError(input.error);
+  const record = {
     provider,
-    accountKey: input.accountKey ? String(input.accountKey) : '',
+    accountKey,
     accountLabel,
     planLabel: normalizeAccountLabel(input.planLabel),
     accountName: normalizeAccountName(input.accountName ?? input.accountLogin ?? input.login),
     accountEmail: normalizeAccountEmail(input.accountEmail ?? input.email),
     workspaceKind: normalizeWorkspaceKind(input.workspaceKind),
-    status: normalizeStatus(input.status),
+    status: statuses.status,
+    connectionStatus: statuses.connectionStatus,
+    quotaStatus: statuses.quotaStatus,
     source: normalizeSource(input.source),
     sourceDetail: normalizeSourceDetail(input.sourceDetail ?? input.source_detail),
     updatedAt: normalizeIsoTimestamp(input.updatedAt) || normalizeIsoTimestamp(input.checkedAt),
@@ -376,6 +682,19 @@ function normalizeLimitProvider(input) {
     resetCredits: normalizeProviderResetCredits(input.resetCredits ?? input.rateLimitResetCredits ?? input.rate_limit_reset_credits),
     region: normalizeRegion(input.region)
   };
+  if (connectionKey) record.connectionKey = connectionKey;
+  if (identityKind) record.identityKind = identityKind;
+  if (managedBy) record.managedBy = managedBy;
+  if (authType) record.authType = authType;
+  if (enabled !== null) record.enabled = enabled;
+  if (tracked !== null) record.tracked = tracked;
+  if (lastAttemptAt) record.lastAttemptAt = lastAttemptAt;
+  if (lastSuccessAt) record.lastSuccessAt = lastSuccessAt;
+  if (upstreamAccountKey) record.upstreamAccountKey = upstreamAccountKey;
+  if (quotaPoolKey) record.quotaPoolKey = quotaPoolKey;
+  if (precision) record.precision = precision;
+  if (error) record.error = error;
+  return record;
 }
 
 function normalizeRefreshMs(value) {
@@ -388,11 +707,42 @@ function normalizeLimitsSummary(input) {
   const providers = Array.isArray(source.providers)
     ? source.providers.map(normalizeLimitProvider).filter(Boolean)
     : [];
-  return {
-    updatedAt: normalizeIsoTimestamp(source.updatedAt),
+  const summary = {
+    updatedAt: normalizeIsoTimestamp(source.updatedAt ?? source.generatedAt),
     refreshMs: normalizeRefreshMs(source.refreshMs),
     providers
   };
+  const schemaVersion = normalizeSchemaVersion(source.schemaVersion ?? source.schema_version);
+  if (schemaVersion) summary.schemaVersion = schemaVersion;
+  const snapshotId = normalizeOpaqueKey(source.snapshotId ?? source.snapshot_id, MAX_SNAPSHOT_ID_LENGTH);
+  if (snapshotId) summary.snapshotId = snapshotId;
+  const sourceInstanceId = normalizeOpaqueKey(
+    source.sourceInstanceId ?? source.source_instance_id,
+    MAX_SOURCE_INSTANCE_ID_LENGTH
+  );
+  if (sourceInstanceId) summary.sourceInstanceId = sourceInstanceId;
+  const generatedAt = normalizeIsoTimestamp(source.generatedAt ?? source.generated_at);
+  if (generatedAt) summary.generatedAt = generatedAt;
+
+  const requestedType = String(source.snapshotType ?? source.snapshot_type ?? '').trim().toLowerCase();
+  const scope = normalizeSnapshotScope(source.scope);
+  if (requestedType === 'full') {
+    summary.snapshotType = 'full';
+  } else if (requestedType === 'partial' && scope) {
+    summary.snapshotType = 'partial';
+    summary.scope = scope;
+  }
+
+  const capabilities = normalizeCapabilities(source.capabilities);
+  if (capabilities.length > 0) summary.capabilities = capabilities;
+
+  const quotaPoolSource = source.quotaPools ?? source.quota_pools;
+  const quotaPools = Array.isArray(quotaPoolSource)
+    ? quotaPoolSource.map(normalizeQuotaPool).filter(Boolean).slice(0, MAX_QUOTA_POOLS)
+    : [];
+  if (quotaPools.length > 0) summary.quotaPools = quotaPools;
+
+  return summary;
 }
 
 function statusRank(status) {
@@ -474,6 +824,8 @@ function retainedCodexProvider(previousProvider, currentProvider, windows) {
     source: currentProvider.source || previousProvider.source,
     sourceDetail: currentProvider.sourceDetail || previousProvider.sourceDetail,
     status: 'ok',
+    connectionStatus: 'ok',
+    quotaStatus: 'stale',
     updatedAt: previousProvider.updatedAt || currentProvider.updatedAt,
     windows: cloneLimitWindows(windows),
     resetCredits: currentProvider.resetCredits || previousProvider.resetCredits
@@ -603,11 +955,26 @@ function aggregateLimits(devices, staleAfterMs = 0, nowMs = Date.now()) {
   return aggregate;
 }
 
-function publicLimits(limits) {
-  const normalized = normalizeLimitsSummary(limits);
-  return {
+function copyLimitsEnvelope(normalized, extra) {
+  const payload = {
     updatedAt: normalized.updatedAt,
     refreshMs: normalized.refreshMs,
+    providers: extra.providers
+  };
+  if (normalized.schemaVersion) payload.schemaVersion = normalized.schemaVersion;
+  if (normalized.snapshotId) payload.snapshotId = normalized.snapshotId;
+  if (normalized.snapshotType) payload.snapshotType = normalized.snapshotType;
+  if (normalized.sourceInstanceId) payload.sourceInstanceId = normalized.sourceInstanceId;
+  if (normalized.generatedAt) payload.generatedAt = normalized.generatedAt;
+  if (normalized.capabilities) payload.capabilities = normalized.capabilities;
+  if (normalized.scope) payload.scope = normalized.scope;
+  if (extra.quotaPools) payload.quotaPools = extra.quotaPools;
+  return payload;
+}
+
+function publicLimits(limits) {
+  const normalized = normalizeLimitsSummary(limits);
+  return copyLimitsEnvelope(normalized, {
     providers: normalized.providers.map(({
       accountKey,
       accountEmail,
@@ -615,13 +982,19 @@ function publicLimits(limits) {
       accountLabel,
       planLabel,
       workspaceKind,
+      connectionKey,
+      upstreamAccountKey,
+      quotaPoolKey,
       ...provider
     }) => {
       if (!provider.balance) return provider;
       const { quotaGroup, ...publicBalance } = provider.balance;
       return { ...provider, balance: publicBalance };
-    })
-  };
+    }),
+    quotaPools: normalized.quotaPools
+      ? normalized.quotaPools.map(({ connectionKeys, ...pool }) => pool)
+      : undefined
+  });
 }
 
 // Sync to the authenticated hub carries the full account identity (key, email,
@@ -631,15 +1004,15 @@ function publicLimits(limits) {
 // account and plan labels together with the account identifiers.
 function syncLimits(limits) {
   const normalized = normalizeLimitsSummary(limits);
-  return {
-    updatedAt: normalized.updatedAt,
-    refreshMs: normalized.refreshMs,
-    providers: normalized.providers
-  };
+  return copyLimitsEnvelope(normalized, {
+    providers: normalized.providers,
+    quotaPools: normalized.quotaPools
+  });
 }
 
 module.exports = {
   DEFAULT_LIMITS_REFRESH_MS,
+  LIMITS_SCHEMA_VERSION,
   aggregateLimits,
   mergeCodexTransientWindows,
   normalizeLimitProvider,
