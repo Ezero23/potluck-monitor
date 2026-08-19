@@ -289,7 +289,8 @@ function defaultConnectionStatusForQuota(quotaStatus) {
 }
 
 function resolveProviderStatuses(input, windows) {
-  const legacyStatus = hasOwn(input, 'status') ? normalizeStatus(input.status) : null;
+  const hasLegacyStatus = hasOwn(input, 'status');
+  const legacyStatus = hasLegacyStatus ? normalizeStatus(input.status) : null;
   let connectionStatus = normalizeConnectionStatus(input.connectionStatus ?? input.connection_status);
   let quotaStatus = normalizeQuotaStatus(input.quotaStatus ?? input.quota_status);
   const hasSplit = Boolean(connectionStatus || quotaStatus);
@@ -300,10 +301,20 @@ function resolveProviderStatuses(input, windows) {
   }
   if (!connectionStatus) connectionStatus = defaultConnectionStatusForQuota(quotaStatus);
   if (!quotaStatus) quotaStatus = defaultQuotaStatusForConnection(connectionStatus, windows);
+  const projected = projectLegacyStatus(connectionStatus, quotaStatus);
+  if (!hasLegacyStatus) {
+    return { status: projected, connectionStatus, quotaStatus };
+  }
+  // Runtime last-good overlays patch only `status` onto a previous split snapshot.
+  // When that patch disagrees with the leftover split, status wins and split is rebuilt.
+  if (legacyStatus === projected) {
+    return { status: legacyStatus, connectionStatus, quotaStatus };
+  }
+  const split = deriveSplitStatuses(legacyStatus, windows);
   return {
-    status: projectLegacyStatus(connectionStatus, quotaStatus),
-    connectionStatus,
-    quotaStatus
+    status: legacyStatus,
+    connectionStatus: split.connectionStatus,
+    quotaStatus: split.quotaStatus
   };
 }
 

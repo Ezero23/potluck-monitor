@@ -1169,6 +1169,22 @@ test('legacy sourceRateLimited keeps its status while exposing split fields', ()
   assert.equal(provider.quotaStatus, 'rateLimited');
 });
 
+test('explicit status patches win over leftover split fields from last-good overlays', () => {
+  const lastGood = normalizeLimitProvider({
+    provider: 'kimi',
+    accountKey: 'account',
+    status: 'ok',
+    windows: [{ kind: 'session', usedPercent: 10 }]
+  });
+  const overlay = normalizeLimitProvider({ ...lastGood, status: 'unavailable' });
+  assert.equal(lastGood.connectionStatus, 'ok');
+  assert.equal(overlay.status, 'unavailable');
+  assert.equal(overlay.connectionStatus, 'unavailable');
+  assert.equal(overlay.quotaStatus, 'unavailable');
+  assert.equal(overlay.windows.length, 1);
+  assert.equal(overlay.windows[0].usedPercent, 10);
+});
+
 test('unknown used stays null and true zero is preserved', () => {
   const unknown = normalizeLimitWindow({ kind: 'session', usedPercent: 12 });
   assert.equal(unknown.used, null);
