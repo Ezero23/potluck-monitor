@@ -430,8 +430,8 @@ test('annotations survive age pruning until the user deletes them', () => {
   const options = fileOptions();
   const first = retainQuotaHistoryFromLimits(recordFixture(providerFixture()), options);
   const seriesKey = Object.keys(first.archive.series)[0];
-  setQuotaHistoryAnnotation(seriesKey, { muted: true, note: 'expected dip' }, options);
-  const pruned = captureQuotaHistory(first.archive, { limits: { providers: [] } }, {
+  const annotated = setQuotaHistoryAnnotation(seriesKey, { muted: true, note: 'expected dip' }, options);
+  const pruned = captureQuotaHistory(annotated.archive, { limits: { providers: [] } }, {
     ...options,
     now: () => '2026-12-01T00:00:00.000Z'
   });
