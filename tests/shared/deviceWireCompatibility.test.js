@@ -193,3 +193,53 @@ test('v2 device limits survive hub normalization and sync projection', () => {
   assert.equal(roundTrip.providers[0].connectionStatus, 'ok');
   assert.equal(roundTrip.providers[0].quotaStatus, 'stale');
 });
+
+test('adapted external snapshots stay hub-safe and never carry credentials or control fields', () => {
+  const state = createDeviceState({
+    envelope: {
+      deviceId: 'device-1',
+      hostname: 'host',
+      platform: 'darwin-arm64',
+      agentVersion: '1.2.3'
+    }
+  });
+  state.updateUsage({
+    updatedAt: '2026-08-19T10:00:00.000Z',
+    today: period(10),
+    month: period(20),
+    allTime: period(30)
+  });
+  const record = state.applyExternalLimits({
+    schemaVersion: LIMITS_SCHEMA_VERSION,
+    snapshotId: 'snap-ext-1',
+    snapshotType: 'full',
+    sourceInstanceId: 'potluck:mac-esther',
+    generatedAt: '2026-08-19T10:30:00.000Z',
+    capabilities: ['connection_status_v2', 'quota_status_v2'],
+    providers: [{
+      provider: 'glm',
+      connectionKey: 'potluck:mac-esther:conn-a',
+      accountKey: 'potluck:mac-esther:conn-a',
+      connectionStatus: 'ok',
+      quotaStatus: 'fresh',
+      sourceDetail: 'managed',
+      windows: [{ kind: 'session', usedPercent: 15, resetAt: '2026-08-19T12:00:00.000Z' }]
+    }]
+  });
+  assert.equal(record.limits.providers[0].provider, 'zai');
+  assert.equal(record.limits.providers[0].managedBy, 'potluck');
+  assert.equal(record.limits.providers[0].sourceDetail, 'managed');
+  for (const field of ['apiKey', 'accessToken', 'cookie', 'route', 'action', 'rawResponse']) {
+    assert.equal(Object.hasOwn(record.limits.providers[0], field), false, field);
+  }
+
+  const normalized = normalizeDeviceRecord(record);
+  assert.equal(normalized.limits.providers[0].provider, 'zai');
+  assert.equal(normalized.limits.providers[0].managedBy, 'potluck');
+  assert.equal(normalized.limits.providers[0].windows[0].resetsAt, '2026-08-19T12:00:00.000Z');
+
+  const payload = syncPayload(record);
+  assert.equal(payload.limits.snapshotType, 'full');
+  assert.equal(payload.limits.providers[0].managedBy, 'potluck');
+  assert.equal(Object.hasOwn(payload.limits.providers[0], 'apiKey'), false);
+});

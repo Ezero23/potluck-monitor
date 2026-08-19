@@ -1,5 +1,10 @@
 'use strict';
 
+const {
+  applyExternalLimitSnapshot,
+  preserveExternalLimitsRows
+} = require('./externalLimitSnapshot');
+
 const hasOwn = (value, key) => Object.prototype.hasOwnProperty.call(value || {}, key);
 
 const PARTIAL_USAGE_CARRY_FIELDS = Object.freeze([
@@ -82,7 +87,7 @@ function mergeLimitsPart(previous, incoming) {
     if (!merged.lastSuccessAt && prev.lastSuccessAt) merged.lastSuccessAt = prev.lastSuccessAt;
     return merged;
   });
-  return next;
+  return preserveExternalLimitsRows(previous, next);
 }
 
 function createDeviceState(options = {}) {
@@ -95,6 +100,7 @@ function createDeviceState(options = {}) {
   let hasCompleteUsageBaseline = false;
   let revision = 0;
   let stopped = false;
+  let externalApplied = Object.create(null);
 
   function accepts(meta) {
     if (stopped) return false;
@@ -128,6 +134,16 @@ function createDeviceState(options = {}) {
     return publish('limits', reason);
   }
 
+  function applyExternalLimits(snapshot, reason = 'external', meta = {}) {
+    if (!accepts(meta)) return null;
+    const result = applyExternalLimitSnapshot(limitsPart, snapshot, externalApplied);
+    if (!result.ok) return null;
+    if (result.skipped) return currentRecord ? cloneValue(currentRecord) : null;
+    externalApplied = result.applied;
+    limitsPart = cloneValue(result.summary);
+    return publish('limits', reason);
+  }
+
   function getSnapshot() {
     return currentRecord ? cloneValue(currentRecord) : null;
   }
@@ -139,6 +155,7 @@ function createDeviceState(options = {}) {
   return {
     getSnapshot,
     stop,
+    applyExternalLimits,
     updateLimits,
     updateUsage
   };
