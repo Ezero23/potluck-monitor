@@ -638,7 +638,7 @@ function clearQuotaHistory(options = {}) {
 function quotaHistoryStats(options = {}) {
   const loaded = readQuotaHistoryFile(options);
   if (loaded.corrupt) {
-    let bytes = 0;
+    let bytes;
     try {
       bytes = (options.statSync || fs.statSync)(quotaHistoryPath(options)).size;
     } catch {
