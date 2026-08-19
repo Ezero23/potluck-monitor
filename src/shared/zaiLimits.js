@@ -216,6 +216,7 @@ function parseZaiUsage(quotaBody, subscriptionBody = null) {
   const limits = Array.isArray(quotaBody?.data?.limits) ? quotaBody.data.limits : [];
   const windows = [];
   const tokenLimits = [];
+  const creditLimits = [];
   let timeLimit = null;
 
   for (const limit of limits) {
@@ -223,9 +224,18 @@ function parseZaiUsage(quotaBody, subscriptionBody = null) {
     const type = String(limit.type || limit.limit_type || '').trim().toUpperCase();
     if (type === 'TOKENS_LIMIT' && zaiUsedPercent(limit) !== null) {
       tokenLimits.push(limit);
+    } else if (type === 'CREDIT_LIMIT' && zaiUsedPercent(limit) !== null) {
+      creditLimits.push(limit);
     } else if (type === 'TIME_LIMIT' && zaiUsedPercent(limit) !== null) {
       timeLimit = limit;
     }
+  }
+
+  // bigmodel.cn (GLM Coding Plan) reports quotas as CREDIT_LIMIT instead of
+  // TOKENS_LIMIT. Treat the credit windows exactly like token windows so the
+  // session/weekly meters render correctly.
+  if (!tokenLimits.length && creditLimits.length) {
+    tokenLimits.push(...creditLimits);
   }
 
   tokenLimits.sort((a, b) => {
