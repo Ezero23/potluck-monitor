@@ -59,6 +59,32 @@ function mergeUsagePart(previous, incoming) {
   return next;
 }
 
+function providerIdentityKey(row) {
+  const provider = String(row?.provider || '');
+  const identity = String(row?.connectionKey || row?.accountKey || '');
+  return identity ? `${provider}:${identity}` : '';
+}
+
+function mergeLimitsPart(previous, incoming) {
+  const next = cloneValue(incoming);
+  if (!previous || typeof previous !== 'object' || !Array.isArray(previous.providers) || !Array.isArray(next?.providers)) {
+    return next;
+  }
+  const previousByKey = new Map();
+  for (const row of previous.providers) {
+    const key = providerIdentityKey(row);
+    if (key) previousByKey.set(key, row);
+  }
+  next.providers = next.providers.map((row) => {
+    const prev = previousByKey.get(providerIdentityKey(row));
+    if (!prev) return row;
+    const merged = { ...row };
+    if (!merged.lastSuccessAt && prev.lastSuccessAt) merged.lastSuccessAt = prev.lastSuccessAt;
+    return merged;
+  });
+  return next;
+}
+
 function createDeviceState(options = {}) {
   const epoch = options.epoch ?? 0;
   const envelope = normalizedEnvelope(options.envelope);
@@ -98,7 +124,7 @@ function createDeviceState(options = {}) {
 
   function updateLimits(limits, reason = 'limits', meta = {}) {
     if (!accepts(meta)) return null;
-    limitsPart = cloneValue(limits);
+    limitsPart = mergeLimitsPart(limitsPart, limits);
     return publish('limits', reason);
   }
 

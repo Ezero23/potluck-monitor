@@ -31,6 +31,54 @@ const TRANSIENT_STATUSES = new Set([
   'unavailable',
   'error'
 ]);
+const LAST_GOOD_RETAIN_STATUSES = new Set([
+  ...TRANSIENT_STATUSES,
+  'unauthorized'
+]);
+const ATTEMPT_ERROR_BY_STATUS = Object.freeze({
+  unauthorized: {
+    code: 'provider_unauthorized',
+    category: 'auth',
+    messageKey: 'limits.error.unauthorized',
+    safeDetail: 'unauthorized',
+    recoverable: true
+  },
+  rateLimited: {
+    code: 'provider_rate_limited',
+    category: 'rate_limit',
+    messageKey: 'limits.error.rateLimited',
+    safeDetail: 'rate limited',
+    recoverable: true
+  },
+  sourceRateLimited: {
+    code: 'provider_rate_limited',
+    category: 'rate_limit',
+    messageKey: 'limits.error.rateLimited',
+    safeDetail: 'source rate limited',
+    recoverable: true
+  },
+  timeout: {
+    code: 'provider_timeout',
+    category: 'network',
+    messageKey: 'limits.error.unavailable',
+    safeDetail: 'timeout',
+    recoverable: true
+  },
+  unavailable: {
+    code: 'provider_unavailable',
+    category: 'unavailable',
+    messageKey: 'limits.error.unavailable',
+    safeDetail: 'unavailable',
+    recoverable: true
+  },
+  error: {
+    code: 'provider_error',
+    category: 'parse',
+    messageKey: 'limits.error.failed',
+    safeDetail: 'error',
+    recoverable: true
+  }
+});
 
 const COOLDOWN_BYPASS_REASONS = new Set([
   'account-added',
@@ -133,6 +181,97 @@ function rowIdentityKey(row) {
 
 function publicAttemptStatus(status) {
   return status === 'timeout' ? 'error' : status || 'unavailable';
+}
+
+function timestampMs(value) {
+  const parsed = Date.parse(value || '');
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function connectionStatusForAttempt(status) {
+  if (status === 'timeout') return 'error';
+  if (status === 'sourceRateLimited') return 'rateLimited';
+  return status || 'error';
+}
+
+function quotaStatusForAttempt(status) {
+  if (status === 'ok') return 'fresh';
+  if (status === 'rateLimited' || status === 'sourceRateLimited') return 'rateLimited';
+  if (status === 'unauthorized') return 'unauthorized';
+  if (status === 'timeout') return 'error';
+  if (status === 'unavailable') return 'unavailable';
+  if (status === 'notConfigured' || status === 'disabled' || status === 'notChecked') return 'notChecked';
+  return 'error';
+}
+
+function classifyLimitAttempt(status, row) {
+  const existing = row?.error;
+  if (existing && typeof existing === 'object' && !Array.isArray(existing) && (existing.code || existing.category)) {
+    return {
+      code: existing.code || '',
+      category: existing.category || 'unknown',
+      retryAt: existing.retryAt || null,
+      messageKey: existing.messageKey || '',
+      safeDetail: existing.safeDetail || '',
+      recoverable: existing.recoverable !== false
+    };
+  }
+  const mapped = ATTEMPT_ERROR_BY_STATUS[status];
+  return mapped ? { ...mapped, retryAt: null } : null;
+}
+
+function splitForPublishedAttempt(attemptStatus, servingLastGood) {
+  if (attemptStatus === 'ok' || publicAttemptStatus(attemptStatus) === 'ok') {
+    return { connectionStatus: 'ok' };
+  }
+  if (attemptStatus === 'rateLimited' || attemptStatus === 'sourceRateLimited') {
+    return {
+      connectionStatus: 'ok',
+      quotaStatus: 'rateLimited'
+    };
+  }
+  return {
+    connectionStatus: connectionStatusForAttempt(attemptStatus),
+    quotaStatus: servingLastGood ? 'stale' : quotaStatusForAttempt(attemptStatus),
+    ...(servingLastGood ? { precision: 'stale' } : {})
+  };
+}
+
+function publishedIdentityRow(provider, state, retryAt) {
+  const attempt = state.lastAttempt;
+  if (!attempt) return null;
+  const attemptStatus = attempt.status || 'unavailable';
+  const publicStatus = publicAttemptStatus(attemptStatus);
+  const lastGood = state.lastGood;
+  const servingLastGood = Boolean(lastGood) && publicStatus !== 'ok';
+  const lastAttemptAt = attempt.at || null;
+  const lastSuccessAt = publicStatus === 'ok'
+    ? (lastGood?.lastSuccessAt || lastGood?.updatedAt || lastAttemptAt)
+    : (lastGood?.lastSuccessAt || lastGood?.updatedAt || null);
+  let error = publicStatus === 'ok' ? null : (attempt.error || classifyLimitAttempt(attemptStatus, attempt.row));
+  if (error && retryAt) error = { ...error, retryAt };
+
+  const source = servingLastGood
+    ? lastGood
+    : {
+        ...(attempt.row || {}),
+        provider,
+        updatedAt: lastAttemptAt,
+        windows: Array.isArray(attempt.row?.windows) ? attempt.row.windows : []
+      };
+  const payload = {
+    ...source,
+    provider,
+    status: publicStatus,
+    ...splitForPublishedAttempt(attemptStatus, servingLastGood),
+    lastAttemptAt
+  };
+  if (lastSuccessAt) payload.lastSuccessAt = lastSuccessAt;
+  else delete payload.lastSuccessAt;
+  if (error) payload.error = error;
+  else delete payload.error;
+  if (publicStatus === 'ok') delete payload.precision;
+  return normalizeLimitProvider(payload);
 }
 
 function bypassesProviderCooldown(reason) {
@@ -278,6 +417,7 @@ function createLimitsRuntime(initialOptions = {}, deps = {}) {
       reason: status,
       retryAfter: Number.isFinite(Number(retryAfterMs)) && Number(retryAfterMs) > 0
     });
+    rebuildSnapshot();
   }
 
   function cancelLane(lane, reason = 'superseded') {
@@ -294,19 +434,9 @@ function createLimitsRuntime(initialOptions = {}, deps = {}) {
     const lane = lanes.get(provider);
     if (!lane) return [];
     const rows = [];
+    const retryAt = lane.retryNotBefore > 0 ? new Date(lane.retryNotBefore).toISOString() : '';
     for (const state of lane.identities.values()) {
-      const attempt = state.lastAttempt;
-      if (!attempt) continue;
-      const status = publicAttemptStatus(attempt.status);
-      const row = state.lastGood
-        ? normalizeLimitProvider({ ...state.lastGood, status })
-        : normalizeLimitProvider({
-            ...(attempt.row || {}),
-            provider,
-            status,
-            updatedAt: attempt.at,
-            windows: []
-          });
+      const row = publishedIdentityRow(provider, state, retryAt);
       if (row) rows.push(row);
     }
     return rows;
@@ -408,10 +538,15 @@ function createLimitsRuntime(initialOptions = {}, deps = {}) {
     };
     if (status === 'ok') {
       existing.lastGood = row;
-    } else if (!TRANSIENT_STATUSES.has(status)) {
+    } else if (!LAST_GOOD_RETAIN_STATUSES.has(status)) {
       existing.lastGood = null;
     }
-    existing.lastAttempt = { status, at, row };
+    existing.lastAttempt = {
+      status,
+      at,
+      row,
+      error: status === 'ok' ? null : classifyLimitAttempt(status, row)
+    };
     lane.identities.set(identityKey, existing);
   }
 
@@ -712,6 +847,25 @@ function createLimitsRuntime(initialOptions = {}, deps = {}) {
   }
 
   function getDiagnostics() {
+    const identities = [];
+    for (const lane of lanes.values()) {
+      for (const state of lane.identities.values()) {
+        const attempt = state.lastAttempt;
+        if (!attempt) continue;
+        const lastSuccessAt = state.lastGood?.lastSuccessAt || state.lastGood?.updatedAt || null;
+        const lastAttemptAt = attempt.at || null;
+        identities.push({
+          provider: lane.provider,
+          identityKey: state.identityKey,
+          status: publicAttemptStatus(attempt.status),
+          lastAttemptAt,
+          lastSuccessAt,
+          lastGoodAgeMs: lastSuccessAt && lastAttemptAt
+            ? Math.max(0, timestampMs(lastAttemptAt) - timestampMs(lastSuccessAt))
+            : (lastSuccessAt ? Math.max(0, now() - timestampMs(lastSuccessAt)) : null)
+        });
+      }
+    }
     return {
       active: executorActive,
       maxConcurrency,
@@ -722,7 +876,8 @@ function createLimitsRuntime(initialOptions = {}, deps = {}) {
         pending: lane.pending.size,
         retryAttempt: lane.retryAttempt,
         retryAt: lane.retryNotBefore > 0 ? new Date(lane.retryNotBefore).toISOString() : null
-      }))
+      })),
+      identities
     };
   }
 
@@ -762,15 +917,28 @@ function createLimitsRuntime(initialOptions = {}, deps = {}) {
     if (!configuredProviders.has(row.provider)) continue;
     const lane = laneFor(row.provider);
     const identityKey = rowIdentityKey(row);
-    const at = row.updatedAt || new Date(now()).toISOString();
-    if (TRANSIENT_STATUSES.has(row.status) && row.windows.length > 0) {
+    const lastAttemptAt = row.lastAttemptAt || row.updatedAt || new Date(now()).toISOString();
+    const lastSuccessAt = row.lastSuccessAt || ((row.status === 'ok' || LAST_GOOD_RETAIN_STATUSES.has(row.status))
+      ? row.updatedAt
+      : '');
+    if (LAST_GOOD_RETAIN_STATUSES.has(row.status) && row.windows.length > 0) {
+      const lastGood = normalizeLimitProvider({
+        ...row,
+        status: 'ok',
+        updatedAt: lastSuccessAt || row.updatedAt
+      });
       lane.identities.set(identityKey, {
         identityKey,
-        lastGood: normalizeLimitProvider({ ...row, status: 'ok' }),
-        lastAttempt: { status: row.status, at, row }
+        lastGood,
+        lastAttempt: {
+          status: row.status,
+          at: lastAttemptAt,
+          row,
+          error: classifyLimitAttempt(row.status, row)
+        }
       });
     } else {
-      applyAttempt(lane, identityKey, row, row.status, at);
+      applyAttempt(lane, identityKey, row, row.status, lastAttemptAt);
     }
   }
   rebuildSnapshot();
@@ -790,6 +958,7 @@ function createLimitsRuntime(initialOptions = {}, deps = {}) {
 
 module.exports = {
   DEFAULT_LIMITS_MAX_CONCURRENCY,
+  LAST_GOOD_RETAIN_STATUSES,
   TRANSIENT_STATUSES,
   accountIdentityPart,
   createLimitsRuntime,

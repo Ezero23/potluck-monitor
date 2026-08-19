@@ -141,3 +141,88 @@ test('rejects stale epoch updates and stops publishing synchronously', () => {
   assert.equal(state.updateUsage(usage(), 'late', { epoch: 4 }), null);
   assert.equal(emitted.length, 1);
 });
+
+test('limits-only updates keep lastAttemptAt and lastSuccessAt on the composed record', () => {
+  const state = createDeviceState();
+  state.updateUsage(usage('2026-07-21T01:00:00.000Z'), 'interval');
+  const record = state.updateLimits({
+    updatedAt: '2026-07-21T01:05:00.000Z',
+    refreshMs: 300000,
+    providers: [{
+      provider: 'codex',
+      accountKey: 'account-1',
+      status: 'unavailable',
+      connectionStatus: 'unavailable',
+      quotaStatus: 'stale',
+      lastAttemptAt: '2026-07-21T01:05:00.000Z',
+      lastSuccessAt: '2026-07-21T01:00:00.000Z',
+      updatedAt: '2026-07-21T01:00:00.000Z',
+      windows: [{ kind: 'session', usedPercent: 40 }]
+    }]
+  }, 'limits');
+
+  assert.equal(record.updatedAt, '2026-07-21T01:00:00.000Z');
+  assert.equal(record.limits.providers[0].status, 'unavailable');
+  assert.equal(record.limits.providers[0].lastAttemptAt, '2026-07-21T01:05:00.000Z');
+  assert.equal(record.limits.providers[0].lastSuccessAt, '2026-07-21T01:00:00.000Z');
+  assert.equal(record.limits.providers[0].quotaStatus, 'stale');
+});
+
+test('failed limits without lastSuccessAt inherit the previous success timestamp', () => {
+  const state = createDeviceState();
+  state.updateUsage(usage(), 'startup');
+  state.updateLimits({
+    updatedAt: '2026-07-21T01:00:00.000Z',
+    providers: [{
+      provider: 'codex',
+      accountKey: 'account-1',
+      status: 'ok',
+      lastAttemptAt: '2026-07-21T01:00:00.000Z',
+      lastSuccessAt: '2026-07-21T01:00:00.000Z',
+      windows: []
+    }]
+  }, 'limits');
+
+  const failed = state.updateLimits({
+    updatedAt: '2026-07-21T01:05:00.000Z',
+    providers: [{
+      provider: 'codex',
+      accountKey: 'account-1',
+      status: 'unavailable',
+      lastAttemptAt: '2026-07-21T01:05:00.000Z',
+      windows: []
+    }]
+  }, 'limits');
+
+  assert.equal(failed.limits.providers[0].lastAttemptAt, '2026-07-21T01:05:00.000Z');
+  assert.equal(failed.limits.providers[0].lastSuccessAt, '2026-07-21T01:00:00.000Z');
+});
+
+test('a later successful limits snapshot replaces the inherited lastSuccessAt', () => {
+  const state = createDeviceState();
+  state.updateUsage(usage(), 'startup');
+  state.updateLimits({
+    updatedAt: '2026-07-21T01:00:00.000Z',
+    providers: [{
+      provider: 'codex',
+      accountKey: 'account-1',
+      status: 'ok',
+      lastSuccessAt: '2026-07-21T01:00:00.000Z',
+      windows: []
+    }]
+  }, 'limits');
+
+  const next = state.updateLimits({
+    updatedAt: '2026-07-21T01:10:00.000Z',
+    providers: [{
+      provider: 'codex',
+      accountKey: 'account-1',
+      status: 'ok',
+      lastAttemptAt: '2026-07-21T01:10:00.000Z',
+      lastSuccessAt: '2026-07-21T01:10:00.000Z',
+      windows: []
+    }]
+  }, 'limits');
+
+  assert.equal(next.limits.providers[0].lastSuccessAt, '2026-07-21T01:10:00.000Z');
+});
