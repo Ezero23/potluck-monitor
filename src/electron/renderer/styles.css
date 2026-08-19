@@ -3310,6 +3310,21 @@ html.is-windows .settings-panel select option {
   cursor: pointer;
 }
 .potluck-gateway-toggle:hover { color: var(--text); }
+.potluck-gateway-copy-url {
+  flex-shrink: 0;
+  background: none;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  padding: 2px 7px;
+  font-family: inherit;
+  font-size: 10px;
+  color: var(--muted);
+  cursor: pointer;
+}
+.potluck-gateway-copy-url:hover {
+  color: var(--text);
+  background: rgba(var(--overlay-rgb), var(--control-alpha));
+}
 .potluck-gateway-actions { margin-top: 2px; }
 .potluck-gateway-action {
   border: 1px solid var(--line);

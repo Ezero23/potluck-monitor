@@ -3367,10 +3367,35 @@ function limitAccountEmailsMasked() {
 }
 
 function limitAccountDefaultTitle(provider, index, providerEntries = [provider]) {
-  return accountIdentityApi.accountTitleLabel(provider, providerEntries, {
-    maskEmail: limitAccountEmailsMasked(),
-    index
-  }) || `Account ${index + 1}`;
+  const peers = providerEntries;
+  const maskEmail = limitAccountEmailsMasked();
+  const label = accountIdentityApi.accountTitleLabel(provider, peers, { maskEmail, index });
+
+  if (peers.length <= 1) return label || `Account ${index + 1}`;
+
+  // When accounts are otherwise identical (same masked email, no name) or the
+  // title is empty, append the source device so the user can tell synced accounts
+  // apart without relying on an opaque fingerprint suffix.
+  const baseFor = (p) => {
+    const name = String(p?.accountName || '').trim();
+    return accountIdentityApi.accountEmailLabel(p, peers, { maskEmail, suffix: name }) || name;
+  };
+  const base = baseFor(provider);
+  const collisions = peers.filter((p) => baseFor(p).toLowerCase() === base.toLowerCase()).length;
+
+  let deviceLabel = '';
+  if (!base || collisions > 1) {
+    const deviceId = String(provider?.sourceDeviceId || '').trim();
+    if (deviceId) {
+      const devices = Array.isArray(state?.stats?.devices) ? state.stats.devices : [];
+      const device = devices.find((d) => String(d?.deviceId || '').trim() === deviceId);
+      deviceLabel = String(device?.hostname || device?.deviceId || '').trim() || deviceId;
+    }
+  }
+
+  if (!deviceLabel) return label || `Account ${index + 1}`;
+  if (!label) return deviceLabel;
+  return label.replace(/\s*·\s*#[a-f0-9]{6,}$/i, '') + ` · ${deviceLabel}`;
 }
 
 function codexAccountTitle(provider, index, providers = [provider]) {
@@ -4485,7 +4510,7 @@ function homeLimitRows() {
     enabledProviderIds: Array.from(enabled),
     hiddenProviderIds: Array.from(hiddenHomeLimitProviderSet()),
     colors: clientColors,
-    limit: state.settings?.homeLimitAccountCount ?? 3,
+    limit: state.settings?.homeLimitAccountCount ?? 20,
     sort: hasConfiguredOrder ? 'configured' : 'remaining',
     accountName: (provider, index, providerEntries) => {
       const id = String(provider?.provider || '').trim().toLowerCase();
@@ -5182,17 +5207,18 @@ function renderHomeTrendsModule() {
   return module;
 }
 
-// Compact card for the Potluck gateway's tunnel URL + dashboard password,
-// read from the 'potluck' device record in the synced stats (fields are
-// absent on older Potluck versions, in which case the card stays hidden).
+// Compact card for the Potluck gateway's tunnel URL + API key, read from
+// the 'potluck' device record in the synced stats (fields are absent on older
+// Potluck versions, in which case the card stays hidden).
 function renderPotluckGatewayCard() {
   const gatewayState = state.potluckGateway;
   const devices = Array.isArray(state.stats?.devices) ? state.stats.devices : [];
   const potluck = devices.find((device) => device?.deviceId === 'potluck');
   const tunnel = potluck?.tunnel && typeof potluck.tunnel === 'object' ? potluck.tunnel : null;
-  const password = typeof potluck?.dashboardPassword === 'string' && potluck.dashboardPassword ? potluck.dashboardPassword : '';
   const apiKey = potluck?.apiKey && typeof potluck.apiKey === 'object' ? potluck.apiKey : null;
-  if (!gatewayState && !tunnel && !password && !apiKey) return null;
+  // The gateway card only shows actionable content: status, tunnel URL, or API key.
+  // Dashboard password is intentionally not rendered here (it belongs in settings).
+  if (!gatewayState && !tunnel && !apiKey) return null;
   // Match Potluck's Web endpoint page exactly: prefer the stable public
   // abc-tunnel.us address and fall back to the direct Quick Tunnel URL.
   const tunnelUrl = tunnel?.enabled ? (tunnel.publicUrl || tunnel.tunnelUrl || '') : '';
@@ -5242,7 +5268,7 @@ function renderPotluckGatewayCard() {
   }
   const body = document.createElement('div');
   body.className = 'home-module-body potluck-gateway-body';
-  // Tunnel URL
+  // Tunnel URL with a dedicated copy button.
   if (tunnel) {
     const tunnelRow = document.createElement('div');
     tunnelRow.className = 'potluck-gateway-row';
@@ -5261,6 +5287,16 @@ function renderPotluckGatewayCard() {
       url.textContent = tunnelUrl;
       url.title = tunnelUrl;
       tunnelRow.append(url);
+      const copyUrl = document.createElement('button');
+      copyUrl.type = 'button';
+      copyUrl.className = 'potluck-gateway-copy-url';
+      copyUrl.textContent = t('home.gateway.copyUrl');
+      copyUrl.title = t('home.gateway.copyUrl');
+      copyUrl.addEventListener('click', (event) => {
+        event.stopPropagation();
+        copyToClipboard(tunnelUrl, copyUrl);
+      });
+      tunnelRow.append(copyUrl);
     }
     body.append(tunnelRow);
   }
@@ -7150,10 +7186,10 @@ function renderHomeLimitProviderList() {
   const countInput = document.createElement('input');
   countInput.type = 'number';
   countInput.min = '1';
-  countInput.max = '12';
+  countInput.max = '50';
   countInput.step = '1';
   countInput.inputMode = 'numeric';
-  countInput.value = String(state.settings?.homeLimitAccountCount ?? 3);
+  countInput.value = String(state.settings?.homeLimitAccountCount ?? 20);
   countInput.addEventListener('change', async () => {
     await saveSettings({ homeLimitAccountCount: Number(countInput.value) });
     renderHomeIfVisible();

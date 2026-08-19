@@ -59,6 +59,14 @@ test('Home multi-account rows always carry the provider name', () => {
   assert.doesNotMatch(main, /showHomeLimitProviderNames/);
 });
 
+test('Indistinguishable multi-account rows are disambiguated by source device', () => {
+  const app = read('src/electron/renderer/app.js');
+
+  assert.match(app, /String\(provider\?\.sourceDeviceId \|\| ''\)\.trim\(\)/);
+  assert.match(app, /state\?\.stats\?\.devices/);
+  assert.match(app, /replace\(\/\\s\*·\\s\*#\[a-f0-9\]\{6,\}\$\/i/);
+});
+
 test('Tool icons toggle re-renders Home and persists appearance', () => {
   const app = read('src/electron/renderer/app.js');
   assert.match(app, /els\.toolIconsInput\.addEventListener\('change', async \(\) => \{\s*state\.settings\.showToolIcons = els\.toolIconsInput\.checked;\s*renderHomeIfVisible\(\);\s*await saveAppearanceFromControls\(\);\s*\}\);/);
@@ -69,15 +77,15 @@ test('Home account display count defaults to three and is configurable', () => {
   const app = read('src/electron/renderer/app.js');
   const html = read('src/electron/renderer/index.html');
 
-  assert.match(main, /HOME_LIMIT_ACCOUNT_COUNT_DEFAULT = 3/);
+  assert.match(main, /HOME_LIMIT_ACCOUNT_COUNT_DEFAULT = 20/);
   assert.match(main, /homeLimitAccountCount: HOME_LIMIT_ACCOUNT_COUNT_DEFAULT/);
   assert.match(main, /merged\.homeLimitAccountCount = normalizeHomeLimitAccountCount\(merged\.homeLimitAccountCount\)/);
   assert.match(main, /homeLimitAccountCount: normalizeHomeLimitAccountCount\(patch\.homeLimitAccountCount \?\? settings\.homeLimitAccountCount\)/);
-  assert.match(app, /limit: state\.settings\?\.homeLimitAccountCount \?\? 3/);
+  assert.match(app, /limit: state\.settings\?\.homeLimitAccountCount \?\? 20/);
   const renderSettings = app.slice(app.indexOf('function renderHomeLimitProviderList'), app.indexOf('function renderHomeSettingsList'));
   assert.match(renderSettings, /countInput\.type = 'number'/);
   assert.match(renderSettings, /countInput\.min = '1'/);
-  assert.match(renderSettings, /countInput\.max = '12'/);
+  assert.match(renderSettings, /countInput\.max = '50'/);
   assert.match(renderSettings, /saveSettings\(\{ homeLimitAccountCount: Number\(countInput\.value\) \}\)/);
   assert.doesNotMatch(html, /homeLimitAccountCountInput|settings\.limits\.homeAccountCount/);
 });
