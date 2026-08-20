@@ -1,6 +1,7 @@
 'use strict';
 
 const quotaHistoryPeer = (() => {
+  if (typeof require !== 'function') return null;
   try {
     return require('./quotaHistory');
   } catch {

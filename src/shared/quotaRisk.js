@@ -1,6 +1,7 @@
 'use strict';
 
 const quotaForecastPeer = (() => {
+  if (typeof require !== 'function') return null;
   try {
     return require('./quotaForecast');
   } catch {
