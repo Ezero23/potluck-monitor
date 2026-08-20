@@ -76,3 +76,18 @@ test('boot setup failures do not skip init', () => {
   const initIdx = app.lastIndexOf('init().catch');
   assert.ok(customIdx > 0 && customIdx < initIdx);
 });
+
+test('quota forecast modules do not leak api names into the renderer global scope', () => {
+  const sharedDir = path.join(__dirname, '../../src/shared');
+  const sandbox = { console };
+  sandbox.window = sandbox;
+  sandbox.globalThis = sandbox;
+  vm.runInNewContext(fs.readFileSync(path.join(sharedDir, 'quotaForecast.js'), 'utf8'), sandbox);
+  vm.runInNewContext(fs.readFileSync(path.join(sharedDir, 'quotaRisk.js'), 'utf8'), sandbox);
+  assert.equal(typeof sandbox.TokenMonitorQuotaForecast?.forecastQuotaWindow, 'function');
+  assert.equal(typeof sandbox.TokenMonitorQuotaRisk?.evaluateQuotaRisk, 'function');
+  assert.equal(sandbox.forecastFromArchive, undefined);
+  assert.doesNotThrow(() => {
+    vm.runInNewContext('const quotaForecastApi = window.TokenMonitorQuotaForecast; const quotaRiskApi = window.TokenMonitorQuotaRisk;', sandbox);
+  });
+});
