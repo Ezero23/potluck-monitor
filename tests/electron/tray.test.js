@@ -722,3 +722,25 @@ test('tray cost text uses the selected display currency', () => {
   assert.equal(formatTrayText({ periods: { today: { costUsd: 1, totalTokens: 12_000 } } }, 'cost', 'TWD'), 'NT$31.50');
   assert.equal(formatTrayText({ periods: { today: { costUsd: 1, totalTokens: 12_000 } } }, 'both', 'HKD'), '12.0K · HK$7.80');
 });
+
+test('tray session quota text keeps credits as money instead of a derived percent', () => {
+  const limitStats = {
+    limits: {
+      providers: [
+        {
+          provider: 'deepseek',
+          status: 'ok',
+          balance: { amount: 4, currency: 'CNY', monthSpend: 6 },
+          windows: [{ kind: 'billing', metric: 'credits', label: 'Balance', remaining: 4 }]
+        },
+        { provider: 'codex', status: 'ok', windows: [{ kind: 'session', remainingPercent: 24 }] }
+      ]
+    }
+  };
+
+  assert.equal(formatTrayText(limitStats, 'limitsAllSessions', 'USD', {
+    limitProviderOrder: 'deepseek,codex',
+    limitProviders: 'deepseek,codex',
+    showLimitUsed: false
+  }), '¥4.00 · 24%');
+});

@@ -234,6 +234,12 @@
           remaining,
           percent,
           secondaryPercent,
+          moneyText: balanceDisplay.isCreditsWindow(selection.primaryWindow)
+            ? balanceDisplay.formatCompactMoney(
+                balanceDisplay.creditsAmount(provider, selection.primaryWindow),
+                balanceDisplay.creditsCurrency(provider, selection.primaryWindow)
+              )
+            : '',
           // Keep the old field available to internal callers while the mode id
           // remains a compatibility surface.
           weeklyPercent: selection.secondaryWindow?.kind === 'weekly' ? secondaryPercent : null
@@ -256,12 +262,13 @@
   function formatConfiguredSessionLimits(stats, options = {}) {
     const picks = pickConfiguredLimitProviders(stats, options);
     if (picks.length === 0) return '';
+    const headline = (pick) => pick.moneyText || formatPercent(pick.percent);
     if (picks.length === 1) {
-      return [formatPercent(picks[0].percent), formatPercent(picks[0].secondaryPercent)]
+      return [headline(picks[0]), formatPercent(picks[0].secondaryPercent)]
         .filter(Boolean)
         .join(' · ');
     }
-    return picks.map((pick) => formatPercent(pick.percent)).filter(Boolean).join(' · ');
+    return picks.map(headline).filter(Boolean).join(' · ');
   }
 
   function formatTrayText(stats, contentMode = 'tokens', currencyCode = 'USD', options = {}) {

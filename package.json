@@ -4,6 +4,7 @@
   "version": "0.2.3",
   "description": "Live token & cost widget for Claude Code, Codex & Hermes — local-first, optional multi-device sync.",
   "main": "src/electron/main.js",
+  "desktopName": "potluck-monitor",
   "scripts": {
     "start": "electron .",
     "hub": "node src/hub/server.js",
@@ -88,6 +89,7 @@
         }
       ],
       "category": "Development",
+      "syncDesktopName": true,
       "icon": "assets/icon.png",
       "synopsis": "Live token & cost widget for AI coding tools",
       "description": "Real-time token, cost, and AI limits widget with multi-device sync for Claude Code, Codex, OpenCode and more."
