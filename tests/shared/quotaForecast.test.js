@@ -367,3 +367,15 @@ test('shadow backtest requires two complete cycles before displayEligible', () =
   assert.equal(shadowBacktest(series).degraded, false);
   assertNoActionFields(twoCycles);
 });
+
+test('quotaForecast attaches a window global without a Node module object', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const vm = require('node:vm');
+  const sandbox = { window: {}, console };
+  vm.runInNewContext(
+    fs.readFileSync(path.join(__dirname, '../../src/shared/quotaForecast.js'), 'utf8'),
+    sandbox
+  );
+  assert.equal(typeof sandbox.window.TokenMonitorQuotaForecast.forecastQuotaWindow, 'function');
+});

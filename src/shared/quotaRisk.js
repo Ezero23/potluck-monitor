@@ -302,5 +302,5 @@ const quotaRiskApi = {
   evaluateQuotaRisk
 };
 
-module.exports = quotaRiskApi;
 if (typeof window !== 'undefined') window.TokenMonitorQuotaRisk = quotaRiskApi;
+if (typeof module === 'object' && module.exports) module.exports = quotaRiskApi;

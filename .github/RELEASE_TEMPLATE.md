@@ -3,23 +3,23 @@
 ## What's changed
 
 <!-- app-update-notes:en:start -->
+### Fixed
+- **Startup hang / blank Home:** the first stats refresh no longer waits on quota-history snapshot IPC, so the widget paints immediately. Forecast modules also load in the renderer without a Node `module` object, so Home no longer stays empty after 0.2.0.
+
 ### Added
 - **Providers & Limits forecast:** Settings drill-down shows pace vs actual usage, confidence, Last Good age, optional exhaust timing, and sparklines when enough history exists — no routing advice.
 - **Local quota history:** `quota-history.json` keeps raw, hourly, and cycle rollups (14 / 90 / 370 days, 25 MiB cap) for transparent forecast backtests.
 - **Limits schema v2:** split `connectionStatus` / `quotaStatus`, Last Good timestamps, canonical provider ids, external/Potluck snapshot ingest, and hub quota-pool merge by `quotaPoolKey`.
 - **Read-only limits export (optional):** hub `GET /api/limits/snapshot` when `TOKEN_MONITOR_LIMITS_SNAPSHOT_ENABLED=1`; widget IPC always exposes the local snapshot to the app.
-
-### Fixed
-- Provider settings keep every connection visible instead of last-row-wins summaries.
 <!-- app-update-notes:en:end -->
 
 ## Download
 
-- **macOS Apple Silicon** — [potluck-monitor-0.2.0-arm64.dmg](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.0/potluck-monitor-0.2.0-arm64.dmg)
-- **macOS Intel** — [potluck-monitor-0.2.0-x64.dmg](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.0/potluck-monitor-0.2.0-x64.dmg)
-- **Windows installer** — [potluck-monitor-Setup-0.2.0.exe](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.0/potluck-monitor-Setup-0.2.0.exe)
-- **Windows portable** — [potluck-monitor-0.2.0.exe](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.0/potluck-monitor-0.2.0.exe)
-- **Linux** — [potluck-monitor-0.2.0.AppImage](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.0/potluck-monitor-0.2.0.AppImage)
+- **macOS Apple Silicon** — [potluck-monitor-0.2.1-arm64.dmg](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.1/potluck-monitor-0.2.1-arm64.dmg)
+- **macOS Intel** — [potluck-monitor-0.2.1-x64.dmg](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.1/potluck-monitor-0.2.1-x64.dmg)
+- **Windows installer** — [potluck-monitor-Setup-0.2.1.exe](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.1/potluck-monitor-Setup-0.2.1.exe)
+- **Windows portable** — [potluck-monitor-0.2.1.exe](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.1/potluck-monitor-0.2.1.exe)
+- **Linux** — [potluck-monitor-0.2.1.AppImage](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.1/potluck-monitor-0.2.1.AppImage)
 
 <details>
 <summary><strong>First launch and other notes</strong></summary>
@@ -49,23 +49,23 @@ open-source: https://github.com/junhoyeo/tokscale
 ## 更新内容
 
 <!-- app-update-notes:zh:start -->
+### 修复
+- **启动卡住 / 主页空白：** 首次刷新不再等待额度历史 IPC，窗口会立刻画出用量。预测模块在渲染进程里也不再依赖 Node 的 `module`，避免 0.2.0 升级后 Home 一直空白。
+
 ### 新增
 - **Providers & Limits 额度预测：** 设置页可展开每个连接，查看实际 vs 节奏、置信度、Last Good、可选的耗尽时间，以及有足够样本时的小折线图 —— 不提供切换/路由建议。
 - **本地额度历史：** `quota-history.json` 保存原始/小时/周期三层数据（14 / 90 / 370 天，25 MiB 上限），供透明预测与回测。
 - **Limits schema v2：** 拆分连接/额度状态、Last Good 时间戳、provider 规范 id、外部/Potluck snapshot 接入，以及 hub 按 `quotaPoolKey` 合并共享池。
 - **只读额度导出（可选）：** hub 在 `TOKEN_MONITOR_LIMITS_SNAPSHOT_ENABLED=1` 时提供 `GET /api/limits/snapshot`；widget 本地 IPC 始终可供应用读取快照。
-
-### 修复
-- Provider 设置页保留每个连接，不再被「最后一行覆盖」式摘要吞掉。
 <!-- app-update-notes:zh:end -->
 
 ## 下载
 
-- **macOS Apple Silicon** — [potluck-monitor-0.2.0-arm64.dmg](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.0/potluck-monitor-0.2.0-arm64.dmg)
-- **macOS Intel** — [potluck-monitor-0.2.0-x64.dmg](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.0/potluck-monitor-0.2.0-x64.dmg)
-- **Windows 安装包** — [potluck-monitor-Setup-0.2.0.exe](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.0/potluck-monitor-Setup-0.2.0.exe)
-- **Windows 便携版** — [potluck-monitor-0.2.0.exe](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.0/potluck-monitor-0.2.0.exe)
-- **Linux** — [potluck-monitor-0.2.0.AppImage](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.0/potluck-monitor-0.2.0.AppImage)
+- **macOS Apple Silicon** — [potluck-monitor-0.2.1-arm64.dmg](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.1/potluck-monitor-0.2.1-arm64.dmg)
+- **macOS Intel** — [potluck-monitor-0.2.1-x64.dmg](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.1/potluck-monitor-0.2.1-x64.dmg)
+- **Windows 安装包** — [potluck-monitor-Setup-0.2.1.exe](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.1/potluck-monitor-Setup-0.2.1.exe)
+- **Windows 便携版** — [potluck-monitor-0.2.1.exe](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.1/potluck-monitor-0.2.1.exe)
+- **Linux** — [potluck-monitor-0.2.1.AppImage](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.1/potluck-monitor-0.2.1.AppImage)
 
 <details>
 <summary><strong>首次启动与其他说明</strong></summary>

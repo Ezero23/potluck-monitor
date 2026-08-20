@@ -140,14 +140,14 @@ Potluck Monitor 还可以与本机的 [Potluck](https://github.com/Ezero23/potlu
 
 ## 安装
 
-下载当前正式版 [v0.2.0](https://github.com/Ezero23/potluck-monitor/releases/tag/v0.2.0)：
+下载当前正式版 [v0.2.1](https://github.com/Ezero23/potluck-monitor/releases/tag/v0.2.1)：
 
-- **macOS Apple Silicon** — [DMG](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.0/potluck-monitor-0.2.0-arm64.dmg) 或 [ZIP](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.0/potluck-monitor-0.2.0-arm64.zip)
-- **macOS Intel** — [DMG](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.0/potluck-monitor-0.2.0-x64.dmg) 或 [ZIP](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.0/potluck-monitor-0.2.0-x64.zip)
-- **Windows** — [安装包](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.0/potluck-monitor-Setup-0.2.0.exe) 或 [便携版](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.0/potluck-monitor-0.2.0.exe)
-- **Linux** — [AppImage](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.0/potluck-monitor-0.2.0.AppImage)
+- **macOS Apple Silicon** — [DMG](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.1/potluck-monitor-0.2.1-arm64.dmg) 或 [ZIP](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.1/potluck-monitor-0.2.1-arm64.zip)
+- **macOS Intel** — [DMG](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.1/potluck-monitor-0.2.1-x64.dmg) 或 [ZIP](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.1/potluck-monitor-0.2.1-x64.zip)
+- **Windows** — [安装包](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.1/potluck-monitor-Setup-0.2.1.exe) 或 [便携版](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.1/potluck-monitor-0.2.1.exe)
+- **Linux** — [AppImage](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.1/potluck-monitor-0.2.1.AppImage)
 
-当前 macOS 与 Windows 安装包尚未签名。macOS 首次启动请右键点击 App 选择**打开**，或执行 `xattr -dr com.apple.quarantine "/Applications/Potluck Monitor.app"`；Windows SmartScreen 可能需要选择**更多信息 → 仍要运行**。安装前可查看 [v0.2.0 发布说明](https://github.com/Ezero23/potluck-monitor/releases/tag/v0.2.0)。
+当前 macOS 与 Windows 安装包尚未签名。macOS 首次启动请右键点击 App 选择**打开**，或执行 `xattr -dr com.apple.quarantine "/Applications/Potluck Monitor.app"`；Windows SmartScreen 可能需要选择**更多信息 → 仍要运行**。安装前可查看 [v0.2.1 发布说明](https://github.com/Ezero23/potluck-monitor/releases/tag/v0.2.1)。
 
 打包版会自动检查 GitHub Releases。有新版本时，界面会显示更新提示；受支持的平台也可在 设置 → 常规 中安装更新。
 

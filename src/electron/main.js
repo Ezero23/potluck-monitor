@@ -2433,51 +2433,55 @@ function negotiateLocalLimitsSnapshotVersion(options = {}) {
 }
 
 function buildLocalLimitsSnapshot(options = {}) {
-  const version = negotiateLocalLimitsSnapshotVersion(options);
-  if (!LIMITS_SNAPSHOT_SUPPORTED_VERSIONS.includes(version)) {
+  try {
+    const version = negotiateLocalLimitsSnapshotVersion(options);
+    if (!LIMITS_SNAPSHOT_SUPPORTED_VERSIONS.includes(version)) {
+      return {
+        ok: false,
+        error: 'unsupported_version',
+        supported: LIMITS_SNAPSHOT_SUPPORTED_VERSIONS
+      };
+    }
+    const generatedAt = new Date().toISOString();
+    const record = deviceRuntimeHandle?.getSnapshot?.() || localDevice || null;
+    const limitsRaw = record?.limits || null;
+    const limits = limitsRaw ? publicLimits(limitsRaw) : { providers: [] };
+    const dataDir = sharedDataDir();
+    const archive = readQuotaHistory({ dataDir });
+    const historyStats = quotaHistoryStats({ dataDir });
+    const providers = Array.isArray(limitsRaw?.providers) ? limitsRaw.providers : [];
+    const riskBundle = evaluateProviderRisks(archive, providers, { now: options.now });
+    const snapshotId = `${record?.deviceId || settings?.deviceId || 'local'}-${generatedAt}`;
     return {
-      ok: false,
-      error: 'unsupported_version',
-      supported: LIMITS_SNAPSHOT_SUPPORTED_VERSIONS
+      ok: true,
+      snapshot: stripForbidden({
+        schemaVersion: LIMITS_SNAPSHOT_SCHEMA_VERSION,
+        negotiatedVersion: version,
+        snapshotId,
+        generatedAt,
+        capabilities: ['limits', 'quotaHistory', 'forecast', 'risk'],
+        deviceId: record?.deviceId || settings?.deviceId || null,
+        limits,
+        quotaHistory: {
+          stats: historyStats,
+          series: archive.series || {},
+          annotations: archive.annotations || {}
+        },
+        forecasts: riskBundle.items.map((item) => ({
+          seriesKey: item.seriesKey,
+          provider: item.provider?.provider || null,
+          window: item.window,
+          forecast: item.forecast
+        })),
+        risks: {
+          items: riskBundle.risks,
+          binding: riskBundle.binding
+        }
+      })
     };
+  } catch (error) {
+    return { ok: false, error: error?.message || 'snapshot_failed' };
   }
-  const generatedAt = new Date().toISOString();
-  const record = deviceRuntimeHandle?.getSnapshot?.() || localDevice || null;
-  const limitsRaw = record?.limits || null;
-  const limits = limitsRaw ? publicLimits(limitsRaw) : { providers: [] };
-  const dataDir = sharedDataDir();
-  const archive = readQuotaHistory({ dataDir });
-  const historyStats = quotaHistoryStats({ dataDir });
-  const providers = Array.isArray(limitsRaw?.providers) ? limitsRaw.providers : [];
-  const riskBundle = evaluateProviderRisks(archive, providers, { now: options.now });
-  const snapshotId = `${record?.deviceId || settings.deviceId || 'local'}-${generatedAt}`;
-  return {
-    ok: true,
-    snapshot: stripForbidden({
-      schemaVersion: LIMITS_SNAPSHOT_SCHEMA_VERSION,
-      negotiatedVersion: version,
-      snapshotId,
-      generatedAt,
-      capabilities: ['limits', 'quotaHistory', 'forecast', 'risk'],
-      deviceId: record?.deviceId || settings.deviceId || null,
-      limits,
-      quotaHistory: {
-        stats: historyStats,
-        series: archive.series || {},
-        annotations: archive.annotations || {}
-      },
-      forecasts: riskBundle.items.map((item) => ({
-        seriesKey: item.seriesKey,
-        provider: item.provider?.provider || null,
-        window: item.window,
-        forecast: item.forecast
-      })),
-      risks: {
-        items: riskBundle.risks,
-        binding: riskBundle.binding
-      }
-    })
-  };
 }
 
 async function deleteDeviceFromHub(deviceId) {

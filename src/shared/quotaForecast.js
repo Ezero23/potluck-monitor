@@ -691,5 +691,5 @@ const quotaForecastApi = {
   windowHistoryKey
 };
 
-module.exports = quotaForecastApi;
 if (typeof window !== 'undefined') window.TokenMonitorQuotaForecast = quotaForecastApi;
+if (typeof module === 'object' && module.exports) module.exports = quotaForecastApi;
