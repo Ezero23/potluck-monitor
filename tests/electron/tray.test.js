@@ -57,11 +57,9 @@ test('fallback tray icon source stays transparent and high-resolution', () => {
   assert.equal(scanlines[4], 0, 'tray PNG corner should remain fully transparent');
 });
 
-test('macOS tray icon downsamples the high-resolution template like provider icons', () => {
+test('macOS tray icon downsamples the high-resolution black-and-white badge without template tinting', () => {
   const calls = [];
-  const resized = {
-    setTemplateImage(value) { calls.push(['template', value]); }
-  };
+  const resized = {};
   const image = {
     resize(size) { calls.push(['resize', size]); return resized; }
   };
@@ -78,8 +76,7 @@ test('macOS tray icon downsamples the high-resolution template like provider ico
 
   assert.match(calls[0][1], /assets[\\/]icons[\\/]tray-token-monitor\.png$/);
   assert.deepEqual(calls.slice(1), [
-    ['resize', { height: 20, quality: 'best' }],
-    ['template', true]
+    ['resize', { height: 20, quality: 'best' }]
   ]);
 });
 

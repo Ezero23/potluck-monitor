@@ -18,9 +18,9 @@ function buildTrayIcon(options = {}) {
   const platform = options.platform || process.platform;
   const nativeImage = options.nativeImage || require('electron').nativeImage;
   if (platform === 'darwin') {
-    const image = nativeImage.createFromPath(TRAY_ICON_PATH).resize({ height: 20, quality: 'best' });
-    image.setTemplateImage(true);
-    return image;
+    // Keep the explicit black badge / white gauge artwork. Template mode would
+    // recolor the whole silhouette and erase the intended high-contrast badge.
+    return nativeImage.createFromPath(TRAY_ICON_PATH).resize({ height: 20, quality: 'best' });
   }
   return nativeImage.createFromPath(ICON_PATH).resize({ width: 20, height: 20 });
 }
