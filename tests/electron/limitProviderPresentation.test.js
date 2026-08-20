@@ -1454,8 +1454,10 @@ test('quota forecast sparklines require at least two samples and never render fo
 test('shared quota forecast modules expose renderer globals without route fields', () => {
   const forecast = fs.readFileSync(path.join(__dirname, '..', '..', 'src', 'shared', 'quotaForecast.js'), 'utf8');
   const risk = fs.readFileSync(path.join(__dirname, '..', '..', 'src', 'shared', 'quotaRisk.js'), 'utf8');
-  assert.match(forecast, /window\.TokenMonitorQuotaForecast = quotaForecastApi;/);
-  assert.match(risk, /window\.TokenMonitorQuotaRisk = quotaRiskApi;/);
+  assert.match(forecast, /root\) root\.TokenMonitorQuotaForecast = api;/);
+  assert.match(risk, /root\) root\.TokenMonitorQuotaRisk = api;/);
+  assert.doesNotMatch(forecast, /const quotaForecastApi =/);
+  assert.doesNotMatch(risk, /const quotaRiskApi =/);
   assert.doesNotMatch(forecast, /route:|switch:|action:/);
   assert.doesNotMatch(risk, /route:|switch:|action:/);
 });
