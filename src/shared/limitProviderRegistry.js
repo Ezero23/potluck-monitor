@@ -11,23 +11,15 @@ const DEFAULT_CAPABILITIES = Object.freeze({
 });
 
 // Multi-account providers keep distinct rows in hub aggregateLimits() when they
-// carry a configured accountKey. This includes Potluck-managed connections;
-// their stable Connection identity must not be collapsed by canonical Provider ID.
+// carry a configured accountKey. Potluck-managed rows are handled explicitly by
+// the collapse-key layer so local Provider behavior remains backward compatible.
 const COLLAPSE_BY_ACCOUNT = new Set([
   'claude',
   'codex',
   'opencode',
   'openrouter',
   'thirdparty',
-  'mimo',
-  'zai',
-  'zaiteam',
-  'minimax',
-  'volcengine',
-  'qoder',
-  'qoder-cn',
-  'kimi',
-  'kimchi'
+  'mimo'
 ]);
 
 // Providers the Monitor collector actually probes. Ingest still accepts the
