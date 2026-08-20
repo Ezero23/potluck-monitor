@@ -1425,7 +1425,7 @@ test('settings connection cards load quota forecast modules and render pace, con
   assert.match(html, /src="\.\.\/\.\.\/shared\/quotaRisk\.js"/);
   assert.match(preload, /getLimitsSnapshot:\s*\(options\)\s*=>\s*ipcRenderer\.invoke\('limits:getSnapshot'/);
   assert.match(app, /async function refreshQuotaArchiveFromSnapshot\(/);
-  assert.match(app, /await refreshQuotaArchiveFromSnapshot\(\)/);
+  assert.match(app, /void refreshQuotaArchiveFromSnapshot\(\)/);
   assert.match(app, /window\.tokenMonitor\.getLimitsSnapshot/);
   assert.match(app, /const quotaForecastApi = window\.TokenMonitorQuotaForecast;/);
   assert.match(app, /const quotaRiskApi = window\.TokenMonitorQuotaRisk;/);

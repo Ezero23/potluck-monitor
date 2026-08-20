@@ -5274,54 +5274,64 @@ function renderPotluckGatewayCard() {
 
 function renderHome() {
   if (!els.homePanel) return;
-  // The previous scroller (and its ResizeObserver) is about to be replaced; drop the
-  // observer so at most one is live and it is gone if the trends module disappears,
-  // and hide any open activity tooltip before its owning scroller is discarded.
-  hideHomeActivityTooltip();
-  state.homeActivityResizeObserver?.disconnect();
-  state.homeActivityResizeObserver = null;
-  const period = state.stats.periods?.[state.period] || { totalTokens: 0, costUsd: 0, clients: {} };
-  const moduleIds = homeModuleIds();
-  const gatewayCard = renderPotluckGatewayCard();
-  if (moduleIds.includes('trends')) void loadHomeHistory();
-  if (moduleIds.length === 0) {
-    const empty = document.createElement('div');
-    empty.className = 'home-empty';
-    const title = document.createElement('div');
-    title.className = 'home-empty-title';
-    title.textContent = t('home.emptyTitle');
-    const body = document.createElement('div');
-    body.className = 'home-empty-body';
-    body.textContent = t('home.emptyBody');
-    const action = document.createElement('button');
-    action.type = 'button';
-    action.className = 'home-empty-action';
-    action.textContent = t('home.customize');
-    action.addEventListener('click', openHomeSettings);
-    empty.append(title, body, action);
-    els.homePanel.replaceChildren(...(gatewayCard ? [gatewayCard, empty] : [empty]));
-    return;
-  }
-  const nodes = moduleIds.map((id) => {
-    if (id === 'weekly') return renderHomeWeeklyModule();
-    if (id === 'limits') return renderHomeLimitModule();
-    if (id === 'tool') return renderHomeToolModule(period);
-    if (id === 'device') return renderHomeDeviceModule();
-    if (id === 'model') return renderHomeModelModule(period);
-    return renderHomeTrendsModule();
-  });
-  els.homePanel.replaceChildren(...(gatewayCard ? [gatewayCard, ...nodes] : nodes));
-  // One-shot: fill gateway supervisor state on first home visit so the card
-  // shows the live status (running / stopped / paired).  Re-renders once when
-  // the async IPC reply arrives, so the card DOM gets the status indicator.
-  if (!state._gatewayRefreshed) {
-    state._gatewayRefreshed = true;
-    void refreshPotluckGatewayState().then(() => {
-      if (state.breakdown === 'home' && preferenceDrag?.kind !== 'homeLive') renderHome();
+  try {
+    // The previous scroller (and its ResizeObserver) is about to be replaced; drop the
+    // observer so at most one is live and it is gone if the trends module disappears,
+    // and hide any open activity tooltip before its owning scroller is discarded.
+    hideHomeActivityTooltip();
+    state.homeActivityResizeObserver?.disconnect();
+    state.homeActivityResizeObserver = null;
+    const period = state.stats.periods?.[state.period] || { totalTokens: 0, costUsd: 0, clients: {} };
+    const moduleIds = homeModuleIds();
+    const gatewayCard = renderPotluckGatewayCard();
+    if (moduleIds.includes('trends')) void loadHomeHistory();
+    if (moduleIds.length === 0) {
+      const empty = document.createElement('div');
+      empty.className = 'home-empty';
+      const title = document.createElement('div');
+      title.className = 'home-empty-title';
+      title.textContent = t('home.emptyTitle');
+      const body = document.createElement('div');
+      body.className = 'home-empty-body';
+      body.textContent = t('home.emptyBody');
+      const action = document.createElement('button');
+      action.type = 'button';
+      action.className = 'home-empty-action';
+      action.textContent = t('home.customize');
+      action.addEventListener('click', openHomeSettings);
+      empty.append(title, body, action);
+      els.homePanel.replaceChildren(...(gatewayCard ? [gatewayCard, empty] : [empty]));
+      return;
+    }
+    const nodes = moduleIds.map((id) => {
+      try {
+        if (id === 'weekly') return renderHomeWeeklyModule();
+        if (id === 'limits') return renderHomeLimitModule();
+        if (id === 'tool') return renderHomeToolModule(period);
+        if (id === 'device') return renderHomeDeviceModule();
+        if (id === 'model') return renderHomeModelModule(period);
+        return renderHomeTrendsModule();
+      } catch (error) {
+        console.error('[renderHome]', id, error);
+        const fallback = document.createElement('div');
+        fallback.className = 'home-module-empty';
+        fallback.textContent = t('home.noTools');
+        return fallback;
+      }
     });
+    els.homePanel.replaceChildren(...(gatewayCard ? [gatewayCard, ...nodes] : nodes));
+    // One-shot: fill gateway supervisor state on first home visit so the card
+    // shows the live status (running / stopped / paired).  Re-renders once when
+    // the async IPC reply arrives, so the card DOM gets the status indicator.
+    if (!state._gatewayRefreshed) {
+      state._gatewayRefreshed = true;
+      void refreshPotluckGatewayState().then(() => {
+        if (state.breakdown === 'home' && preferenceDrag?.kind !== 'homeLive') renderHome();
+      });
+    }
+  } catch (error) {
+    console.error('[renderHome]', error);
   }
-  // setupHomeActivityScroller wires a ResizeObserver that applies the scroll position
-  // post-layout, so no requestAnimationFrame guess is needed here.
 }
 
 function render() {
@@ -5557,7 +5567,6 @@ async function refreshStats(options = {}) {
   }
   try {
     state.stats = overlayAllTimeSessions(await window.tokenMonitor.getStats(options));
-    await refreshQuotaArchiveFromSnapshot();
     mergeQuotaArchiveFromLimits(state.stats?.limits);
     ensurePricingAudit();
     if (options.forceHistory === true) {
@@ -5593,6 +5602,9 @@ async function refreshStats(options = {}) {
     renderCopilotStatus();
     maybeUpdateBarsIcon();
     if (feedback) settleRefreshButtonState('refreshed');
+    void refreshQuotaArchiveFromSnapshot().then(() => {
+      mergeQuotaArchiveFromLimits(state.stats?.limits);
+    });
   } catch {
     // The dot colour shows the offline state and the reason lives in the
     // live-dot tooltip + sync settings line, so keep the header status pill
@@ -7699,7 +7711,7 @@ function renderToolPreferences() {
 }
 
 function renderLimitProviderCheckboxes() {
-  if (!els.limitProviderCheckboxes) return;
+  if (!els.limitProviderCheckboxes || !limitProviderSummaryApi?.connectionsByProvider) return;
   const enabled = enabledLimitProviderSet();
   const collected = limitProviderSummaryApi.connectionsByProvider(state.stats?.limits?.providers || []);
   const providers = limitProviderOrderApi.orderedLimitProviders(LIMIT_PROVIDERS, state.settings?.limitProviderOrder);
@@ -13137,4 +13149,7 @@ initSettingsAnimationWrappers();
 setupSettingsSections();
 setupCursorAccountUI();
 setupCustomPricingUI();
-init();
+init().catch((error) => {
+  console.error('[init]', error);
+  void refreshStats().catch((refreshError) => console.error('[init:refresh]', refreshError));
+});
