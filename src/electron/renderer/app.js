@@ -370,6 +370,8 @@ Object.assign(els, {
   potluckGatewaySaveButton: document.getElementById('potluckGatewaySaveButton'),
   toolsSettingsSummary: document.getElementById('toolsSettingsSummary'),
   accountsSettingsSummary: document.getElementById('accountsSettingsSummary'),
+  accountConnectionsSummary: document.getElementById('accountConnectionsSummary'),
+  accountConnectionList: document.getElementById('accountConnectionList'),
   limitsSettingsSummary: document.getElementById('limitsSettingsSummary'),
   generalSettingsSummary: document.getElementById('generalSettingsSummary'),
   mainSettingsSummary: document.getElementById('mainSettingsSummary'),
@@ -698,6 +700,7 @@ function settingsSectionSummary(section) {
 }
 
 function renderSettingsSummaries() {
+  renderAccountConnectionDirectory();
   for (const section of SETTINGS_SECTION_IDS) {
     const el = els[`${section}SettingsSummary`];
     if (el) el.textContent = settingsSectionSummary(section);
@@ -2477,9 +2480,12 @@ function thirdPartySpendNode(provider, quotaWindow) {
 }
 
 const {
+  creditsAmount,
+  creditsCurrency,
   creditsMeterPercent,
   formatCompactMoney,
-  formatMoney
+  formatMoney,
+  isCreditsWindow
 } = window.TokenMonitorLimitBalanceDisplay;
 
 function optionalFiniteNumber(value) {
@@ -3128,7 +3134,8 @@ function renderProviderWindows(provider, color) {
   } else if (provider.provider === 'mimo') {
     windows.classList.add('limit-windows-mimo');
     const balance = provider.balance || null;
-    const tokenPlan = windowForKind(provider, 'billing') || mimoTokenPlanWindowFromBalance(balance);
+    const tokenPlan = (provider?.windows || []).find((window) => window?.kind === 'billing' && !isCreditsWindow(window))
+      || mimoTokenPlanWindowFromBalance(balance);
     if (tokenPlan) {
       const node = limitWindowNode(tokenPlan.label || 'Token Plan', tokenPlan, color, 0.68);
       node.classList.add('limit-window-wide');
@@ -7737,6 +7744,131 @@ function renderToolPreferences() {
   }
 }
 
+function renderAccountConnectionDirectory() {
+  const list = els.accountConnectionList;
+  if (!list) return;
+  const rows = Array.isArray(state.stats?.limits?.providers) ? state.stats.limits.providers : [];
+  const collected = limitProviderSummaryApi.connectionsByProvider(rows);
+  const configuredOrder = limitProviderOrderApi.orderedLimitProviders(LIMIT_PROVIDERS, state.settings?.limitProviderOrder);
+  const orderedIds = configuredOrder.map((provider) => provider.id);
+  const extraIds = Array.from(collected.keys()).filter((id) => !orderedIds.includes(id));
+  const providerIds = [...orderedIds, ...extraIds];
+  const tracked = enabledLimitProviderSet();
+  const connectionCount = rows.length;
+  let healthyCount = 0;
+  let attentionCount = 0;
+
+  list.replaceChildren();
+  for (const providerId of providerIds) {
+    const connections = collected.get(providerId) || [];
+    if (connections.length === 0) continue;
+    const providerConfig = LIMIT_PROVIDERS.find((provider) => provider.id === providerId);
+    const providerName = providerConfig?.settingsLabel || providerConfig?.label || providerId;
+    const summary = limitProviderSummaryApi.summarizeLimitProvider(providerId, connections, {
+      missingStatus: state.stats ? missingLimitProviderStatus() : ''
+    });
+    healthyCount += summary.healthy;
+    attentionCount += summary.needsAttention + summary.stale + summary.disabled + summary.missing;
+
+    const group = document.createElement('section');
+    group.className = 'account-provider-connection-group';
+    group.dataset.provider = providerId;
+
+    const heading = document.createElement('div');
+    heading.className = 'account-provider-connection-heading';
+    const name = document.createElement('strong');
+    name.className = 'account-provider-connection-name';
+    name.textContent = providerName;
+    const summaryText = document.createElement('span');
+    summaryText.className = 'account-provider-connection-summary';
+    summaryText.textContent = limitProviderSettingsSummaryText(summary, tracked.has(providerId));
+    heading.append(name, summaryText);
+    group.append(heading);
+
+    const connectionList = document.createElement('div');
+    connectionList.className = 'account-provider-connection-list';
+    connections.forEach((connection, index) => {
+      const card = document.createElement('article');
+      card.className = 'account-connection-entry';
+      const title = document.createElement('div');
+      title.className = 'account-connection-entry-title';
+      title.textContent = limitAccountTitle(providerId, connection, index, connections);
+      card.append(title);
+
+      const meta = document.createElement('div');
+      meta.className = 'account-connection-entry-meta';
+      meta.textContent = [
+        t('settings.limits.connection.source', { source: settingsManagedByLabel(connection) }),
+        t('settings.limits.connection.status', { status: settingsConnectionStatusLabel(connection) }),
+        t('settings.limits.connection.quota', { status: settingsQuotaLabel(connection) })
+      ].join(' · ');
+      card.append(meta);
+
+      const plan = String(connection?.planLabel || limitProviderPlan(connection) || '').trim();
+      if (plan) {
+        const planLine = document.createElement('div');
+        planLine.className = 'account-connection-entry-meta';
+        planLine.textContent = plan;
+        card.append(planLine);
+      }
+      const poolKey = String(connection?.quotaPoolKey || '').trim();
+      if (poolKey) {
+        const poolLine = document.createElement('div');
+        poolLine.className = 'account-connection-entry-meta';
+        poolLine.textContent = t('settings.limits.connection.pool', { pool: poolKey });
+        card.append(poolLine);
+      }
+      for (const window of connection?.windows || []) {
+        const line = document.createElement('div');
+        line.className = 'account-connection-entry-window';
+        line.textContent = settingsWindowLine(window, connection);
+        card.append(line);
+      }
+
+      const actions = document.createElement('div');
+      actions.className = 'account-connection-entry-actions';
+      const viewQuota = document.createElement('button');
+      viewQuota.type = 'button';
+      viewQuota.textContent = t('settings.accounts.connections.viewQuota');
+      viewQuota.addEventListener('click', () => focusLimitProviderSettings(providerId));
+      actions.append(viewQuota);
+      if (limitProviderSummaryApi.sourceBucket(connection) === 'potluck') {
+        const manage = document.createElement('button');
+        manage.type = 'button';
+        manage.textContent = t('settings.limits.manageInPotluck');
+        manage.addEventListener('click', () => window.tokenMonitor.potluckGateway?.openWeb?.());
+        actions.append(manage);
+      } else if (providerAccountSettingsEl(providerId)) {
+        const edit = document.createElement('button');
+        edit.type = 'button';
+        edit.textContent = t('settings.limits.editInAccounts');
+        edit.addEventListener('click', () => focusProviderAccountSettings(providerId));
+        actions.append(edit);
+      }
+      card.append(actions);
+      connectionList.append(card);
+    });
+    group.append(connectionList);
+    list.append(group);
+  }
+
+  if (connectionCount === 0) {
+    const empty = document.createElement('p');
+    empty.className = 'settings-note account-connections-empty';
+    empty.textContent = t('settings.accounts.connections.empty');
+    list.append(empty);
+  }
+  if (els.accountConnectionsSummary) {
+    els.accountConnectionsSummary.textContent = connectionCount > 0
+      ? t('settings.accounts.connections.summary', {
+        connections: connectionCount,
+        healthy: healthyCount,
+        attention: attentionCount
+      })
+      : t('settings.accounts.connections.empty');
+  }
+}
+
 function renderLimitProviderCheckboxes() {
   if (!els.limitProviderCheckboxes || !limitProviderSummaryApi?.connectionsByProvider) return;
   const enabled = enabledLimitProviderSet();
@@ -7933,12 +8065,17 @@ function settingsQuotaLabel(row) {
   return quota;
 }
 
-function settingsWindowLine(window) {
+function settingsWindowLine(window, provider = null) {
   const label = String(window?.label || window?.kind || '').trim() || 'quota';
+  const reset = formatReset(window?.resetsAt || window?.resetAt);
+  if (isCreditsWindow(window)) {
+    const amount = formatCompactMoney(creditsAmount(provider, window), creditsCurrency(provider, window));
+    const detail = String(window?.detail || '').trim();
+    if (amount || detail) return [label, amount || detail, reset].filter(Boolean).join(' · ');
+  }
   const remaining = Number.isFinite(Number(window?.remainingPercent))
     ? Math.round(Number(window.remainingPercent))
     : (Number.isFinite(Number(window?.usedPercent)) ? Math.round(100 - Number(window.usedPercent)) : null);
-  const reset = formatReset(window?.resetsAt || window?.resetAt);
   if (remaining == null) return reset ? `${label} · ${reset}` : label;
   return t('settings.limits.windowRemaining', { label, remaining, reset: reset || t('settings.limits.age.unknown') });
 }
@@ -8223,6 +8360,14 @@ function focusProviderAccountSettings(providerId) {
   return true;
 }
 
+function focusLimitProviderSettings(providerId) {
+  setLimitProviderDetailsOpen(providerId, true);
+  setSettingsSectionExpanded('limits', true);
+  renderLimitProviderCheckboxes();
+  document.getElementById(`limit-provider-details-${providerId}`)?.scrollIntoView({ block: 'nearest' });
+  return true;
+}
+
 function setLimitProviderDetailsOpen(providerId, open) {
   if (open) state.limitProviderDetailsOpen.add(providerId);
   else state.limitProviderDetailsOpen.delete(providerId);
@@ -8254,7 +8399,7 @@ function appendLimitProviderConnectionCard(details, row, index, rows, providerId
   for (const window of row?.windows || []) {
     const line = document.createElement('div');
     line.className = 'limit-provider-window-line';
-    line.textContent = settingsWindowLine(window);
+    line.textContent = settingsWindowLine(window, row);
     card.append(line);
   }
   appendQuotaForecastPanels(card, row, state.quotaArchive || emptyQuotaArchive());

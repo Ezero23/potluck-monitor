@@ -959,7 +959,7 @@ test('MiMo main Limits row falls back to balance plan fields for Token Plan', ()
   const tokenPlanFallback = functionBody(app, 'mimoTokenPlanWindowFromBalance', 'limitWindowNode');
 
   assert.match(renderProviderWindows, /const balance = provider\.balance \|\| null;/);
-  assert.match(renderProviderWindows, /const tokenPlan = windowForKind\(provider, 'billing'\) \|\| mimoTokenPlanWindowFromBalance\(balance\);/);
+  assert.match(renderProviderWindows, /const tokenPlan = \(provider\?\.windows \|\| \[\]\)\.find\(\(window\) => window\?\.kind === 'billing' && !isCreditsWindow\(window\)\)/);
   assert.match(renderProviderWindows, /limitWindowNode\(tokenPlan\.label \|\| 'Token Plan', tokenPlan, color, 0\.68\)/);
   assert.match(renderProviderWindows, /const giftBalance = optionalFiniteNumber\(balance\?\.giftBalance\);/);
   assert.match(renderProviderWindows, /const cashBalance = optionalFiniteNumber\(balance\?\.cashBalance\);/);
@@ -1460,4 +1460,50 @@ test('shared quota forecast modules expose renderer globals without route fields
   assert.doesNotMatch(risk, /const quotaRiskApi =/);
   assert.doesNotMatch(forecast, /route:|switch:|action:/);
   assert.doesNotMatch(risk, /route:|switch:|action:/);
+});
+
+test('classic renderer forecast scripts can load before app.js without duplicate global declarations', () => {
+  const source = [
+    readSharedFile('quotaForecast.js'),
+    readSharedFile('quotaRisk.js'),
+    readRendererFile('app.js')
+  ].join('\n');
+  assert.doesNotThrow(
+    () => new vm.Script(source, { filename: 'renderer-forecast-bundle.js' }),
+    'shared quota scripts must not collide with app.js top-level declarations'
+  );
+});
+
+test('Accounts settings expose a unified provider connection and quota directory', () => {
+  const html = readRendererFile('index.html');
+  const app = readRendererFile('app.js');
+  const styles = readRendererFile('styles.css');
+  const i18n = readRendererFile('i18n.js');
+  const overview = html.indexOf('id="accountConnectionsOverview"');
+  const legacyAccounts = html.indexOf('id="claudeAccountGroup"');
+
+  assert.notEqual(overview, -1);
+  assert.ok(overview < legacyAccounts, 'the connection directory should lead the legacy credential groups');
+  assert.match(html, /id="accountConnectionList"/);
+  assert.match(app, /function renderAccountConnectionDirectory\(\)/);
+  assert.match(app, /limitProviderSummaryApi\.connectionsByProvider/);
+  assert.match(app, /settings\.accounts\.connections\.viewQuota/);
+  assert.match(app, /settings\.limits\.manageInPotluck/);
+  assert.match(styles, /\.account-connections-overview/);
+  assert.match(styles, /\.account-connection-entry/);
+  assert.match(i18n, /'settings\.accounts\.connections\.title'/);
+  assert.match(i18n, /'settings\.accounts\.connections\.description'/);
+});
+
+test('MiMo limits keep credits balance separate from Token Plan and settings show its amount', () => {
+  const app = readRendererFile('app.js');
+  const mimoBody = functionBody(app, 'renderProviderWindows', 'renderLimitProviderRow');
+  const settingsBody = functionBody(app, 'settingsWindowLine', 'emptyQuotaArchive');
+
+  assert.match(mimoBody, /window\?\.kind === 'billing' && !isCreditsWindow\(window\)/);
+  assert.match(settingsBody, /isCreditsWindow\(window\)/);
+  assert.match(settingsBody, /creditsAmount\(provider, window\)/);
+  assert.match(settingsBody, /creditsCurrency\(provider, window\)/);
+  assert.match(app, /settingsWindowLine\(window, connection\)/);
+  assert.match(app, /settingsWindowLine\(window, row\)/);
 });

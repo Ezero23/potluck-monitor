@@ -508,6 +508,14 @@
             <span class="settings-section-meta"><span id="accountsSettingsSummary" class="settings-section-summary"></span><span class="settings-section-disclosure" aria-hidden="true"></span></span>
           </button>
           <div id="accountsSettingsDetails" class="settings-section-details hidden">
+            <div id="accountConnectionsOverview" class="settings-subgroup account-connections-overview">
+              <div class="account-connections-heading">
+                <span class="settings-item-title" data-i18n="settings.accounts.connections.title">Provider connections &amp; quota</span>
+                <span id="accountConnectionsSummary" class="settings-section-summary"></span>
+              </div>
+              <p class="settings-note account-connections-description" data-i18n="settings.accounts.connections.description">Every Connection appears here with its owner, source, quota status, and management entry. Credentials stay with their owner.</p>
+              <div id="accountConnectionList" class="account-connection-list"></div>
+            </div>
             <div id="claudeAccountGroup" class="settings-group cursor-account-group">
               <button id="claudeSettingsToggle" class="settings-group-header cursor-settings-toggle" type="button" aria-expanded="false" aria-controls="claudeSettingsDetails">
                 <span data-i18n="settings.claude.title">Claude Account</span>

@@ -469,3 +469,67 @@ test('buildHubLimitsSnapshot strips routing advice fields', () => {
   });
   assert.doesNotMatch(JSON.stringify(snapshot), /"route"|"switch"|"action"/);
 });
+
+
+test('Hub applies Potluck full snapshots, deletes missing connections, and persists ordering state', () => {
+  const dataFile = tempDataFile();
+  const row = (connectionKey, status = 'ok') => ({
+    provider: 'zai',
+    connectionKey,
+    accountKey: connectionKey,
+    managedBy: 'potluck',
+    identityKind: 'connection',
+    connectionStatus: status,
+    quotaStatus: status === 'ok' ? 'fresh' : 'unauthorized',
+    status,
+    updatedAt: '2026-08-20T10:00:00.000Z',
+    windows: status === 'ok' ? [{ kind: 'session', usedPercent: 20, remainingPercent: 80 }] : []
+  });
+  const snapshot = (snapshotId, generatedAt, providers) => ({
+    schemaVersion: 2,
+    snapshotType: 'full',
+    snapshotId,
+    sourceInstanceId: 'potluck:instance-a',
+    generatedAt,
+    providers
+  });
+  const hub = createHub({ port: 0, host: '127.0.0.1', secret: '', dataFile, logger: { error() {} } });
+  try {
+    hub.ingest({ deviceId: 'potluck', limits: snapshot('s1', '2026-08-20T10:00:00.000Z', [row('potluck:instance-a:a'), row('potluck:instance-a:b')]) });
+    assert.equal(hub.getStats().limits.providers.filter((entry) => entry.managedBy === 'potluck').length, 2);
+
+    hub.ingest({ deviceId: 'potluck', limits: snapshot('s2', '2026-08-20T10:05:00.000Z', [row('potluck:instance-a:a')]) });
+    assert.deepEqual(
+      hub.getStats().limits.providers.filter((entry) => entry.managedBy === 'potluck').map((entry) => entry.connectionKey),
+      ['potluck:instance-a:a']
+    );
+
+    const reloaded = createHub({ port: 0, host: '127.0.0.1', secret: '', dataFile, logger: { error() {} } });
+    reloaded.ingest({ deviceId: 'potluck', limits: snapshot('old', '2026-08-20T09:00:00.000Z', [row('potluck:instance-a:b')]) });
+    assert.deepEqual(
+      reloaded.getStats().limits.providers.filter((entry) => entry.managedBy === 'potluck').map((entry) => entry.connectionKey),
+      ['potluck:instance-a:a']
+    );
+  } finally {
+    fs.rmSync(dataFile, { force: true });
+  }
+});
+
+test('Hub rejects a Potluck snapshot without source identity', () => {
+  const dataFile = tempDataFile();
+  const hub = createHub({ port: 0, host: '127.0.0.1', secret: '', dataFile, logger: { error() {} } });
+  try {
+    assert.throws(() => hub.ingest({
+      deviceId: 'potluck',
+      limits: {
+        schemaVersion: 2,
+        snapshotType: 'full',
+        snapshotId: 'missing-source',
+        generatedAt: '2026-08-20T10:00:00.000Z',
+        providers: [{ provider: 'zai', connectionKey: 'conn-a', managedBy: 'potluck', windows: [] }]
+      }
+    }), /limits_snapshot_missing_identity/);
+  } finally {
+    fs.rmSync(dataFile, { force: true });
+  }
+});

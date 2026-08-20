@@ -6,6 +6,7 @@ const { URL } = require('node:url');
 const { aggregateDevices, mergeDeviceRecord, aggregateHistory } = require('../shared/usage');
 const { historyPreview, historyRevision } = require('../shared/history');
 const { publicLimits } = require('../shared/limits');
+const { applyExternalLimitSnapshot } = require('../shared/externalLimitSnapshot');
 const { stripForbidden } = require('../shared/quotaForecast');
 const { isAuthorized, readJsonBody, sendJson, sendText } = require('../shared/http');
 const { loadDotEnv, parseArgs, projectRoot, readJson, writeJsonAtomic } = require('../shared/config');
@@ -98,6 +99,9 @@ function createHub({
 } = {}) {
   const store = readJson(dataFile, { version: 1, devices: {} }) || { version: 1, devices: {} };
   if (!store.devices || typeof store.devices !== 'object') store.devices = {};
+  if (!store.externalSnapshotState || typeof store.externalSnapshotState !== 'object') {
+    store.externalSnapshotState = {};
+  }
   const bindHost = resolveBindHost(host, secret);
   const limitsSnapshotLimiter = createRateLimiter(limitsSnapshotRateLimitMs);
 
@@ -148,7 +152,39 @@ function createHub({
     if (!payload || (!payload.deviceId && !payload.id)) {
       throw new Error('deviceId_required');
     }
-    const record = mergeDeviceRecord(store.devices[String(payload.deviceId || payload.id)], { ...payload, receivedAt: new Date().toISOString() });
+
+    const deviceId = String(payload.deviceId || payload.id);
+    const existing = store.devices[deviceId];
+    const incoming = { ...payload, receivedAt: new Date().toISOString() };
+    const incomingLimits = incoming.limits;
+    const providerRows = Array.isArray(incomingLimits?.providers) ? incomingLimits.providers : [];
+    const sourceInstanceId = String(
+      incomingLimits?.sourceInstanceId || incomingLimits?.source_instance_id || ''
+    ).trim();
+    const isExternalSnapshot = Boolean(
+      incomingLimits
+      && typeof incomingLimits === 'object'
+      && (
+        sourceInstanceId.startsWith('potluck:')
+        || providerRows.some((row) => row?.managedBy === 'potluck')
+      )
+    );
+
+    if (isExternalSnapshot) {
+      const appliedState = store.externalSnapshotState[deviceId] || {};
+      const adapted = applyExternalLimitSnapshot(existing?.limits, incomingLimits, appliedState);
+      if (!adapted.ok) {
+        const reason = adapted.error?.code || adapted.reason || 'invalid';
+        const error = new Error(`limits_snapshot_${reason}`);
+        error.code = 'limits_snapshot_invalid';
+        throw error;
+      }
+      if (adapted.skipped) return existing || null;
+      incoming.limits = adapted.summary;
+      store.externalSnapshotState[deviceId] = adapted.applied;
+    }
+
+    const record = mergeDeviceRecord(existing, incoming);
     store.devices[record.deviceId] = record;
     persist();
     broadcastStats('ingest');
@@ -233,6 +269,9 @@ function createHub({
         if (error.code === 'payload_too_large') {
           res.shouldKeepAlive = false;
           return sendJson(res, 413, { error: 'payload_too_large', message: error.message }, { connection: 'close' });
+        }
+        if (error.code === 'limits_snapshot_invalid') {
+          return sendJson(res, 400, { error: 'invalid_limits_snapshot', message: error.message });
         }
         return sendJson(res, 400, { error: 'bad_request', message: error.message });
       }

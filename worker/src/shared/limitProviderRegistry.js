@@ -14,7 +14,8 @@ const DEFAULT_CAPABILITIES = Object.freeze({
 });
 
 // Multi-account providers keep distinct rows in hub aggregateLimits() when they
-// carry a configured accountKey. Everyone else still collapses by canonical id.
+// carry a configured accountKey. Potluck-managed rows are handled explicitly by
+// the collapse-key layer so local Provider behavior remains backward compatible.
 const COLLAPSE_BY_ACCOUNT = new Set([
   'claude',
   'codex',

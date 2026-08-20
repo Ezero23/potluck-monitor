@@ -785,7 +785,8 @@ function isConfiguredProvider(provider) {
 }
 
 function providerCollapseKey(provider) {
-  if (collapsesByAccount(provider.provider) && isConfiguredProvider(provider)) {
+  const managedExternally = provider.managedBy === 'potluck' || provider.managedBy === 'external';
+  if ((managedExternally || collapsesByAccount(provider.provider)) && provider.accountKey) {
     return providerAggregateKey(provider);
   }
   return provider.provider;
