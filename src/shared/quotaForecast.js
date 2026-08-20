@@ -1,7 +1,8 @@
 'use strict';
 
-(function () {
-  const quotaHistoryPeer = (() => {
+(function exposeQuotaForecast(root) {
+const quotaHistoryPeer = (() => {
+  if (typeof require !== 'function') return null;
   try {
     return require('./quotaHistory');
   } catch {
@@ -677,7 +678,7 @@ function forecastFromArchive(archive = {}, providers = [], options = {}) {
   return forecasts;
 }
 
-const quotaForecastApi = {
+const api = {
   DEFAULT_MIN_INTERVAL_MS,
   MIN_SHADOW_CYCLES,
   STALE_CONFIDENCE_CAP,
@@ -692,6 +693,6 @@ const quotaForecastApi = {
   windowHistoryKey
 };
 
-module.exports = quotaForecastApi;
-if (typeof window !== 'undefined') window.TokenMonitorQuotaForecast = quotaForecastApi;
-}());
+if (root) root.TokenMonitorQuotaForecast = api;
+if (typeof module === 'object' && module.exports) module.exports = api;
+})(typeof window !== 'undefined' ? window : globalThis);

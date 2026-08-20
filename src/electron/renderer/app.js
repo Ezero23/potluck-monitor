@@ -5277,58 +5277,83 @@ function renderPotluckGatewayCard() {
 
 function renderHome() {
   if (!els.homePanel) return;
-  // The previous scroller (and its ResizeObserver) is about to be replaced; drop the
-  // observer so at most one is live and it is gone if the trends module disappears,
-  // and hide any open activity tooltip before its owning scroller is discarded.
-  hideHomeActivityTooltip();
-  state.homeActivityResizeObserver?.disconnect();
-  state.homeActivityResizeObserver = null;
-  const period = state.stats.periods?.[state.period] || { totalTokens: 0, costUsd: 0, clients: {} };
-  const moduleIds = homeModuleIds();
-  const gatewayCard = renderPotluckGatewayCard();
-  if (moduleIds.includes('trends')) void loadHomeHistory();
-  if (moduleIds.length === 0) {
-    const empty = document.createElement('div');
-    empty.className = 'home-empty';
-    const title = document.createElement('div');
-    title.className = 'home-empty-title';
-    title.textContent = t('home.emptyTitle');
-    const body = document.createElement('div');
-    body.className = 'home-empty-body';
-    body.textContent = t('home.emptyBody');
-    const action = document.createElement('button');
-    action.type = 'button';
-    action.className = 'home-empty-action';
-    action.textContent = t('home.customize');
-    action.addEventListener('click', openHomeSettings);
-    empty.append(title, body, action);
-    els.homePanel.replaceChildren(...(gatewayCard ? [gatewayCard, empty] : [empty]));
-    return;
-  }
-  const nodes = moduleIds.map((id) => {
-    if (id === 'weekly') return renderHomeWeeklyModule();
-    if (id === 'limits') return renderHomeLimitModule();
-    if (id === 'tool') return renderHomeToolModule(period);
-    if (id === 'device') return renderHomeDeviceModule();
-    if (id === 'model') return renderHomeModelModule(period);
-    return renderHomeTrendsModule();
-  });
-  els.homePanel.replaceChildren(...(gatewayCard ? [gatewayCard, ...nodes] : nodes));
-  // One-shot: fill gateway supervisor state on first home visit so the card
-  // shows the live status (running / stopped / paired).  Re-renders once when
-  // the async IPC reply arrives, so the card DOM gets the status indicator.
-  if (!state._gatewayRefreshed) {
-    state._gatewayRefreshed = true;
-    void refreshPotluckGatewayState().then(() => {
-      if (state.breakdown === 'home' && preferenceDrag?.kind !== 'homeLive') renderHome();
+  try {
+    // The previous scroller (and its ResizeObserver) is about to be replaced; drop the
+    // observer so at most one is live and it is gone if the trends module disappears,
+    // and hide any open activity tooltip before its owning scroller is discarded.
+    hideHomeActivityTooltip();
+    state.homeActivityResizeObserver?.disconnect();
+    state.homeActivityResizeObserver = null;
+    const period = state.stats.periods?.[state.period] || { totalTokens: 0, costUsd: 0, clients: {} };
+    const moduleIds = homeModuleIds();
+    const gatewayCard = renderPotluckGatewayCard();
+    if (moduleIds.includes('trends')) void loadHomeHistory();
+    if (moduleIds.length === 0) {
+      const empty = document.createElement('div');
+      empty.className = 'home-empty';
+      const title = document.createElement('div');
+      title.className = 'home-empty-title';
+      title.textContent = t('home.emptyTitle');
+      const body = document.createElement('div');
+      body.className = 'home-empty-body';
+      body.textContent = t('home.emptyBody');
+      const action = document.createElement('button');
+      action.type = 'button';
+      action.className = 'home-empty-action';
+      action.textContent = t('home.customize');
+      action.addEventListener('click', openHomeSettings);
+      empty.append(title, body, action);
+      els.homePanel.replaceChildren(...(gatewayCard ? [gatewayCard, empty] : [empty]));
+      return;
+    }
+    const nodes = moduleIds.map((id) => {
+      try {
+        if (id === 'weekly') return renderHomeWeeklyModule();
+        if (id === 'limits') return renderHomeLimitModule();
+        if (id === 'tool') return renderHomeToolModule(period);
+        if (id === 'device') return renderHomeDeviceModule();
+        if (id === 'model') return renderHomeModelModule(period);
+        return renderHomeTrendsModule();
+      } catch (error) {
+        console.error('[renderHome]', id, error);
+        const fallback = document.createElement('div');
+        fallback.className = 'home-module-empty';
+        fallback.textContent = t('home.noTools');
+        return fallback;
+      }
     });
+    els.homePanel.replaceChildren(...(gatewayCard ? [gatewayCard, ...nodes] : nodes));
+    // One-shot: fill gateway supervisor state on first home visit so the card
+    // shows the live status (running / stopped / paired).  Re-renders once when
+    // the async IPC reply arrives, so the card DOM gets the status indicator.
+    if (!state._gatewayRefreshed) {
+      state._gatewayRefreshed = true;
+      void refreshPotluckGatewayState().then(() => {
+        if (state.breakdown === 'home' && preferenceDrag?.kind !== 'homeLive') renderHome();
+      });
+    }
+  } catch (error) {
+    console.error('[renderHome]', error);
   }
-  // setupHomeActivityScroller wires a ResizeObserver that applies the scroll position
-  // post-layout, so no requestAnimationFrame guess is needed here.
+}
+
+function paintHeadlineFromStats() {
+  const period = state.stats?.periods?.[state.period] || { totalTokens: 0, costUsd: 0 };
+  const nextTotal = Number(period.totalTokens || 0);
+  cancelNumberAnimation();
+  numberAnimValue = nextTotal;
+  if (els.totalTokens) els.totalTokens.textContent = formatNumber(nextTotal);
+  updateTotalCompact(nextTotal);
+  state.currentTotal = nextTotal;
+  if (els.cost) {
+    try { els.cost.textContent = formatCost(period.costUsd || 0); }
+    catch (_) { els.cost.textContent = `$${Number(period.costUsd || 0).toFixed(2)}`; }
+  }
 }
 
 function render() {
   if (!state.stats) return;
+  try {
   renderSessionUsageArchiveStatus();
   ensureBreakdownVisible();
   // The switcher menu is rebuilt on every render; skip that while a live view
@@ -5432,6 +5457,15 @@ function render() {
   if (!contentReadySignaled) {
     contentReadySignaled = true;
     window.tokenMonitor.signalContentReady?.();
+  }
+  } catch (error) {
+    console.error('[render]', error);
+    try { paintHeadlineFromStats(); } catch (_) {}
+    els.homePanel?.classList.remove('hidden');
+    if (!contentReadySignaled) {
+      contentReadySignaled = true;
+      window.tokenMonitor.signalContentReady?.();
+    }
   }
 }
 
@@ -5560,7 +5594,6 @@ async function refreshStats(options = {}) {
   }
   try {
     state.stats = overlayAllTimeSessions(await window.tokenMonitor.getStats(options));
-    await refreshQuotaArchiveFromSnapshot();
     mergeQuotaArchiveFromLimits(state.stats?.limits);
     ensurePricingAudit();
     if (options.forceHistory === true) {
@@ -5596,11 +5629,17 @@ async function refreshStats(options = {}) {
     renderCopilotStatus();
     maybeUpdateBarsIcon();
     if (feedback) settleRefreshButtonState('refreshed');
-  } catch {
+    void refreshQuotaArchiveFromSnapshot().then(() => {
+      mergeQuotaArchiveFromLimits(state.stats?.limits);
+    });
+  } catch (error) {
+    console.error('[refreshStats]', error);
     // The dot colour shows the offline state and the reason lives in the
     // live-dot tooltip + sync settings line, so keep the header status pill
     // hidden instead of surfacing the raw hub error (e.g. a 404 HTML page).
     setStatus(statusTextFor(state.mode, state.streamConnected));
+    if (!state.stats) state.stats = { periods: {} };
+    try { render(); } catch (renderError) { console.error('[refreshStats:render]', renderError); }
     if (feedback) settleRefreshButtonState('error');
   } finally {
     if (feedback) state.refreshBusy = false;
@@ -7827,7 +7866,7 @@ function renderAccountConnectionDirectory() {
 }
 
 function renderLimitProviderCheckboxes() {
-  if (!els.limitProviderCheckboxes) return;
+  if (!els.limitProviderCheckboxes || !limitProviderSummaryApi?.connectionsByProvider) return;
   const enabled = enabledLimitProviderSet();
   const collected = limitProviderSummaryApi.connectionsByProvider(state.stats?.limits?.providers || []);
   const providers = limitProviderOrderApi.orderedLimitProviders(LIMIT_PROVIDERS, state.settings?.limitProviderOrder);
@@ -8825,12 +8864,30 @@ window.addEventListener('blur', () => {
 async function init() {
   try { state.appInfo = await window.tokenMonitor.getAppInfo?.(); } catch (_) {}
   if (els.aboutVersion) els.aboutVersion.textContent = state.appInfo?.version ? `v${state.appInfo.version}` : '—';
-  state.settings = await window.tokenMonitor.getSettings();
-  initSettingsSectionOrder();
-  applyEffectiveCurrencyRates();
-  deliverTrayProviderIcons();
+  const settingsPromise = window.tokenMonitor.getSettings()
+    .then((settings) => { state.settings = settings; })
+    .catch((error) => console.error('[init:settings]', error));
 
-  state.appUpdate = await window.tokenMonitor.getAppUpdateState();
+  // First paint must not wait on settings, hub, tokscale, or app-update IPC.
+  await refreshStats().catch((error) => console.error('[init:stats]', error));
+  if (!state.stats) {
+    state.stats = { periods: {} };
+    try { render(); } catch (error) { console.error('[init:render]', error); }
+  }
+
+  await settingsPromise;
+  if (state.settings) {
+    initSettingsSectionOrder();
+    applyEffectiveCurrencyRates();
+    void deliverTrayProviderIcons();
+    if (state.appInfo?.loginItemSupported) {
+      state.settings.startAtLogin = Boolean(state.appInfo.loginItemOpenAtLogin);
+    }
+    syncSettingsForm();
+    publishViewState();
+  }
+
+  try { state.appUpdate = await window.tokenMonitor.getAppUpdateState(); } catch (_) {}
   renderAppUpdatePill();
   renderSettingsAppUpdateRow();
   window.tokenMonitor.onAppUpdatePush?.((payload) => {
@@ -8840,11 +8897,6 @@ async function init() {
     renderAutomaticAppUpdateControl();
     if (els.appUpdatePopover.matches(':popover-open')) renderAppUpdatePopover(payload);
   });
-  if (state.appInfo?.loginItemSupported) {
-    state.settings.startAtLogin = Boolean(state.appInfo.loginItemOpenAtLogin);
-  }
-  syncSettingsForm();
-  publishViewState();
   await refreshHubInfo();
   await refreshTokscaleStatus();
   restartTimer();
@@ -8858,7 +8910,7 @@ async function init() {
       renderSyncClientStatus();
     }
   } catch (_) {}
-  await refreshStats();
+  if (state.settings) await refreshStats().catch((error) => console.error('[init:stats:refresh]', error));
   restartTimer();
   updateTitleFit();
 }
@@ -13268,9 +13320,22 @@ function initSettingsAnimationWrappers() {
   });
 }
 
+try {
 orderAccountProviderGroups();
+} catch (error) { console.error('[boot:orderAccountProviderGroups]', error); }
+try {
 initSettingsAnimationWrappers();
+} catch (error) { console.error('[boot:initSettingsAnimationWrappers]', error); }
+try {
 setupSettingsSections();
+} catch (error) { console.error('[boot:setupSettingsSections]', error); }
+try {
 setupCursorAccountUI();
+} catch (error) { console.error('[boot:setupCursorAccountUI]', error); }
+try {
 setupCustomPricingUI();
-init();
+} catch (error) { console.error('[boot:setupCustomPricingUI]', error); }
+init().catch((error) => {
+  console.error('[init]', error);
+  void refreshStats().catch((refreshError) => console.error('[init:refresh]', refreshError));
+});

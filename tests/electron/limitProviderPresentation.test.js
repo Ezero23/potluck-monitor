@@ -1425,7 +1425,7 @@ test('settings connection cards load quota forecast modules and render pace, con
   assert.match(html, /src="\.\.\/\.\.\/shared\/quotaRisk\.js"/);
   assert.match(preload, /getLimitsSnapshot:\s*\(options\)\s*=>\s*ipcRenderer\.invoke\('limits:getSnapshot'/);
   assert.match(app, /async function refreshQuotaArchiveFromSnapshot\(/);
-  assert.match(app, /await refreshQuotaArchiveFromSnapshot\(\)/);
+  assert.match(app, /void refreshQuotaArchiveFromSnapshot\(\)/);
   assert.match(app, /window\.tokenMonitor\.getLimitsSnapshot/);
   assert.match(app, /const quotaForecastApi = window\.TokenMonitorQuotaForecast;/);
   assert.match(app, /const quotaRiskApi = window\.TokenMonitorQuotaRisk;/);
@@ -1454,8 +1454,10 @@ test('quota forecast sparklines require at least two samples and never render fo
 test('shared quota forecast modules expose renderer globals without route fields', () => {
   const forecast = fs.readFileSync(path.join(__dirname, '..', '..', 'src', 'shared', 'quotaForecast.js'), 'utf8');
   const risk = fs.readFileSync(path.join(__dirname, '..', '..', 'src', 'shared', 'quotaRisk.js'), 'utf8');
-  assert.match(forecast, /window\.TokenMonitorQuotaForecast = quotaForecastApi;/);
-  assert.match(risk, /window\.TokenMonitorQuotaRisk = quotaRiskApi;/);
+  assert.match(forecast, /root\) root\.TokenMonitorQuotaForecast = api;/);
+  assert.match(risk, /root\) root\.TokenMonitorQuotaRisk = api;/);
+  assert.doesNotMatch(forecast, /const quotaForecastApi =/);
+  assert.doesNotMatch(risk, /const quotaRiskApi =/);
   assert.doesNotMatch(forecast, /route:|switch:|action:/);
   assert.doesNotMatch(risk, /route:|switch:|action:/);
 });
