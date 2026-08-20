@@ -379,3 +379,23 @@ test('quotaForecast attaches a window global without a Node module object', () =
   );
   assert.equal(typeof sandbox.window.TokenMonitorQuotaForecast.forecastQuotaWindow, 'function');
 });
+
+test('quotaRisk attaches a window global without a Node module object', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const vm = require('node:vm');
+  const forecastSandbox = { window: {}, console };
+  vm.runInNewContext(
+    fs.readFileSync(path.join(__dirname, '../../src/shared/quotaForecast.js'), 'utf8'),
+    forecastSandbox
+  );
+  const sandbox = {
+    window: { TokenMonitorQuotaForecast: forecastSandbox.window.TokenMonitorQuotaForecast },
+    console
+  };
+  vm.runInNewContext(
+    fs.readFileSync(path.join(__dirname, '../../src/shared/quotaRisk.js'), 'utf8'),
+    sandbox
+  );
+  assert.equal(typeof sandbox.window.TokenMonitorQuotaRisk.evaluateQuotaRisk, 'function');
+});

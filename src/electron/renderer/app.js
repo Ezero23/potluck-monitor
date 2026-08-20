@@ -5334,8 +5334,23 @@ function renderHome() {
   }
 }
 
+function paintHeadlineFromStats() {
+  const period = state.stats?.periods?.[state.period] || { totalTokens: 0, costUsd: 0 };
+  const nextTotal = Number(period.totalTokens || 0);
+  cancelNumberAnimation();
+  numberAnimValue = nextTotal;
+  if (els.totalTokens) els.totalTokens.textContent = formatNumber(nextTotal);
+  updateTotalCompact(nextTotal);
+  state.currentTotal = nextTotal;
+  if (els.cost) {
+    try { els.cost.textContent = formatCost(period.costUsd || 0); }
+    catch (_) { els.cost.textContent = `$${Number(period.costUsd || 0).toFixed(2)}`; }
+  }
+}
+
 function render() {
   if (!state.stats) return;
+  try {
   renderSessionUsageArchiveStatus();
   ensureBreakdownVisible();
   // The switcher menu is rebuilt on every render; skip that while a live view
@@ -5439,6 +5454,15 @@ function render() {
   if (!contentReadySignaled) {
     contentReadySignaled = true;
     window.tokenMonitor.signalContentReady?.();
+  }
+  } catch (error) {
+    console.error('[render]', error);
+    try { paintHeadlineFromStats(); } catch (_) {}
+    els.homePanel?.classList.remove('hidden');
+    if (!contentReadySignaled) {
+      contentReadySignaled = true;
+      window.tokenMonitor.signalContentReady?.();
+    }
   }
 }
 
@@ -5605,11 +5629,14 @@ async function refreshStats(options = {}) {
     void refreshQuotaArchiveFromSnapshot().then(() => {
       mergeQuotaArchiveFromLimits(state.stats?.limits);
     });
-  } catch {
+  } catch (error) {
+    console.error('[refreshStats]', error);
     // The dot colour shows the offline state and the reason lives in the
     // live-dot tooltip + sync settings line, so keep the header status pill
     // hidden instead of surfacing the raw hub error (e.g. a 404 HTML page).
     setStatus(statusTextFor(state.mode, state.streamConnected));
+    if (!state.stats) state.stats = { periods: {} };
+    try { render(); } catch (renderError) { console.error('[refreshStats:render]', renderError); }
     if (feedback) settleRefreshButtonState('error');
   } finally {
     if (feedback) state.refreshBusy = false;
@@ -8701,12 +8728,30 @@ window.addEventListener('blur', () => {
 async function init() {
   try { state.appInfo = await window.tokenMonitor.getAppInfo?.(); } catch (_) {}
   if (els.aboutVersion) els.aboutVersion.textContent = state.appInfo?.version ? `v${state.appInfo.version}` : '—';
-  state.settings = await window.tokenMonitor.getSettings();
-  initSettingsSectionOrder();
-  applyEffectiveCurrencyRates();
-  deliverTrayProviderIcons();
+  const settingsPromise = window.tokenMonitor.getSettings()
+    .then((settings) => { state.settings = settings; })
+    .catch((error) => console.error('[init:settings]', error));
 
-  state.appUpdate = await window.tokenMonitor.getAppUpdateState();
+  // First paint must not wait on settings, hub, tokscale, or app-update IPC.
+  await refreshStats().catch((error) => console.error('[init:stats]', error));
+  if (!state.stats) {
+    state.stats = { periods: {} };
+    try { render(); } catch (error) { console.error('[init:render]', error); }
+  }
+
+  await settingsPromise;
+  if (state.settings) {
+    initSettingsSectionOrder();
+    applyEffectiveCurrencyRates();
+    void deliverTrayProviderIcons();
+    if (state.appInfo?.loginItemSupported) {
+      state.settings.startAtLogin = Boolean(state.appInfo.loginItemOpenAtLogin);
+    }
+    syncSettingsForm();
+    publishViewState();
+  }
+
+  try { state.appUpdate = await window.tokenMonitor.getAppUpdateState(); } catch (_) {}
   renderAppUpdatePill();
   renderSettingsAppUpdateRow();
   window.tokenMonitor.onAppUpdatePush?.((payload) => {
@@ -8716,11 +8761,6 @@ async function init() {
     renderAutomaticAppUpdateControl();
     if (els.appUpdatePopover.matches(':popover-open')) renderAppUpdatePopover(payload);
   });
-  if (state.appInfo?.loginItemSupported) {
-    state.settings.startAtLogin = Boolean(state.appInfo.loginItemOpenAtLogin);
-  }
-  syncSettingsForm();
-  publishViewState();
   await refreshHubInfo();
   await refreshTokscaleStatus();
   restartTimer();
@@ -8734,7 +8774,7 @@ async function init() {
       renderSyncClientStatus();
     }
   } catch (_) {}
-  await refreshStats();
+  if (state.settings) await refreshStats().catch((error) => console.error('[init:stats:refresh]', error));
   restartTimer();
   updateTitleFit();
 }
@@ -13144,11 +13184,21 @@ function initSettingsAnimationWrappers() {
   });
 }
 
+try {
 orderAccountProviderGroups();
+} catch (error) { console.error('[boot:orderAccountProviderGroups]', error); }
+try {
 initSettingsAnimationWrappers();
+} catch (error) { console.error('[boot:initSettingsAnimationWrappers]', error); }
+try {
 setupSettingsSections();
+} catch (error) { console.error('[boot:setupSettingsSections]', error); }
+try {
 setupCursorAccountUI();
+} catch (error) { console.error('[boot:setupCursorAccountUI]', error); }
+try {
 setupCustomPricingUI();
+} catch (error) { console.error('[boot:setupCustomPricingUI]', error); }
 init().catch((error) => {
   console.error('[init]', error);
   void refreshStats().catch((refreshError) => console.error('[init:refresh]', refreshError));

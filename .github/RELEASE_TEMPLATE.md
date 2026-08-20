@@ -4,7 +4,8 @@
 
 <!-- app-update-notes:en:start -->
 ### Fixed
-- **Startup hang / blank Home:** the first stats refresh no longer waits on quota-history snapshot IPC, so the widget paints immediately. Forecast modules also load in the renderer without a Node `module` object, so Home no longer stays empty after 0.2.0.
+- **Blank Home after 0.2.0 / 0.2.1:** first paint no longer waits on settings, hub, tokscale, or app-update IPC. A thrown settings helper cannot skip `init()`. Home starts visible (not a hidden empty panel), and renderer script errors surface in the widget instead of leaving TOTAL TOKENS at `0`.
+- **Startup hang / quota snapshot:** the first stats refresh no longer waits on quota-history snapshot IPC. Forecast modules load in the renderer without a Node `module` object.
 
 ### Added
 - **Providers & Limits forecast:** Settings drill-down shows pace vs actual usage, confidence, Last Good age, optional exhaust timing, and sparklines when enough history exists — no routing advice.
@@ -15,18 +16,25 @@
 
 ## Download
 
-- **macOS Apple Silicon** — [potluck-monitor-0.2.1-arm64.dmg](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.1/potluck-monitor-0.2.1-arm64.dmg)
-- **macOS Intel** — [potluck-monitor-0.2.1-x64.dmg](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.1/potluck-monitor-0.2.1-x64.dmg)
-- **Windows installer** — [potluck-monitor-Setup-0.2.1.exe](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.1/potluck-monitor-Setup-0.2.1.exe)
-- **Windows portable** — [potluck-monitor-0.2.1.exe](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.1/potluck-monitor-0.2.1.exe)
-- **Linux** — [potluck-monitor-0.2.1.AppImage](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.1/potluck-monitor-0.2.1.AppImage)
+- **macOS Apple Silicon** — [potluck-monitor-0.2.2-arm64.dmg](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.2/potluck-monitor-0.2.2-arm64.dmg)
+- **macOS Intel** — [potluck-monitor-0.2.2-x64.dmg](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.2/potluck-monitor-0.2.2-x64.dmg)
+- **Windows installer** — [potluck-monitor-Setup-0.2.2.exe](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.2/potluck-monitor-Setup-0.2.2.exe)
+- **Windows portable** — [potluck-monitor-0.2.2.exe](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.2/potluck-monitor-0.2.2.exe)
+- **Linux** — [potluck-monitor-0.2.2.AppImage](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.2/potluck-monitor-0.2.2.AppImage)
 
 <details>
 <summary><strong>First launch and other notes</strong></summary>
 
 ### First launch
 
-**macOS:** this release is unsigned. Open the `.dmg`, drag Potluck Monitor to Applications, then right-click the app and choose **Open** on first launch. Windows may likewise show a SmartScreen warning because no SignPath credential is configured for this repository.
+**macOS:** this release is unsigned. Open the `.dmg`, drag Potluck Monitor to Applications, then run:
+
+```bash
+xattr -cr "/Applications/Potluck Monitor.app"
+open "/Applications/Potluck Monitor.app"
+```
+
+If macOS says the app is damaged, that is Gatekeeper quarantine — the command above clears it. Right-click **Open** is often not enough on current macOS. Confirm **Settings → App Updates → Installed** shows `v0.2.2`. Windows may show a SmartScreen warning because no SignPath credential is configured for this repository.
 
 ### Other notes
 
@@ -50,7 +58,8 @@ open-source: https://github.com/junhoyeo/tokscale
 
 <!-- app-update-notes:zh:start -->
 ### 修复
-- **启动卡住 / 主页空白：** 首次刷新不再等待额度历史 IPC，窗口会立刻画出用量。预测模块在渲染进程里也不再依赖 Node 的 `module`，避免 0.2.0 升级后 Home 一直空白。
+- **0.2.0 / 0.2.1 主页空白：** 首次绘制不再等待设置、hub、tokscale 或应用更新 IPC。设置页辅助函数抛错也不会跳过 `init()`。Home 一开始就是可见的（不再是隐藏空面板），渲染脚本出错会显示在窗口里，而不是把 TOTAL TOKENS 一直留在 `0`。
+- **启动卡住 / 额度快照：** 首次刷新不再等待额度历史 IPC。预测模块在渲染进程里也不再依赖 Node 的 `module`。
 
 ### 新增
 - **Providers & Limits 额度预测：** 设置页可展开每个连接，查看实际 vs 节奏、置信度、Last Good、可选的耗尽时间，以及有足够样本时的小折线图 —— 不提供切换/路由建议。
@@ -61,18 +70,25 @@ open-source: https://github.com/junhoyeo/tokscale
 
 ## 下载
 
-- **macOS Apple Silicon** — [potluck-monitor-0.2.1-arm64.dmg](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.1/potluck-monitor-0.2.1-arm64.dmg)
-- **macOS Intel** — [potluck-monitor-0.2.1-x64.dmg](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.1/potluck-monitor-0.2.1-x64.dmg)
-- **Windows 安装包** — [potluck-monitor-Setup-0.2.1.exe](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.1/potluck-monitor-Setup-0.2.1.exe)
-- **Windows 便携版** — [potluck-monitor-0.2.1.exe](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.1/potluck-monitor-0.2.1.exe)
-- **Linux** — [potluck-monitor-0.2.1.AppImage](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.1/potluck-monitor-0.2.1.AppImage)
+- **macOS Apple Silicon** — [potluck-monitor-0.2.2-arm64.dmg](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.2/potluck-monitor-0.2.2-arm64.dmg)
+- **macOS Intel** — [potluck-monitor-0.2.2-x64.dmg](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.2/potluck-monitor-0.2.2-x64.dmg)
+- **Windows 安装包** — [potluck-monitor-Setup-0.2.2.exe](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.2/potluck-monitor-Setup-0.2.2.exe)
+- **Windows 便携版** — [potluck-monitor-0.2.2.exe](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.2/potluck-monitor-0.2.2.exe)
+- **Linux** — [potluck-monitor-0.2.2.AppImage](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.2/potluck-monitor-0.2.2.AppImage)
 
 <details>
 <summary><strong>首次启动与其他说明</strong></summary>
 
 ### 首次启动
 
-**macOS：**本次发布包未签名。打开 `.dmg`，把 Potluck Monitor 拖到 Applications，首次启动时右键应用并选择「打开」。由于仓库尚未配置 SignPath 凭据，Windows 也可能显示 SmartScreen 提示。
+**macOS：**本次发布包未签名。打开 `.dmg`，把 Potluck Monitor 拖到 Applications，然后在终端执行：
+
+```bash
+xattr -cr "/Applications/Potluck Monitor.app"
+open "/Applications/Potluck Monitor.app"
+```
+
+若系统提示「已损坏」，那是隔离标记，不是安装包坏了；上面这条命令会清掉它。较新的 macOS 上仅右键「打开」经常不够。打开后到 **设置 → App Updates → Installed** 确认是 `v0.2.2`。由于仓库尚未配置 SignPath 凭据，Windows 也可能显示 SmartScreen 提示。
 
 ### 其他说明
 

@@ -1344,7 +1344,11 @@
         </button>
       </div>
 
-      <section id="homePanel" class="home-panel hidden"></section>
+      <section id="homePanel" class="home-panel">
+        <div class="home-empty">
+          <div class="home-empty-title">Starting</div>
+        </div>
+      </section>
       <section id="breakdown" class="breakdown"></section>
       <div id="session-detail-head" class="detail-head hidden"></div>
       <div id="session-detail" class="session-detail hidden"></div>
@@ -1424,6 +1428,7 @@
     <script src="windowsGlass.js"></script>
     <script src="glassRendering.js"></script>
     <script src="trayComposer.js"></script>
+    <script src="rendererBoot.js"></script>
     <script src="../../shared/quotaForecast.js"></script>
     <script src="../../shared/quotaRisk.js"></script>
     <script src="app.js"></script>
