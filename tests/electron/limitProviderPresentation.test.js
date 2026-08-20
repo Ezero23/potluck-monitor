@@ -1412,3 +1412,45 @@ test('Kimi usage and limits share the canonical provider id and vendor color', (
   assert.match(app, /\{ id: 'kimi', label: 'Kimi' \}/);
   assert.match(app, /const color = id === 'mimo' \? clientColors\.xiaomi : \(clientColors\[id\] \|\| clientColors\.default\)/);
 });
+
+test('settings connection cards load quota forecast modules and render pace, confidence, and last good', () => {
+  const html = readRendererFile('index.html');
+  const app = readRendererFile('app.js');
+  const styles = readRendererFile('styles.css');
+  const i18n = readRendererFile('i18n.js');
+  const connectionCard = functionBody(app, 'appendLimitProviderConnectionCard', 'renderLimitsDataHealth');
+
+  assert.match(html, /src="\.\.\/\.\.\/shared\/quotaForecast\.js"/);
+  assert.match(html, /src="\.\.\/\.\.\/shared\/quotaRisk\.js"/);
+  assert.match(app, /const quotaForecastApi = window\.TokenMonitorQuotaForecast;/);
+  assert.match(app, /const quotaRiskApi = window\.TokenMonitorQuotaRisk;/);
+  assert.match(app, /mergeQuotaArchiveFromLimits\(/);
+  assert.match(connectionCard, /appendQuotaForecastPanels\(card, row, state\.quotaArchive/);
+  assert.doesNotMatch(connectionCard, /\broute\b|\bswitchModel\b|\baction:/);
+  assert.match(app, /quotaConfidenceLabel\(forecast\)/);
+  assert.match(app, /t\('settings\.limits\.forecast\.noHistory'\)/);
+  assert.match(app, /t\('settings\.limits\.forecast\.noEstimate'\)/);
+  assert.match(app, /displayEligible/);
+  assert.match(styles, /\.limit-quota-forecast-grid/);
+  assert.match(styles, /\.limit-quota-sparkline/);
+  assert.match(i18n, /'settings\.limits\.forecast\.actualVsPace'/);
+  assert.match(i18n, /'settings\.limits\.forecast\.lastGoodStale'/);
+  assert.match(i18n, /'settings\.limits\.forecast\.paceBehind'/);
+});
+
+test('quota forecast sparklines require at least two samples and never render for empty history', () => {
+  const app = readRendererFile('app.js');
+  const sparkline = functionBody(app, 'quotaSparklineSvg', 'appendQuotaForecastWindow');
+
+  assert.match(sparkline, /if \(points\.length < 2\) return null;/);
+  assert.match(sparkline, /aria-hidden', 'true'/);
+});
+
+test('shared quota forecast modules expose renderer globals without route fields', () => {
+  const forecast = fs.readFileSync(path.join(__dirname, '..', '..', 'src', 'shared', 'quotaForecast.js'), 'utf8');
+  const risk = fs.readFileSync(path.join(__dirname, '..', '..', 'src', 'shared', 'quotaRisk.js'), 'utf8');
+  assert.match(forecast, /window\.TokenMonitorQuotaForecast = quotaForecastApi;/);
+  assert.match(risk, /window\.TokenMonitorQuotaRisk = quotaRiskApi;/);
+  assert.doesNotMatch(forecast, /route:|switch:|action:/);
+  assert.doesNotMatch(risk, /route:|switch:|action:/);
+});

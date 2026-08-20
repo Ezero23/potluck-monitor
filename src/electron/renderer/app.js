@@ -120,6 +120,8 @@ const DEFAULT_LIMIT_PROVIDER_ORDER = LIMIT_PROVIDERS.map((provider) => provider.
 const limitProviderOrderApi = window.TokenMonitorLimitProviderOrder;
 const limitProviderPresentationApi = window.TokenMonitorLimitProviderPresentation;
 const limitProviderSummaryApi = window.TokenMonitorLimitProviderSummary;
+const quotaForecastApi = window.TokenMonitorQuotaForecast;
+const quotaRiskApi = window.TokenMonitorQuotaRisk;
 const appUpdatePresentationApi = window.TokenMonitorAppUpdatePresentation;
 const accountIdentityApi = window.TokenMonitorAccountIdentity;
 const clientStatusPresentationApi = window.TokenMonitorClientStatusPresentation;
@@ -272,6 +274,7 @@ state.potluckGateway = null;
 state.settingsSections = Object.fromEntries(SETTINGS_SECTION_IDS.map((id) => [id, false]));
 state.limitProviderDetailsOpen = new Set();
 state.limitsDataHealthOpen = false;
+state.quotaArchive = { version: 1, series: {}, annotations: {} };
 const defaultAppearance = { glassOpacity: 68, glassBlur: 32, zoomFactor: 1, systemGlass: true, windowsBackdrop: 'acrylic', reduceMotion: 'system', showLiveDot: true, showToolIcons: true, titleIconOnly: true, showCompactTotalTokens: false, settingsInTitlebar: false };
 let preferenceDrag = null;
 let viewSwitcherLongPressTimer = null;
@@ -5554,6 +5557,7 @@ async function refreshStats(options = {}) {
   }
   try {
     state.stats = overlayAllTimeSessions(await window.tokenMonitor.getStats(options));
+    mergeQuotaArchiveFromLimits(state.stats?.limits);
     ensurePricingAudit();
     if (options.forceHistory === true) {
       // A manual history rescan is an explicit retry boundary. Let Home request the
@@ -7899,6 +7903,260 @@ function settingsWindowLine(window) {
   return t('settings.limits.windowRemaining', { label, remaining, reset: reset || t('settings.limits.age.unknown') });
 }
 
+function emptyQuotaArchive() {
+  return { version: 1, series: {}, annotations: {} };
+}
+
+function quotaSampleFingerprint(sample) {
+  return JSON.stringify([
+    sample.used,
+    sample.limit,
+    sample.remaining,
+    sample.usedPercent,
+    sample.remainingPercent,
+    sample.resetsAt || null,
+    sample.windowStartedAt || null
+  ]);
+}
+
+function mergeQuotaArchiveFromLimits(limits) {
+  if (!limits || !Array.isArray(limits.providers) || !quotaForecastApi) return;
+  const archive = state.quotaArchive || emptyQuotaArchive();
+  const fallbackAt = limits.generatedAt || limits.updatedAt || new Date().toISOString();
+  for (const provider of limits.providers) {
+    if (!provider || typeof provider !== 'object') continue;
+    const windows = Array.isArray(provider.windows) ? provider.windows : [];
+    const identityBase = {
+      quotaPoolKey: String(provider.quotaPoolKey || '').trim(),
+      connectionKey: String(provider.connectionKey || '').trim(),
+      provider: String(provider.provider || '').trim() || 'unknown'
+    };
+    const atSuccess = provider.lastSuccessAt || provider.updatedAt || fallbackAt;
+    const connectionStatus = String(provider.connectionStatus || '').trim();
+    const quotaStatus = String(provider.quotaStatus || '').trim();
+    const status = String(provider.status || connectionStatus || '').trim();
+    if (windows.length === 0) continue;
+    for (const window of windows) {
+      if (!window || typeof window !== 'object') continue;
+      const windowKey = quotaForecastApi.windowHistoryKey(window);
+      const seriesKey = quotaForecastApi.quotaHistorySeriesKey({ ...identityBase, windowKey });
+      const series = archive.series[seriesKey] || {
+        seriesKey,
+        ...identityBase,
+        windowKey,
+        provider: identityBase.provider,
+        raw: [],
+        hourly: [],
+        cycles: []
+      };
+      const sample = {
+        at: atSuccess,
+        kind: 'sample',
+        used: window.used,
+        limit: window.limit,
+        remaining: window.remaining,
+        usedPercent: window.usedPercent,
+        remainingPercent: window.remainingPercent,
+        resetsAt: window.resetsAt || window.resetAt,
+        windowStartedAt: window.windowStartedAt,
+        status,
+        quotaStatus: window.quotaStatus || quotaStatus,
+        connectionStatus
+      };
+      const latest = series.raw.length ? series.raw[series.raw.length - 1] : null;
+      if (latest && quotaSampleFingerprint(latest) === quotaSampleFingerprint(sample)) continue;
+      series.raw.push(sample);
+      series.raw.sort((left, right) => left.at.localeCompare(right.at));
+      archive.series[seriesKey] = series;
+    }
+  }
+  state.quotaArchive = archive;
+}
+
+function quotaRemainingPercent(window) {
+  if (window?.metric === 'credits') return null;
+  const remaining = Number(window?.remainingPercent);
+  if (Number.isFinite(remaining)) return Math.round(remaining);
+  const used = Number(window?.usedPercent);
+  if (Number.isFinite(used)) return Math.round(100 - used);
+  return null;
+}
+
+function quotaPaceSummary(window, pace) {
+  if (!pace || pace.paceDelta == null) return t('settings.limits.forecast.paceUnknown');
+  const delta = Math.round(Math.abs(pace.paceDelta) * 100);
+  if (Math.abs(pace.paceDelta) < 0.03) return t('settings.limits.forecast.paceOnTrack');
+  if (pace.paceDelta > 0) return t('settings.limits.forecast.paceAhead', { delta });
+  return t('settings.limits.forecast.paceBehind', { delta });
+}
+
+function quotaConfidenceLabel(forecast) {
+  if (!forecast || forecast.eligibility === 'unknown') return t('settings.limits.forecast.confidenceUnknown');
+  if (forecast.eligibility !== 'eligible' || !forecast.exhaust) return t('settings.limits.forecast.confidenceInsufficient');
+  if (!forecast.displayEligible) return t('settings.limits.forecast.confidenceBeta', { percent: Math.round((forecast.confidence || 0) * 100) });
+  return t('settings.limits.forecast.confidenceValue', { percent: Math.round((forecast.confidence || 0) * 100) });
+}
+
+function quotaSparklineSvg(samples, metric = 'percent') {
+  const points = (Array.isArray(samples) ? samples : [])
+    .map((sample) => {
+      const value = metric === 'credits'
+        ? Number(sample.remaining)
+        : Number(sample.usedPercent);
+      const at = Date.parse(sample.at);
+      if (!Number.isFinite(value) || !Number.isFinite(at)) return null;
+      return { at, value };
+    })
+    .filter(Boolean)
+    .sort((left, right) => left.at - right.at);
+  if (points.length < 2) return null;
+  const width = 120;
+  const height = 28;
+  const minAt = points[0].at;
+  const maxAt = points[points.length - 1].at;
+  const values = points.map((point) => point.value);
+  const minValue = Math.min(...values);
+  const maxValue = Math.max(...values);
+  const spanValue = maxValue - minValue || 1;
+  const spanAt = maxAt - minAt || 1;
+  const path = points.map((point, index) => {
+    const x = ((point.at - minAt) / spanAt) * (width - 2) + 1;
+    const y = height - 1 - ((point.value - minValue) / spanValue) * (height - 2);
+    return `${index === 0 ? 'M' : 'L'}${x.toFixed(1)},${y.toFixed(1)}`;
+  }).join(' ');
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
+  svg.setAttribute('width', String(width));
+  svg.setAttribute('height', String(height));
+  svg.setAttribute('role', 'img');
+  svg.setAttribute('aria-hidden', 'true');
+  svg.classList.add('limit-quota-sparkline');
+  const track = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+  track.setAttribute('d', path);
+  track.setAttribute('fill', 'none');
+  track.setAttribute('stroke', 'currentColor');
+  track.setAttribute('stroke-width', '1.5');
+  track.setAttribute('stroke-linecap', 'round');
+  track.setAttribute('stroke-linejoin', 'round');
+  svg.append(track);
+  return svg;
+}
+
+function formatQuotaFutureTime(value) {
+  const target = Date.parse(value);
+  if (!Number.isFinite(target)) return '';
+  const diffMs = target - Date.now();
+  if (diffMs <= 0) return t('settings.limits.age.justNow');
+  return formatDuration(diffMs);
+}
+
+function appendQuotaForecastWindow(card, row, window, archive) {
+  if (!quotaForecastApi || !window) return;
+  const windowKey = quotaForecastApi.windowHistoryKey(window);
+  const seriesKey = quotaForecastApi.quotaHistorySeriesKey({
+    quotaPoolKey: row?.quotaPoolKey,
+    connectionKey: row?.connectionKey,
+    windowKey
+  });
+  const series = archive?.series?.[seriesKey] || { raw: [], hourly: [], cycles: [] };
+  const forecast = quotaForecastApi.forecastQuotaWindow({
+    now: new Date().toISOString(),
+    window,
+    provider: row,
+    series,
+    stale: row?.stale === true || row?.quotaStatus === 'stale' || window?.quotaStatus === 'stale'
+  });
+  const risk = quotaRiskApi?.evaluateQuotaRisk({
+    now: new Date().toISOString(),
+    window,
+    provider: row,
+    series,
+    forecast,
+    stale: row?.stale === true || row?.quotaStatus === 'stale'
+  }) || { state: 'unknown' };
+  const panel = document.createElement('div');
+  panel.className = 'limit-quota-forecast-window';
+  const title = document.createElement('div');
+  title.className = 'limit-quota-forecast-title';
+  const label = String(window.label || window.kind || 'quota').trim();
+  const remaining = quotaRemainingPercent(window);
+  const reset = formatReset(window.resetsAt || window.resetAt);
+  title.textContent = remaining == null
+    ? (reset ? `${label} · ${reset}` : label)
+    : t('settings.limits.forecast.windowHeadline', { label, remaining, reset: reset || t('settings.limits.age.unknown') });
+  panel.append(title);
+  const pace = forecast.pace;
+  const paceLine = document.createElement('div');
+  paceLine.className = 'limit-quota-forecast-line';
+  paceLine.textContent = t('settings.limits.forecast.actualVsPace', {
+    actual: remaining == null ? t('settings.limits.forecast.valueUnknown') : t('settings.limits.forecast.actualPercent', { value: remaining }),
+    pace: quotaPaceSummary(window, pace)
+  });
+  panel.append(paceLine);
+  const confidenceLine = document.createElement('div');
+  confidenceLine.className = 'limit-quota-forecast-line';
+  confidenceLine.textContent = t('settings.limits.forecast.confidence', { value: quotaConfidenceLabel(forecast) });
+  panel.append(confidenceLine);
+  const lastGoodLine = document.createElement('div');
+  lastGoodLine.className = 'limit-quota-forecast-line';
+  const lastGoodAt = row?.lastSuccessAt || row?.updatedAt;
+  lastGoodLine.textContent = row?.stale === true || row?.quotaStatus === 'stale'
+    ? t('settings.limits.forecast.lastGoodStale', { age: formatSettingsAge(lastGoodAt) })
+    : t('settings.limits.forecast.lastGoodFresh', { age: formatSettingsAge(lastGoodAt) });
+  panel.append(lastGoodLine);
+  if (forecast.exhaust?.estimatedExhaustAt && forecast.displayEligible) {
+    const exhaustLine = document.createElement('div');
+    exhaustLine.className = 'limit-quota-forecast-line';
+    exhaustLine.textContent = t('settings.limits.forecast.exhaustEstimate', {
+      at: formatQuotaFutureTime(forecast.exhaust.estimatedExhaustAt),
+      remaining: forecast.exhaust.estimatedRemainingAtReset == null
+        ? t('settings.limits.forecast.valueUnknown')
+        : t('settings.limits.forecast.remainingAtReset', { value: Math.round(forecast.exhaust.estimatedRemainingAtReset) })
+    });
+    panel.append(exhaustLine);
+  } else if (forecast.eligibility === 'insufficient' || forecast.eligibility === 'unknown') {
+    const note = document.createElement('div');
+    note.className = 'limit-quota-forecast-note';
+    note.textContent = t('settings.limits.forecast.noEstimate');
+    panel.append(note);
+  }
+  const metric = forecast.velocity?.metric || 'percent';
+  const sparkline = quotaSparklineSvg(series.raw, metric);
+  if (sparkline) {
+    const sparkWrap = document.createElement('div');
+    sparkWrap.className = 'limit-quota-sparkline-wrap';
+    sparkWrap.append(sparkline);
+    panel.append(sparkWrap);
+  } else {
+    const noHistory = document.createElement('div');
+    noHistory.className = 'limit-quota-forecast-note';
+    noHistory.textContent = t('settings.limits.forecast.noHistory');
+    panel.append(noHistory);
+  }
+  if (risk.state && risk.state !== 'normal' && risk.state !== 'unknown') {
+    const riskLine = document.createElement('div');
+    riskLine.className = `limit-quota-forecast-risk limit-quota-forecast-risk-${risk.state}`;
+    const riskKeys = {
+      exhausted: 'settings.limits.forecast.risk.exhausted',
+      likely_to_exhaust: 'settings.limits.forecast.risk.likelyToExhaust',
+      watch: 'settings.limits.forecast.risk.watch',
+      stale: 'settings.limits.forecast.risk.stale'
+    };
+    riskLine.textContent = t(riskKeys[risk.state] || 'settings.limits.forecast.risk.unknown');
+    panel.append(riskLine);
+  }
+  card.append(panel);
+}
+
+function appendQuotaForecastPanels(card, row, archive) {
+  const windows = Array.isArray(row?.windows) ? row.windows : [];
+  if (windows.length === 0) return;
+  const grid = document.createElement('div');
+  grid.className = 'limit-quota-forecast-grid';
+  for (const window of windows) appendQuotaForecastWindow(grid, row, window, archive);
+  if (grid.childElementCount > 0) card.append(grid);
+}
+
 function providerAccountSettingsEl(providerId) {
   return document.getElementById(`${providerId}AccountGroup`);
 }
@@ -7945,6 +8203,7 @@ function appendLimitProviderConnectionCard(details, row, index, rows, providerId
     line.textContent = settingsWindowLine(window);
     card.append(line);
   }
+  appendQuotaForecastPanels(card, row, state.quotaArchive || emptyQuotaArchive());
   const actions = document.createElement('div');
   actions.className = 'limit-provider-connection-actions';
   const refresh = document.createElement('button');
@@ -8992,6 +9251,7 @@ window.tokenMonitor.onStatsPush?.((payload) => {
     }
     if (payload.data?.mode) state.mode = payload.data.mode;
     state.stats = overlayAllTimeSessions(payload.data.stats);
+    mergeQuotaArchiveFromLimits(state.stats?.limits);
     applyCodexActiveAccountFromStats();
     // Progressive mid-tick pushes never carry a fresh history scan (see
     // AGENTS.md collector notes), so only the final push can retire the

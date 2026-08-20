@@ -1,6 +1,22 @@
 'use strict';
 
-const { forecastFromArchive, forecastQuotaWindow, stripForbidden } = require('./quotaForecast');
+const quotaForecastPeer = (() => {
+  try {
+    return require('./quotaForecast');
+  } catch {
+    return null;
+  }
+})();
+
+const {
+  forecastFromArchive,
+  forecastQuotaWindow,
+  stripForbidden
+} = quotaForecastPeer || (typeof window !== 'undefined' ? window.TokenMonitorQuotaForecast : null) || {
+  forecastFromArchive: () => [],
+  forecastQuotaWindow: () => ({ eligibility: 'insufficient', exhaust: null }),
+  stripForbidden: (value) => value
+};
 
 const RISK_STATES = Object.freeze([
   'exhausted',
@@ -278,10 +294,13 @@ function evaluateProviderRisks(archive, providers, options = {}) {
   };
 }
 
-module.exports = {
+const quotaRiskApi = {
   RISK_STATES,
   bindingQuotaConstraint,
   evaluateProviderRisks,
   evaluateQuotaMetrics,
   evaluateQuotaRisk
 };
+
+module.exports = quotaRiskApi;
+if (typeof window !== 'undefined') window.TokenMonitorQuotaRisk = quotaRiskApi;

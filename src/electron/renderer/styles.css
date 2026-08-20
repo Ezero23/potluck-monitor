@@ -1746,6 +1746,54 @@ span.settings-note.settings-item-desc {
   padding: 2px 7px;
   font-size: 10px;
 }
+.limit-quota-forecast-grid {
+  display: grid;
+  gap: 8px;
+  margin-top: 6px;
+}
+.limit-quota-forecast-window {
+  display: grid;
+  gap: 3px;
+  padding: 6px 8px;
+  border: 1px dashed rgba(var(--line-rgb), 0.18);
+  border-radius: 6px;
+  background: rgba(var(--line-rgb), 0.04);
+}
+.limit-quota-forecast-title {
+  color: var(--text);
+  font-size: 10px;
+  font-weight: 600;
+}
+.limit-quota-forecast-line,
+.limit-quota-forecast-note {
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.35;
+}
+.limit-quota-forecast-note {
+  font-style: italic;
+}
+.limit-quota-forecast-risk {
+  font-size: 10px;
+  font-weight: 600;
+}
+.limit-quota-forecast-risk-likely_to_exhaust,
+.limit-quota-forecast-risk-exhausted {
+  color: var(--danger, #d14343);
+}
+.limit-quota-forecast-risk-watch {
+  color: var(--warn, #c58a00);
+}
+.limit-quota-forecast-risk-stale {
+  color: var(--muted);
+}
+.limit-quota-sparkline-wrap {
+  margin-top: 2px;
+  color: rgba(var(--text-rgb), 0.72);
+}
+.limit-quota-sparkline {
+  display: block;
+}
 .settings-limits-globals {
   display: grid;
   gap: 2px;

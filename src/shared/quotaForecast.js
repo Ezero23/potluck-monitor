@@ -1,6 +1,50 @@
 'use strict';
 
-const { isQuotaResetEvent, quotaHistorySeriesKey, windowHistoryKey } = require('./quotaHistory');
+const quotaHistoryPeer = (() => {
+  try {
+    return require('./quotaHistory');
+  } catch {
+    return null;
+  }
+})();
+
+function quotaHistoryLite() {
+  function normalizeIso(value) {
+    if (value == null || value === '') return null;
+    const parsed = Date.parse(value);
+    return Number.isFinite(parsed) ? new Date(parsed).toISOString() : null;
+  }
+  function windowHistoryKey(window = {}) {
+    const explicit = String(window.windowKey || window.window_key || '').trim();
+    if (explicit) return explicit;
+    const kind = String(window.kind || '').trim() || 'window';
+    const label = String(window.label || '').trim();
+    if (label && label !== kind) return `${kind}:${label}`;
+    return kind;
+  }
+  function quotaHistorySeriesKey(input = {}) {
+    const windowKey = String(input.windowKey || '').trim() || 'window';
+    const pool = String(input.quotaPoolKey || '').trim();
+    if (pool) return `pool:${pool}:${windowKey}`;
+    const connection = String(input.connectionKey || '').trim() || 'unknown';
+    return `conn:${connection}:${windowKey}`;
+  }
+  function isQuotaResetEvent(previous, incoming) {
+    if (!incoming) return false;
+    if (incoming.kind === 'reset' || incoming.resetEvent === true || incoming.event === 'reset') return true;
+    if (!previous) return false;
+    const prevReset = normalizeIso(previous.resetsAt);
+    const nextReset = normalizeIso(incoming.resetsAt);
+    return Boolean(prevReset && nextReset && prevReset !== nextReset);
+  }
+  return { isQuotaResetEvent, quotaHistorySeriesKey, windowHistoryKey };
+}
+
+const {
+  isQuotaResetEvent,
+  quotaHistorySeriesKey,
+  windowHistoryKey
+} = quotaHistoryPeer || quotaHistoryLite();
 
 const MIN_SHADOW_CYCLES = 2;
 const DEFAULT_MIN_INTERVAL_MS = 60 * 1000;
@@ -632,7 +676,7 @@ function forecastFromArchive(archive = {}, providers = [], options = {}) {
   return forecasts;
 }
 
-module.exports = {
+const quotaForecastApi = {
   DEFAULT_MIN_INTERVAL_MS,
   MIN_SHADOW_CYCLES,
   STALE_CONFIDENCE_CAP,
@@ -640,7 +684,12 @@ module.exports = {
   forecastFromArchive,
   forecastQuotaWindow,
   paceFacts,
+  quotaHistorySeriesKey,
   robustVelocity,
   shadowBacktest,
-  stripForbidden
+  stripForbidden,
+  windowHistoryKey
 };
+
+module.exports = quotaForecastApi;
+if (typeof window !== 'undefined') window.TokenMonitorQuotaForecast = quotaForecastApi;
