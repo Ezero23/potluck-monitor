@@ -2480,9 +2480,12 @@ function thirdPartySpendNode(provider, quotaWindow) {
 }
 
 const {
+  creditsAmount,
+  creditsCurrency,
   creditsMeterPercent,
   formatCompactMoney,
-  formatMoney
+  formatMoney,
+  isCreditsWindow
 } = window.TokenMonitorLimitBalanceDisplay;
 
 function optionalFiniteNumber(value) {
@@ -3131,7 +3134,8 @@ function renderProviderWindows(provider, color) {
   } else if (provider.provider === 'mimo') {
     windows.classList.add('limit-windows-mimo');
     const balance = provider.balance || null;
-    const tokenPlan = windowForKind(provider, 'billing') || mimoTokenPlanWindowFromBalance(balance);
+    const tokenPlan = (provider?.windows || []).find((window) => window?.kind === 'billing' && !isCreditsWindow(window))
+      || mimoTokenPlanWindowFromBalance(balance);
     if (tokenPlan) {
       const node = limitWindowNode(tokenPlan.label || 'Token Plan', tokenPlan, color, 0.68);
       node.classList.add('limit-window-wide');
@@ -7817,7 +7821,7 @@ function renderAccountConnectionDirectory() {
       for (const window of connection?.windows || []) {
         const line = document.createElement('div');
         line.className = 'account-connection-entry-window';
-        line.textContent = settingsWindowLine(window);
+        line.textContent = settingsWindowLine(window, connection);
         card.append(line);
       }
 
@@ -8061,12 +8065,17 @@ function settingsQuotaLabel(row) {
   return quota;
 }
 
-function settingsWindowLine(window) {
+function settingsWindowLine(window, provider = null) {
   const label = String(window?.label || window?.kind || '').trim() || 'quota';
+  const reset = formatReset(window?.resetsAt || window?.resetAt);
+  if (isCreditsWindow(window)) {
+    const amount = formatCompactMoney(creditsAmount(provider, window), creditsCurrency(provider, window));
+    const detail = String(window?.detail || '').trim();
+    if (amount || detail) return [label, amount || detail, reset].filter(Boolean).join(' · ');
+  }
   const remaining = Number.isFinite(Number(window?.remainingPercent))
     ? Math.round(Number(window.remainingPercent))
     : (Number.isFinite(Number(window?.usedPercent)) ? Math.round(100 - Number(window.usedPercent)) : null);
-  const reset = formatReset(window?.resetsAt || window?.resetAt);
   if (remaining == null) return reset ? `${label} · ${reset}` : label;
   return t('settings.limits.windowRemaining', { label, remaining, reset: reset || t('settings.limits.age.unknown') });
 }
@@ -8390,7 +8399,7 @@ function appendLimitProviderConnectionCard(details, row, index, rows, providerId
   for (const window of row?.windows || []) {
     const line = document.createElement('div');
     line.className = 'limit-provider-window-line';
-    line.textContent = settingsWindowLine(window);
+    line.textContent = settingsWindowLine(window, row);
     card.append(line);
   }
   appendQuotaForecastPanels(card, row, state.quotaArchive || emptyQuotaArchive());

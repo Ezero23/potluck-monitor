@@ -959,7 +959,7 @@ test('MiMo main Limits row falls back to balance plan fields for Token Plan', ()
   const tokenPlanFallback = functionBody(app, 'mimoTokenPlanWindowFromBalance', 'limitWindowNode');
 
   assert.match(renderProviderWindows, /const balance = provider\.balance \|\| null;/);
-  assert.match(renderProviderWindows, /const tokenPlan = windowForKind\(provider, 'billing'\) \|\| mimoTokenPlanWindowFromBalance\(balance\);/);
+  assert.match(renderProviderWindows, /const tokenPlan = \(provider\?\.windows \|\| \[\]\)\.find\(\(window\) => window\?\.kind === 'billing' && !isCreditsWindow\(window\)\)/);
   assert.match(renderProviderWindows, /limitWindowNode\(tokenPlan\.label \|\| 'Token Plan', tokenPlan, color, 0\.68\)/);
   assert.match(renderProviderWindows, /const giftBalance = optionalFiniteNumber\(balance\?\.giftBalance\);/);
   assert.match(renderProviderWindows, /const cashBalance = optionalFiniteNumber\(balance\?\.cashBalance\);/);
@@ -1493,4 +1493,17 @@ test('Accounts settings expose a unified provider connection and quota directory
   assert.match(styles, /\.account-connection-entry/);
   assert.match(i18n, /'settings\.accounts\.connections\.title'/);
   assert.match(i18n, /'settings\.accounts\.connections\.description'/);
+});
+
+test('MiMo limits keep credits balance separate from Token Plan and settings show its amount', () => {
+  const app = readRendererFile('app.js');
+  const mimoBody = functionBody(app, 'renderProviderWindows', 'renderLimitProviderRow');
+  const settingsBody = functionBody(app, 'settingsWindowLine', 'emptyQuotaArchive');
+
+  assert.match(mimoBody, /window\?\.kind === 'billing' && !isCreditsWindow\(window\)/);
+  assert.match(settingsBody, /isCreditsWindow\(window\)/);
+  assert.match(settingsBody, /creditsAmount\(provider, window\)/);
+  assert.match(settingsBody, /creditsCurrency\(provider, window\)/);
+  assert.match(app, /settingsWindowLine\(window, connection\)/);
+  assert.match(app, /settingsWindowLine\(window, row\)/);
 });
