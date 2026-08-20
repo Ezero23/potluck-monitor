@@ -5738,3 +5738,103 @@ html.is-windows .limit-live-badge {
 @media (prefers-reduced-motion: reduce) {
   .tray-composer-item { transition: none; }
 }
+
+.account-connections-overview {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 12px;
+  padding: 10px;
+  border: 1px solid rgba(var(--accent-rgb), 0.2);
+  border-radius: 8px;
+  background: rgba(var(--accent-rgb), 0.045);
+}
+.account-connections-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+.account-connections-description {
+  margin: 0;
+}
+.account-connection-list {
+  display: grid;
+  gap: 8px;
+}
+.account-connections-empty {
+  margin: 0;
+}
+.account-provider-connection-group {
+  display: grid;
+  gap: 6px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(var(--line-rgb), 0.14);
+}
+.account-provider-connection-group:first-child {
+  padding-top: 0;
+  border-top: 0;
+}
+.account-provider-connection-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+.account-provider-connection-name {
+  color: var(--text);
+  font-size: 11px;
+}
+.account-provider-connection-summary {
+  min-width: 0;
+  color: var(--muted);
+  font-size: 10px;
+  text-align: right;
+}
+.account-provider-connection-list {
+  display: grid;
+  gap: 6px;
+}
+.account-connection-entry {
+  display: grid;
+  gap: 3px;
+  padding: 7px 8px;
+  border: 1px solid rgba(var(--line-rgb), 0.16);
+  border-radius: 6px;
+  background: rgba(var(--overlay-rgb), var(--control-alpha));
+}
+.account-connection-entry-title {
+  color: var(--text);
+  font-size: 11px;
+  font-weight: 600;
+}
+.account-connection-entry-meta,
+.account-connection-entry-window {
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.35;
+}
+.account-connection-entry-window {
+  color: var(--text);
+}
+.account-connection-entry-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 4px;
+}
+.account-connection-entry-actions button {
+  margin: 0;
+  padding: 2px 7px;
+  font-size: 10px;
+}
+@media (max-width: 520px) {
+  .account-connections-heading,
+  .account-provider-connection-heading {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 3px;
+  }
+  .account-provider-connection-summary {
+    text-align: left;
+  }
+}

@@ -1471,3 +1471,24 @@ test('classic renderer forecast scripts can load before app.js without duplicate
     'shared quota scripts must not collide with app.js top-level declarations'
   );
 });
+
+test('Accounts settings expose a unified provider connection and quota directory', () => {
+  const html = readRendererFile('index.html');
+  const app = readRendererFile('app.js');
+  const styles = readRendererFile('styles.css');
+  const i18n = readRendererFile('i18n.js');
+  const overview = html.indexOf('id="accountConnectionsOverview"');
+  const legacyAccounts = html.indexOf('id="claudeAccountGroup"');
+
+  assert.notEqual(overview, -1);
+  assert.ok(overview < legacyAccounts, 'the connection directory should lead the legacy credential groups');
+  assert.match(html, /id="accountConnectionList"/);
+  assert.match(app, /function renderAccountConnectionDirectory\(\)/);
+  assert.match(app, /limitProviderSummaryApi\.connectionsByProvider/);
+  assert.match(app, /settings\.accounts\.connections\.viewQuota/);
+  assert.match(app, /settings\.limits\.manageInPotluck/);
+  assert.match(styles, /\.account-connections-overview/);
+  assert.match(styles, /\.account-connection-entry/);
+  assert.match(i18n, /'settings\.accounts\.connections\.title'/);
+  assert.match(i18n, /'settings\.accounts\.connections\.description'/);
+});
