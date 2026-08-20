@@ -167,12 +167,18 @@ test('diagnostic events expose queue state without leaking scoped credentials', 
   assert.ok(events.every((event) => Number.isInteger(event.active) && Number.isInteger(event.queued)));
   assert.ok(!JSON.stringify(events).includes('secret-cookie'));
   await waitFor(() => runtime.getDiagnostics().active === 0, 'executor to become idle');
-  assert.deepEqual(runtime.getDiagnostics(), {
-    active: 0,
-    maxConcurrency: 1,
-    queued: 0,
-    providers: [{ provider: 'kimi', active: false, pending: 0, retryAttempt: 0, retryAt: null }]
-  });
+  const diagnostics = runtime.getDiagnostics();
+  assert.equal(diagnostics.active, 0);
+  assert.equal(diagnostics.maxConcurrency, 1);
+  assert.equal(diagnostics.queued, 0);
+  assert.deepEqual(diagnostics.providers, [{
+    provider: 'kimi', active: false, pending: 0, retryAttempt: 0, retryAt: null
+  }]);
+  assert.equal(diagnostics.identities.length, 1);
+  assert.equal(diagnostics.identities[0].provider, 'kimi');
+  assert.equal(diagnostics.identities[0].status, 'ok');
+  assert.ok(diagnostics.identities[0].lastSuccessAt);
+  assert.ok(!JSON.stringify(diagnostics).includes('secret-cookie'));
   runtime.stop();
 });
 
@@ -638,5 +644,126 @@ test('a retained transient previous row seeds lastGood windows after restart', (
   assert.equal(row.status, 'unavailable');
   assert.equal(row.windows.length, 1);
   assert.equal(row.windows[0].usedPercent, 20);
+  runtime.stop();
+});
+
+test('success then failure separates lastAttemptAt from lastSuccessAt and classifies the error', async () => {
+  const start = Date.parse('2026-07-21T00:00:00.000Z');
+  const clock = fakeClock(start);
+  const results = [
+    [providerRow('kimi', 'account', 'Kimi', { updatedAt: '2026-07-21T00:00:00.000Z' })],
+    [{ provider: 'kimi', status: 'unavailable', windows: [] }]
+  ];
+  const runtime = createLimitsRuntime({ limitProviders: ['kimi'] }, runtimeDeps({
+    now: clock.now,
+    setTimeout: clock.setTimeout,
+    clearTimeout: clock.clearTimeout,
+    probeProvider: async () => results.shift()
+  }));
+
+  await runtime.refresh({ provider: 'kimi' }, 'startup');
+  const success = runtime.getSnapshot().providers[0];
+  assert.equal(success.status, 'ok');
+  assert.equal(success.lastAttemptAt, '2026-07-21T00:00:00.000Z');
+  assert.equal(success.lastSuccessAt, '2026-07-21T00:00:00.000Z');
+  assert.equal(success.quotaStatus, 'fresh');
+  assert.equal(Object.hasOwn(success, 'error'), false);
+
+  clock.jump(5 * 60 * 1000);
+  await runtime.refresh({ provider: 'kimi' }, 'interval');
+  const row = runtime.getSnapshot().providers[0];
+  assert.equal(row.status, 'unavailable');
+  assert.equal(row.connectionStatus, 'unavailable');
+  assert.equal(row.quotaStatus, 'stale');
+  assert.equal(row.lastSuccessAt, '2026-07-21T00:00:00.000Z');
+  assert.equal(row.lastAttemptAt, '2026-07-21T00:05:00.000Z');
+  assert.equal(row.updatedAt, '2026-07-21T00:00:00.000Z');
+  assert.equal(row.windows.length, 1);
+  assert.equal(row.error.category, 'unavailable');
+  assert.equal(row.error.code, 'provider_unavailable');
+  assert.equal(runtime.getDiagnostics().identities[0].lastGoodAgeMs, 5 * 60 * 1000);
+  runtime.stop();
+});
+
+test('unauthorized retains Last Good windows with an auth error', async () => {
+  const results = [
+    [providerRow('kimi', 'account', 'Kimi', { updatedAt: '2026-07-21T00:00:00.000Z' })],
+    [{ provider: 'kimi', accountKey: 'account', status: 'unauthorized', windows: [] }]
+  ];
+  const runtime = createLimitsRuntime({ limitProviders: ['kimi'] }, runtimeDeps({
+    probeProvider: async () => results.shift()
+  }));
+
+  await runtime.refresh({ provider: 'kimi' }, 'startup');
+  await runtime.refresh({ provider: 'kimi' }, 'interval');
+  const row = runtime.getSnapshot().providers[0];
+  assert.equal(row.status, 'unauthorized');
+  assert.equal(row.connectionStatus, 'unauthorized');
+  assert.equal(row.quotaStatus, 'stale');
+  assert.equal(row.windows.length, 1);
+  assert.equal(row.error.category, 'auth');
+  runtime.stop();
+});
+
+test('timeout attempts are network errors and keep public status error', async () => {
+  const runtime = createLimitsRuntime({ limitProviders: ['kimi'] }, runtimeDeps({
+    providerPhysicalBoundMs: () => 5,
+    probeProvider: () => new Promise(() => {})
+  }));
+
+  await runtime.refresh({ provider: 'kimi' }, 'manual');
+  const row = runtime.getSnapshot().providers[0];
+  assert.equal(row.status, 'error');
+  assert.equal(row.connectionStatus, 'error');
+  assert.equal(Object.hasOwn(row, 'lastSuccessAt'), false);
+  assert.equal(row.error.category, 'network');
+  assert.equal(row.error.code, 'provider_timeout');
+  runtime.stop();
+});
+
+test('rate-limit attempts classify as rate_limit and attach retryAt from Retry-After', async () => {
+  const clock = fakeClock(Date.parse('2026-07-21T00:00:00.000Z'));
+  const runtime = createLimitsRuntime({ limitProviders: ['kimi'] }, runtimeDeps({
+    now: clock.now,
+    setTimeout: clock.setTimeout,
+    clearTimeout: clock.clearTimeout,
+    random: () => 0,
+    probeProvider: async (_provider, _config, context) => {
+      context.onRetryAfter(30_000);
+      return [{ provider: 'kimi', accountKey: 'account', status: 'sourceRateLimited', windows: [] }];
+    }
+  }));
+
+  await runtime.refresh({ provider: 'kimi' }, 'interval');
+  const row = runtime.getSnapshot().providers[0];
+  assert.equal(row.status, 'sourceRateLimited');
+  assert.equal(row.connectionStatus, 'ok');
+  assert.equal(row.quotaStatus, 'rateLimited');
+  assert.equal(row.error.category, 'rate_limit');
+  assert.equal(row.error.retryAt, '2026-07-21T00:00:30.000Z');
+  runtime.stop();
+});
+
+test('restart from previousLimits restores lastAttemptAt and lastSuccessAt', () => {
+  const runtime = createLimitsRuntime({
+    limitProviders: ['kimi'],
+    previousLimits: {
+      providers: [{
+        ...providerRow('kimi', 'account', 'Kimi', {
+          status: 'unavailable',
+          updatedAt: '2026-07-21T00:00:00.000Z'
+        }),
+        lastAttemptAt: '2026-07-21T00:05:00.000Z',
+        lastSuccessAt: '2026-07-21T00:00:00.000Z'
+      }]
+    }
+  }, runtimeDeps());
+
+  const row = runtime.getSnapshot().providers[0];
+  assert.equal(row.status, 'unavailable');
+  assert.equal(row.quotaStatus, 'stale');
+  assert.equal(row.lastAttemptAt, '2026-07-21T00:05:00.000Z');
+  assert.equal(row.lastSuccessAt, '2026-07-21T00:00:00.000Z');
+  assert.equal(row.windows.length, 1);
   runtime.stop();
 });

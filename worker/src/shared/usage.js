@@ -995,6 +995,155 @@ function isPeriodExpired(record, periodName, nowMs) {
   return false;
 }
 
+const MAX_QUOTA_POOLS = 256;
+
+function cloneLimitWindows(windows) {
+  return Array.isArray(windows) ? windows.map((window) => ({ ...window })) : [];
+}
+
+function poolWindowIdentity(window) {
+  return `${window?.kind || ''}:${window?.windowKey || ''}`;
+}
+
+function quotaWindowsConflict(left, right) {
+  if (!left?.length || !right?.length) return false;
+  if (left.length !== right.length) return true;
+  const byId = new Map(left.map((window) => [poolWindowIdentity(window), window]));
+  for (const window of right) {
+    const other = byId.get(poolWindowIdentity(window));
+    if (!other) return true;
+    if (
+      window.usedPercent !== null
+      && other.usedPercent !== null
+      && Math.abs(window.usedPercent - other.usedPercent) > 0.5
+    ) return true;
+    if (window.resetsAt && other.resetsAt && window.resetsAt !== other.resetsAt) return true;
+  }
+  return false;
+}
+
+function pickBetterQuotaPool(current, candidate) {
+  if (!current) return candidate;
+  if (current.stale !== candidate.stale) return current.stale ? candidate : current;
+  const currentWindows = current.windows?.length || 0;
+  const candidateWindows = candidate.windows?.length || 0;
+  if (currentWindows !== candidateWindows) return candidateWindows > currentWindows ? candidate : current;
+  const currentMs = timestampMs(current.updatedAt);
+  const candidateMs = timestampMs(candidate.updatedAt);
+  if (candidateMs !== currentMs) return candidateMs > currentMs ? candidate : current;
+  return String(candidate.sourceDeviceId || '').localeCompare(String(current.sourceDeviceId || '')) < 0
+    ? candidate
+    : current;
+}
+
+function markConflictWindows(windows) {
+  return cloneLimitWindows(windows).map((window) => ({ ...window, precision: 'unavailable' }));
+}
+
+function collectDeviceQuotaPools(device) {
+  const summary = normalizeLimitsSummary(device?.limits);
+  const byKey = new Map();
+  for (const pool of summary.quotaPools || []) {
+    byKey.set(pool.quotaPoolKey, {
+      quotaPoolKey: pool.quotaPoolKey,
+      provider: pool.provider || '',
+      label: pool.label || '',
+      windows: cloneLimitWindows(pool.windows),
+      connectionKeys: new Set(pool.connectionKeys || [])
+    });
+  }
+  for (const provider of summary.providers || []) {
+    const quotaPoolKey = String(provider.quotaPoolKey || '').trim();
+    if (!quotaPoolKey) continue;
+    let pool = byKey.get(quotaPoolKey);
+    if (!pool) {
+      pool = {
+        quotaPoolKey,
+        provider: provider.provider || '',
+        label: provider.accountLabel || provider.planLabel || '',
+        windows: cloneLimitWindows(provider.windows),
+        connectionKeys: new Set()
+      };
+      byKey.set(quotaPoolKey, pool);
+    }
+    if (provider.connectionKey) pool.connectionKeys.add(provider.connectionKey);
+    else if (provider.accountKey) pool.connectionKeys.add(provider.accountKey);
+    if (!pool.provider && provider.provider) pool.provider = provider.provider;
+  }
+  return {
+    updatedAt: summary.generatedAt || summary.updatedAt || device?.updatedAt || '',
+    pools: [...byKey.values()]
+  };
+}
+
+function serializeAggregatedQuotaPool(pool) {
+  const connectionKeys = [...pool.connectionKeys].filter(Boolean).sort();
+  const record = {
+    quotaPoolKey: pool.quotaPoolKey,
+    label: pool.label || '',
+    windows: pool.conflict ? markConflictWindows(pool.windows) : cloneLimitWindows(pool.windows),
+    connectionKeys,
+    stale: Boolean(pool.stale),
+    updatedAt: pool.updatedAt || '',
+    sourceDeviceId: pool.sourceDeviceId || ''
+  };
+  if (pool.provider) record.provider = pool.provider;
+  if (pool.conflict) record.conflict = true;
+  return record;
+}
+
+function aggregateQuotaPools(devices) {
+  const byKey = new Map();
+  for (const device of devices || []) {
+    const collected = collectDeviceQuotaPools(device);
+    for (const pool of collected.pools) {
+      const candidate = {
+        ...pool,
+        stale: Boolean(device?.stale),
+        updatedAt: collected.updatedAt,
+        sourceDeviceId: String(device?.deviceId || ''),
+        conflict: false
+      };
+      const current = byKey.get(pool.quotaPoolKey);
+      if (!current) {
+        byKey.set(pool.quotaPoolKey, candidate);
+        continue;
+      }
+      const conflict = current.conflict
+        || candidate.conflict
+        || quotaWindowsConflict(current.windows, candidate.windows);
+      const winner = pickBetterQuotaPool(current, candidate);
+      winner.connectionKeys = new Set([...current.connectionKeys, ...candidate.connectionKeys]);
+      winner.conflict = conflict;
+      byKey.set(pool.quotaPoolKey, winner);
+    }
+  }
+  return [...byKey.values()]
+    .sort((a, b) => a.quotaPoolKey.localeCompare(b.quotaPoolKey))
+    .slice(0, MAX_QUOTA_POOLS)
+    .map(serializeAggregatedQuotaPool);
+}
+
+function projectPoolWindows(providers, quotaPools) {
+  if (!Array.isArray(providers) || providers.length === 0 || !quotaPools.length) return providers;
+  const byKey = new Map(quotaPools.map((pool) => [pool.quotaPoolKey, pool]));
+  return providers.map((provider) => {
+    const pool = provider.quotaPoolKey ? byKey.get(provider.quotaPoolKey) : null;
+    if (!pool) return provider;
+    return { ...provider, windows: cloneLimitWindows(pool.windows) };
+  });
+}
+
+function attachAggregatedQuotaPools(limits, devices) {
+  const quotaPools = aggregateQuotaPools(devices);
+  if (quotaPools.length === 0) return limits;
+  return {
+    ...limits,
+    quotaPools,
+    providers: projectPoolWindows(limits.providers, quotaPools)
+  };
+}
+
 function aggregateDevices(devices, staleAfterMs, nowMs = Date.now()) {
   const aggregate = { updatedAt: new Date().toISOString(), periods: {}, devices: [], projectsIncomplete: false };
   const sessionDetailsOmitted = {};
@@ -1068,7 +1217,10 @@ function aggregateDevices(devices, staleAfterMs, nowMs = Date.now()) {
     const date = hourlyDates[hourlyDates.length - 1];
     aggregate.todayHours = { date, hours: hourlyByDate[date] };
   }
-  aggregate.limits = aggregateLimits(aggregate.devices, staleAfterMs, now);
+  aggregate.limits = attachAggregatedQuotaPools(
+    aggregateLimits(aggregate.devices, staleAfterMs, now),
+    aggregate.devices
+  );
   if (Object.keys(sessionDetailsOmitted).length > 0) aggregate.sessionDetailsOmitted = sessionDetailsOmitted;
   if (Object.keys(periodProjectsOmitted).length > 0) aggregate.periodProjectsOmitted = periodProjectsOmitted;
   aggregate.devices.sort((a, b) => a.deviceId.localeCompare(b.deviceId));

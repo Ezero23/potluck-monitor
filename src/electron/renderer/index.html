@@ -461,28 +461,44 @@
 
         <div class="settings-group settings-collapsible-group settings-limits-group">
           <button class="settings-section-toggle" type="button" data-settings-section="limits" aria-expanded="false" aria-controls="limitsSettingsDetails">
-            <span class="settings-section-heading"><span class="settings-section-icon settings-section-icon-limits" aria-hidden="true"></span><span data-i18n="settings.limits.title">AI Tool Limits</span></span>
+            <span class="settings-section-heading"><span class="settings-section-icon settings-section-icon-limits" aria-hidden="true"></span><span data-i18n="settings.limits.title">Providers & Limits</span></span>
             <span class="settings-section-meta"><span id="limitsSettingsSummary" class="settings-section-summary"></span><span class="settings-section-disclosure" aria-hidden="true"></span></span>
           </button>
           <div id="limitsSettingsDetails" class="settings-section-details hidden">
+            <div class="settings-subgroup settings-limits-globals">
+              <label class="settings-item"><span class="settings-item-text"><span class="settings-item-title" data-i18n="settings.limits.refresh">Local limits refresh</span></span>
+                <select id="limitsRefreshInput">
+                  <option value="60000">1 min</option>
+                  <option value="120000">2 min</option>
+                  <option value="300000">5 min</option>
+                  <option value="900000">15 min</option>
+                  <option value="1800000">30 min</option>
+                </select>
+                <span class="settings-note settings-item-desc" data-i18n="settings.limits.refreshNote">Applies to Monitor-local quota sources. Potluck-managed accounts refresh in Potluck Web.</span>
+              </label>
+              <label class="settings-item"><span class="settings-item-text"><span class="settings-item-title" data-i18n="settings.limits.barsShow">Bars show</span></span>
+                <select id="showLimitUsedInput">
+                  <option value="remaining" data-i18n="settings.limits.barsRemaining">Remaining</option>
+                  <option value="used" data-i18n="settings.limits.barsUsed">Used</option>
+                </select>
+              </label>
+              <label class="checkbox-label settings-item"><span class="settings-item-text"><span class="settings-item-title" data-i18n="settings.limits.maskAccountEmails">Mask account emails</span></span><input id="maskLimitAccountEmailsInput" type="checkbox" /></label>
+              <label class="checkbox-label settings-item"><span class="settings-item-text"><span class="settings-item-title" data-i18n="settings.limits.showSource">Show data source</span></span><input id="showLimitSourceInput" type="checkbox" /></label>
+              <p class="settings-note" data-i18n="settings.limits.trackNote">The checkbox tracks and shows this provider in Potluck Monitor. It does not change Potluck Web routing.</p>
+            </div>
             <div id="limitProviderCheckboxes" class="client-checkboxes limit-provider-list"></div>
-            <label class="settings-item"><span class="settings-item-text"><span class="settings-item-title" data-i18n="settings.limits.refresh">Refresh</span></span>
-              <select id="limitsRefreshInput">
-                <option value="60000">1 min</option>
-                <option value="120000">2 min</option>
-                <option value="300000">5 min</option>
-                <option value="900000">15 min</option>
-                <option value="1800000">30 min</option>
-              </select>
-            </label>
-            <label class="checkbox-label settings-item"><span class="settings-item-text"><span class="settings-item-title" data-i18n="settings.limits.showSource">Show Source</span></span><input id="showLimitSourceInput" type="checkbox" /></label>
-            <label class="checkbox-label settings-item"><span class="settings-item-text"><span class="settings-item-title" data-i18n="settings.limits.maskAccountEmails">Mask account emails</span></span><input id="maskLimitAccountEmailsInput" type="checkbox" /></label>
-            <label class="settings-item"><span class="settings-item-text"><span class="settings-item-title" data-i18n="settings.limits.barsShow">Bars show</span></span>
-              <select id="showLimitUsedInput">
-                <option value="remaining" data-i18n="settings.limits.barsRemaining">Remaining</option>
-                <option value="used" data-i18n="settings.limits.barsUsed">Used</option>
-              </select>
-            </label>
+            <div id="limitsDataHealth" class="settings-subgroup limits-data-health">
+              <button id="limitsDataHealthToggle" class="settings-group-header cursor-settings-toggle" type="button" aria-expanded="false" aria-controls="limitsDataHealthDetails">
+                <span data-i18n="settings.limits.dataHealth.title">Data health</span>
+                <span class="cursor-settings-summary">
+                  <span id="limitsDataHealthSummary" class="settings-section-summary"></span>
+                  <span class="cursor-disclosure-icon" aria-hidden="true"></span>
+                </span>
+              </button>
+              <div id="limitsDataHealthDetails" class="cursor-settings-details hidden">
+                <dl id="limitsDataHealthBody" class="limits-data-health-list"></dl>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -1379,6 +1395,7 @@
     <script src="accountIdentity.js"></script>
     <script src="appUpdatePresentation.js"></script>
     <script src="limitProviderPresentation.js"></script>
+    <script src="limitProviderSummary.js"></script>
     <script src="limitDisplayMode.js"></script>
     <script src="clientStatusPresentation.js"></script>
     <script src="wslStatusPresentation.js"></script>
@@ -1407,6 +1424,8 @@
     <script src="windowsGlass.js"></script>
     <script src="glassRendering.js"></script>
     <script src="trayComposer.js"></script>
+    <script src="../../shared/quotaForecast.js"></script>
+    <script src="../../shared/quotaRisk.js"></script>
     <script src="app.js"></script>
   </body>
 </html>

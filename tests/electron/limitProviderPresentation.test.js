@@ -22,6 +22,91 @@ const {
   limitResetRemainingMs,
   limitProviderSettingsTags
 } = require('../../src/electron/renderer/limitProviderPresentation');
+const {
+  classifyConnection,
+  connectionsByProvider,
+  sourceBucket,
+  summarizeLimitProvider
+} = require('../../src/electron/renderer/limitProviderSummary');
+
+test('limitProviderSummary keeps every connection instead of last-row-wins', () => {
+  const grouped = connectionsByProvider([
+    { provider: 'zai', status: 'ok', managedBy: 'potluck', quotaPoolKey: 'pool-a' },
+    { provider: 'zai', status: 'notConfigured', managedBy: 'potluck', quotaPoolKey: 'pool-b' },
+    { provider: 'claude', status: 'ok', managedBy: 'monitor' }
+  ]);
+  assert.equal(grouped.get('zai').length, 2);
+  assert.equal(grouped.get('claude').length, 1);
+
+  const summary = summarizeLimitProvider('zai', grouped.get('zai'));
+  assert.equal(summary.connections, 2);
+  assert.equal(summary.pools, 2);
+  assert.equal(summary.healthy, 1);
+  assert.equal(summary.needsAttention, 0);
+  assert.equal(summary.headline, 'partial');
+  assert.equal(summary.representative.status, 'ok');
+  assert.deepEqual(summary.sources, { potluck: 2, monitor: 0, external: 0 });
+});
+
+test('limitProviderSummary one failure does not mark the provider unconnected', () => {
+  const summary = summarizeLimitProvider('zai', [
+    { provider: 'zai', status: 'ok', managedBy: 'monitor' },
+    { provider: 'zai', status: 'unauthorized', managedBy: 'monitor' }
+  ]);
+  assert.equal(summary.connections, 2);
+  assert.equal(summary.healthy, 1);
+  assert.equal(summary.needsAttention, 1);
+  assert.equal(summary.headline, 'unauthorized');
+  assert.equal(summary.representative.status, 'unauthorized');
+  assert.notEqual(summary.headline, 'missing');
+});
+
+test('limitProviderSummary last notConfigured row does not hide an earlier healthy account', () => {
+  const summary = summarizeLimitProvider('zai', [
+    { provider: 'zai', status: 'ok', connectionStatus: 'ok', quotaStatus: 'fresh' },
+    { provider: 'zai', status: 'notConfigured', connectionStatus: 'notConfigured' }
+  ]);
+  assert.equal(summary.headline, 'partial');
+  assert.equal(summary.representative.status, 'ok');
+  assert.equal(classifyConnection(summary.representative), 'healthy');
+});
+
+test('limitProviderSummary counts shared pools only by quotaPoolKey', () => {
+  const shared = summarizeLimitProvider('claude', [
+    { provider: 'claude', status: 'ok', quotaPoolKey: 'pool-shared' },
+    { provider: 'claude', status: 'ok', quotaPoolKey: 'pool-shared' }
+  ]);
+  assert.equal(shared.connections, 2);
+  assert.equal(shared.pools, 1);
+  assert.equal(shared.headline, 'ok');
+
+  const unkeyed = summarizeLimitProvider('claude', [
+    { provider: 'claude', status: 'ok' },
+    { provider: 'claude', status: 'ok' }
+  ]);
+  assert.equal(unkeyed.pools, 2);
+});
+
+test('limitProviderSummary classifies stale, disabled, missing, and sources', () => {
+  const stale = summarizeLimitProvider('cursor', [
+    { provider: 'cursor', status: 'ok', stale: true, managedBy: 'external' }
+  ]);
+  assert.equal(stale.stale, 1);
+  assert.equal(stale.healthy, 0);
+  assert.equal(stale.headline, 'stale');
+  assert.equal(sourceBucket(stale.representative), 'external');
+
+  const disabled = summarizeLimitProvider('kimi', [
+    { provider: 'kimi', status: 'disabled', managedBy: 'monitor' }
+  ]);
+  assert.equal(disabled.disabled, 1);
+  assert.equal(disabled.headline, 'disabled');
+
+  const missing = summarizeLimitProvider('grok', [], { missingStatus: 'notConfigured' });
+  assert.equal(missing.connections, 0);
+  assert.equal(missing.headline, 'missing');
+  assert.equal(missing.representative.status, 'notConfigured');
+});
 
 test('isCodexLiveAccount marks the live system login but not managed-added accounts', () => {
   assert.equal(isCodexLiveAccount({ provider: 'codex', status: 'ok', sourceDetail: 'app' }), true);
@@ -479,6 +564,11 @@ test('capability tags are settings-only and do not alter the main Limits panel',
   assert.doesNotMatch(renderLimits, /limitProviderSettingsTags/);
   assert.match(renderHead, /head\.append\(titleBlock, plan\);/);
   assert.match(renderSettings, /limitProviderSettingsTags\(provider, provenance/);
+  assert.match(renderSettings, /limitProviderSummaryApi\.summarizeLimitProvider/);
+  assert.doesNotMatch(
+    renderSettings,
+    /new Map\(\(state\.stats\?\.limits\?\.providers \|\| \[\]\)\.map\(\(provider\) => \[provider\.provider, provider\]\)\)/
+  );
   assert.doesNotMatch(styles, /\.limit-status\b/);
 });
 
@@ -927,6 +1017,8 @@ test('settings provider status waits for stats and refreshes when stats arrive',
   const syncSettings = functionBody(app, 'syncSettingsForm', 'enabledClientSet');
 
   assert.doesNotMatch(renderSettings, /state\.stats \? missingLimitProviderStatus\(\) : 'unavailable'/);
+  assert.match(renderSettings, /limitProviderSummaryApi\.connectionsByProvider/);
+  assert.match(renderSettings, /missingStatus: state\.stats \? missingLimitProviderStatus\(\) : ''/);
   assert.match(refreshStats, /renderLimitProviderCheckboxes\(\);/);
   assert.match(refreshStats, /applyCodexActiveAccountFromStats\(\);/);
   assert.doesNotMatch(refreshStats, /state\.codexActiveAccount = codexActiveAccountFromStats\(\);/);
@@ -1319,4 +1411,51 @@ test('Kimi usage and limits share the canonical provider id and vendor color', (
   const app = readRendererFile('app.js');
   assert.match(app, /\{ id: 'kimi', label: 'Kimi' \}/);
   assert.match(app, /const color = id === 'mimo' \? clientColors\.xiaomi : \(clientColors\[id\] \|\| clientColors\.default\)/);
+});
+
+test('settings connection cards load quota forecast modules and render pace, confidence, and last good', () => {
+  const html = readRendererFile('index.html');
+  const app = readRendererFile('app.js');
+  const preload = fs.readFileSync(path.join(__dirname, '../../src/electron/preload.js'), 'utf8');
+  const styles = readRendererFile('styles.css');
+  const i18n = readRendererFile('i18n.js');
+  const connectionCard = functionBody(app, 'appendLimitProviderConnectionCard', 'renderLimitsDataHealth');
+
+  assert.match(html, /src="\.\.\/\.\.\/shared\/quotaForecast\.js"/);
+  assert.match(html, /src="\.\.\/\.\.\/shared\/quotaRisk\.js"/);
+  assert.match(preload, /getLimitsSnapshot:\s*\(options\)\s*=>\s*ipcRenderer\.invoke\('limits:getSnapshot'/);
+  assert.match(app, /async function refreshQuotaArchiveFromSnapshot\(/);
+  assert.match(app, /await refreshQuotaArchiveFromSnapshot\(\)/);
+  assert.match(app, /window\.tokenMonitor\.getLimitsSnapshot/);
+  assert.match(app, /const quotaForecastApi = window\.TokenMonitorQuotaForecast;/);
+  assert.match(app, /const quotaRiskApi = window\.TokenMonitorQuotaRisk;/);
+  assert.match(app, /mergeQuotaArchiveFromLimits\(/);
+  assert.match(connectionCard, /appendQuotaForecastPanels\(card, row, state\.quotaArchive/);
+  assert.doesNotMatch(connectionCard, /\broute\b|\bswitchModel\b|\baction:/);
+  assert.match(app, /quotaConfidenceLabel\(forecast\)/);
+  assert.match(app, /t\('settings\.limits\.forecast\.noHistory'\)/);
+  assert.match(app, /t\('settings\.limits\.forecast\.noEstimate'\)/);
+  assert.match(app, /displayEligible/);
+  assert.match(styles, /\.limit-quota-forecast-grid/);
+  assert.match(styles, /\.limit-quota-sparkline/);
+  assert.match(i18n, /'settings\.limits\.forecast\.actualVsPace'/);
+  assert.match(i18n, /'settings\.limits\.forecast\.lastGoodStale'/);
+  assert.match(i18n, /'settings\.limits\.forecast\.paceBehind'/);
+});
+
+test('quota forecast sparklines require at least two samples and never render for empty history', () => {
+  const app = readRendererFile('app.js');
+  const sparkline = functionBody(app, 'quotaSparklineSvg', 'appendQuotaForecastWindow');
+
+  assert.match(sparkline, /if \(points\.length < 2\) return null;/);
+  assert.match(sparkline, /aria-hidden', 'true'/);
+});
+
+test('shared quota forecast modules expose renderer globals without route fields', () => {
+  const forecast = fs.readFileSync(path.join(__dirname, '..', '..', 'src', 'shared', 'quotaForecast.js'), 'utf8');
+  const risk = fs.readFileSync(path.join(__dirname, '..', '..', 'src', 'shared', 'quotaRisk.js'), 'utf8');
+  assert.match(forecast, /window\.TokenMonitorQuotaForecast = quotaForecastApi;/);
+  assert.match(risk, /window\.TokenMonitorQuotaRisk = quotaRiskApi;/);
+  assert.doesNotMatch(forecast, /route:|switch:|action:/);
+  assert.doesNotMatch(risk, /route:|switch:|action:/);
 });

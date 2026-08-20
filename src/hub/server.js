@@ -5,10 +5,76 @@ const path = require('node:path');
 const { URL } = require('node:url');
 const { aggregateDevices, mergeDeviceRecord, aggregateHistory } = require('../shared/usage');
 const { historyPreview, historyRevision } = require('../shared/history');
+const { publicLimits } = require('../shared/limits');
+const { stripForbidden } = require('../shared/quotaForecast');
 const { isAuthorized, readJsonBody, sendJson, sendText } = require('../shared/http');
 const { loadDotEnv, parseArgs, projectRoot, readJson, writeJsonAtomic } = require('../shared/config');
 
 const LOOPBACK_HOSTS = new Set(['127.0.0.1', 'localhost', '::1']);
+const LIMITS_SNAPSHOT_SCHEMA_VERSION = 1;
+const LIMITS_SNAPSHOT_SUPPORTED_VERSIONS = [LIMITS_SNAPSHOT_SCHEMA_VERSION];
+const LIMITS_SNAPSHOT_RATE_LIMIT_MS = 1000;
+const LIMITS_SNAPSHOT_ACCEPT_RE = /application\/vnd\.token-monitor\.limits-snapshot\.v(\d+)\+json/i;
+
+function parseBoolean(value, fallback = false) {
+  if (value === undefined || value === null || value === '') return fallback;
+  const normalized = String(value).trim().toLowerCase();
+  if (['1', 'true', 'yes', 'on'].includes(normalized)) return true;
+  if (['0', 'false', 'no', 'off'].includes(normalized)) return false;
+  return fallback;
+}
+
+function negotiateLimitsSnapshotVersion(req, url) {
+  const accept = String(req.headers.accept || '');
+  const acceptMatch = accept.match(LIMITS_SNAPSHOT_ACCEPT_RE);
+  if (acceptMatch) return Number(acceptMatch[1]);
+  const queryVersion = url.searchParams.get('version') ?? url.searchParams.get('v');
+  if (queryVersion != null && String(queryVersion).trim() !== '') return Number(queryVersion);
+  return LIMITS_SNAPSHOT_SCHEMA_VERSION;
+}
+
+function buildHubLimitsSnapshot(stats, version = LIMITS_SNAPSHOT_SCHEMA_VERSION) {
+  const generatedAt = new Date().toISOString();
+  const limits = stats?.limits ? publicLimits(stats.limits) : { providers: [] };
+  const snapshotId = `hub-${generatedAt}`;
+  return stripForbidden({
+    schemaVersion: LIMITS_SNAPSHOT_SCHEMA_VERSION,
+    negotiatedVersion: version,
+    snapshotId,
+    generatedAt,
+    capabilities: ['limits'],
+    staleAfterMs: stats?.staleAfterMs ?? null,
+    limits
+  });
+}
+
+function createRateLimiter(intervalMs = LIMITS_SNAPSHOT_RATE_LIMIT_MS) {
+  const lastByKey = new Map();
+  return {
+    check(key) {
+      const now = Date.now();
+      const last = lastByKey.get(key) || 0;
+      if (now - last < intervalMs) {
+        return { allowed: false, retryAfterMs: intervalMs - (now - last) };
+      }
+      lastByKey.set(key, now);
+      return { allowed: true, retryAfterMs: 0 };
+    }
+  };
+}
+
+function snapshotRequestSecret(req) {
+  const auth = req.headers.authorization || '';
+  if (auth.toLowerCase().startsWith('bearer ')) return auth.slice(7).trim();
+  return String(req.headers['x-token-monitor-secret'] || '').trim();
+}
+
+function rateLimitKey(req, secret) {
+  const used = snapshotRequestSecret(req) || secret;
+  if (used) return `secret:${used.slice(0, 8)}`;
+  const remote = req.socket?.remoteAddress || 'unknown';
+  return `ip:${remote}`;
+}
 
 // Without a secret the hub cannot tell its own widget from any other caller, so it
 // must not expose account identity (email/plan/key) to the network. Binding to
@@ -26,11 +92,14 @@ function createHub({
   secret = '',
   staleAfterMs = 10 * 60 * 1000,
   dataFile = path.join(projectRoot(), 'data', 'devices.json'),
+  limitsSnapshotEnabled = false,
+  limitsSnapshotRateLimitMs = LIMITS_SNAPSHOT_RATE_LIMIT_MS,
   logger = console
 } = {}) {
   const store = readJson(dataFile, { version: 1, devices: {} }) || { version: 1, devices: {} };
   if (!store.devices || typeof store.devices !== 'object') store.devices = {};
   const bindHost = resolveBindHost(host, secret);
+  const limitsSnapshotLimiter = createRateLimiter(limitsSnapshotRateLimitMs);
 
   function persist() {
     store.version = 1;
@@ -108,11 +177,31 @@ function createHub({
         version: store.version || 1,
         deviceCount: Object.keys(store.devices).length,
         secretRequired: Boolean(secret),
+        limitsSnapshotEnabled: Boolean(limitsSnapshotEnabled),
         now: new Date().toISOString()
       });
     }
 
     if (!isAuthorized(req, secret)) return sendJson(res, 401, { error: 'unauthorized' });
+
+    if (req.method === 'GET' && url.pathname === '/api/limits/snapshot') {
+      if (!limitsSnapshotEnabled) return sendJson(res, 404, { error: 'not_found' });
+      const requestedVersion = negotiateLimitsSnapshotVersion(req, url);
+      if (!Number.isInteger(requestedVersion) || !LIMITS_SNAPSHOT_SUPPORTED_VERSIONS.includes(requestedVersion)) {
+        return sendJson(res, 406, {
+          error: 'unsupported_version',
+          supported: LIMITS_SNAPSHOT_SUPPORTED_VERSIONS
+        });
+      }
+      const limitCheck = limitsSnapshotLimiter.check(rateLimitKey(req, secret));
+      if (!limitCheck.allowed) {
+        const retryAfterSec = Math.max(1, Math.ceil(limitCheck.retryAfterMs / 1000));
+        return sendJson(res, 429, { error: 'rate_limited', retryAfterMs: limitCheck.retryAfterMs }, {
+          'retry-after': String(retryAfterSec)
+        });
+      }
+      return sendJson(res, 200, buildHubLimitsSnapshot(getStats(), requestedVersion));
+    }
 
     if (req.method === 'GET' && url.pathname === '/api/stats') return sendJson(res, 200, getStats());
     if (req.method === 'GET' && url.pathname === '/api/devices') return sendJson(res, 200, { devices: Object.values(store.devices) });
@@ -183,7 +272,18 @@ function createHub({
     });
   }
 
-  return { start, stop, server, getStats, getHistory, ingest, deleteDevice, onStats, bindHost };
+  return {
+    start,
+    stop,
+    server,
+    getStats,
+    getHistory,
+    ingest,
+    deleteDevice,
+    onStats,
+    bindHost,
+    buildLimitsSnapshot: (version = LIMITS_SNAPSHOT_SCHEMA_VERSION) => buildHubLimitsSnapshot(getStats(), version)
+  };
 }
 
 if (require.main === module) {
@@ -194,8 +294,12 @@ if (require.main === module) {
   const secret = String(args.secret || process.env.TOKEN_MONITOR_SECRET || '').trim();
   const staleAfterMs = Number(args.staleAfterMs || process.env.TOKEN_MONITOR_STALE_AFTER_MS || 10 * 60 * 1000);
   const dataFile = String(args.dataFile || process.env.TOKEN_MONITOR_DATA_FILE || path.join(projectRoot(), 'data', 'devices.json'));
+  const limitsSnapshotEnabled = parseBoolean(
+    args.limitsSnapshotEnabled ?? process.env.TOKEN_MONITOR_LIMITS_SNAPSHOT_ENABLED,
+    false
+  );
 
-  const hub = createHub({ port, host, secret, staleAfterMs, dataFile });
+  const hub = createHub({ port, host, secret, staleAfterMs, dataFile, limitsSnapshotEnabled });
   hub.start().then(() => {
     console.log(`Token Monitor hub listening on http://${hub.bindHost}:${port}`);
     console.log(`Data file: ${dataFile}`);
@@ -208,4 +312,10 @@ if (require.main === module) {
   });
 }
 
-module.exports = { createHub, resolveBindHost };
+module.exports = {
+  createHub,
+  resolveBindHost,
+  buildHubLimitsSnapshot,
+  LIMITS_SNAPSHOT_SCHEMA_VERSION,
+  LIMITS_SNAPSHOT_SUPPORTED_VERSIONS
+};

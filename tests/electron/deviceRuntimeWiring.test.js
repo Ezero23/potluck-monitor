@@ -1,9 +1,26 @@
 'use strict';
 
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
 const test = require('node:test');
 
 const { runManualDeviceRefresh } = require('../../src/electron/deviceRuntimeCoordinator');
+
+const ROOT = path.resolve(__dirname, '../..');
+const main = fs.readFileSync(path.join(ROOT, 'src/electron/main.js'), 'utf8');
+
+test('every Electron collector mode retains local quota history', () => {
+  assert.match(main, /require\('\.\.\/shared\/quotaHistory'\)/);
+  assert.match(main, /retainQuotaHistoryFromLimits\(/);
+  assert.equal((main.match(/retainDeviceQuotaHistory\(/g) || []).length, 4);
+  assert.match(main, /writeEnabled:\s*\(\) => !isExternalAgentActive\(\)/);
+});
+
+test('clearing retained session usage also clears quota history', () => {
+  assert.match(main, /clearSessionUsageArchive\(\);\s*clearDailyHistoryArchive\(\);\s*clearQuotaHistory\(\);/);
+});
+
 
 function deferred() {
   let resolve;
