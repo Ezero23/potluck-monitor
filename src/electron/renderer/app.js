@@ -97,6 +97,11 @@ const LIMIT_PROVIDERS = [
 const POTLUCK_UNIQUE_ACCOUNT_PROVIDERS = [
   'gemini-cli', 'qoder-cn', 'kimchi', 'opencode-go', 'brave-search', 'tavily', 'nvidia'
 ];
+const ACCOUNT_CREDENTIAL_PROVIDER_IDS = [
+  'claude', 'codex', 'cursor', 'opencode', 'openrouter', 'deepseek', 'minimax',
+  'zai', 'zaiteam', 'volcengine', 'qoder', 'ollama', 'kimi', 'mimo', 'copilot', 'thirdparty',
+  ...POTLUCK_UNIQUE_ACCOUNT_PROVIDERS
+];
 const TRAY_ICON_VARIANTS = [
   { id: 'claude-brand', label: 'Claude', after: 'claude' },
   { id: 'chatgpt', label: 'ChatGPT', after: 'codex' }
@@ -257,7 +262,7 @@ function normalizeInitialViewValue(value, allowed, fallback) {
   return allowed.has(raw) ? raw : fallback;
 }
 
-const state = { period: normalizeInitialViewValue(initialViewState.period, viewPeriodValues, 'today'), appUpdate: null, breakdown: normalizeInitialViewValue(initialViewState.breakdown, viewBreakdownValues, 'home'), pricingAuditByModel: null, pricingAuditSignature: '', pricingAuditBusy: false, viewSwitcherOpen: false, viewSwitcherHasOpened: false, limitDetailTooltipHasOpened: false, limitDetailTooltipActive: false, limitDetailTooltipRenderPending: false, settings: null, stats: null, homeHistory: null, homeHistoryBusy: false, homeHistoryRequested: false, homeHistorySignature: '', homeHistoryRetries: 0, homeHistoryRetryTimer: null, homeActivityScrollLeft: null, homeActivityFollowEnd: true, homeActivityResizeObserver: null, serviceStatus: null, serviceStatusBusy: false, serviceProvidersExpanded: false, trendSettingsExpanded: false, trendsActivating: false, homeSettingsExpanded: false, homeLimitSettingsExpanded: false, serviceStatusTicker: null, refreshTimer: null, refreshBusy: false, refreshFeedbackTimer: null, currentTotal: 0, rowSignature: '', streamConnected: false, streamFailure: null, mode: 'idle', appInfo: null, tokscaleStatus: null, tokscaleCheck: null, tokscaleBusy: false, hubInfo: null, cursorAccount: { status: null, error: '' }, cursorAccountExpanded: false, codexAccountExpanded: false, codexAccountError: '', codexSignInBusy: false, codexSignInFlowId: '', codexLoginUrl: '', codexLoginStatus: '', codexLoginOutput: '', codexWorkspaceChoices: [], codexWorkspaceId: '', codexActiveAccount: null, codexPendingActiveAccount: null, codexPendingActiveAccountUntil: 0, codexPendingActiveAccountTimer: null, codexSystemSwitchingAccountId: '', codexSystemSwitchErrorAccountId: '', codexSystemSwitchError: '', codexSwitchPopoverHasOpened: false, codexSwitchPopoverActive: false, codexSwitchPopoverRenderPending: false, customPricingExpanded: false, claudeAccountExpanded: false, claudePendingCheckSince: 0, opencodeProfileCount: 0, opencodeCookieExpanded: false, openrouterProfileCount: 0, openrouterAccountExpanded: false, thirdPartyProfileCount: 0, thirdPartyAccountExpanded: false, deepseekAccountExpanded: false, deepseekPendingCheckSince: 0, minimaxAccountExpanded: false, minimaxPendingCheckSince: 0, zaiAccountExpanded: false, zaiPendingCheckSince: 0, zaiteamAccountExpanded: false, zaiteamPendingCheckSince: 0, volcengineAccountExpanded: false, volcenginePendingCheckSince: 0, qoderAccountExpanded: false, qoderPendingCheckSince: 0, kimiAccountExpanded: false, kimiPendingCheckSince: 0, ollamaAccountExpanded: false, ollamaPendingCheckSince: 0, mimoAccountExpanded: false, mimoAccountError: '', copilotAccountExpanded: false, copilotManualExpanded: false, copilotPendingCheckSince: 0, copilotSignInBusy: false, copilotSignInCancelable: false, copilotSignInFlowId: '', copilotAuthorizeMessage: '', copilotLoginStatus: '', copilotErrorMessage: '', floatingBubble: initialFloatingBubble, suppressInitialNumberAnimation: window.__TOKEN_MONITOR_SUPPRESS_INITIAL_NUMBER_ANIMATION__ === true, openSession: null, detailSort: 'time', recordingWindowShortcut: false, windowShortcutInvalid: false };
+const state = { period: normalizeInitialViewValue(initialViewState.period, viewPeriodValues, 'today'), appUpdate: null, breakdown: normalizeInitialViewValue(initialViewState.breakdown, viewBreakdownValues, 'home'), pricingAuditByModel: null, pricingAuditSignature: '', pricingAuditBusy: false, viewSwitcherOpen: false, viewSwitcherHasOpened: false, limitDetailTooltipHasOpened: false, limitDetailTooltipActive: false, limitDetailTooltipRenderPending: false, settings: null, stats: null, homeHistory: null, homeHistoryBusy: false, homeHistoryRequested: false, homeHistorySignature: '', homeHistoryRetries: 0, homeHistoryRetryTimer: null, homeActivityScrollLeft: null, homeActivityFollowEnd: true, homeActivityResizeObserver: null, serviceStatus: null, serviceStatusBusy: false, serviceProvidersExpanded: false, trendSettingsExpanded: false, trendsActivating: false, homeSettingsExpanded: false, homeLimitSettingsExpanded: false, serviceStatusTicker: null, refreshTimer: null, refreshBusy: false, refreshFeedbackTimer: null, currentTotal: 0, rowSignature: '', streamConnected: false, streamFailure: null, mode: 'idle', appInfo: null, tokscaleStatus: null, tokscaleCheck: null, tokscaleBusy: false, hubInfo: null, cursorAccount: { status: null, error: '' }, cursorAccountExpanded: false, codexAccountExpanded: false, codexAccountError: '', codexSignInBusy: false, codexSignInFlowId: '', codexLoginUrl: '', codexLoginStatus: '', codexLoginOutput: '', codexWorkspaceChoices: [], codexWorkspaceId: '', codexActiveAccount: null, codexPendingActiveAccount: null, codexPendingActiveAccountUntil: 0, codexPendingActiveAccountTimer: null, codexSystemSwitchingAccountId: '', codexSystemSwitchErrorAccountId: '', codexSystemSwitchError: '', codexSwitchPopoverHasOpened: false, codexSwitchPopoverActive: false, codexSwitchPopoverRenderPending: false, customPricingExpanded: false, claudeAccountExpanded: false, claudePendingCheckSince: 0, opencodeProfileCount: 0, opencodeCookieExpanded: false, openrouterProfileCount: 0, openrouterAccountExpanded: false, thirdPartyProfileCount: 0, thirdPartyAccountExpanded: false, deepseekAccountExpanded: false, deepseekPendingCheckSince: 0, minimaxAccountExpanded: false, minimaxPendingCheckSince: 0, zaiAccountExpanded: false, zaiPendingCheckSince: 0, zaiteamAccountExpanded: false, zaiteamPendingCheckSince: 0, volcengineAccountExpanded: false, volcenginePendingCheckSince: 0, qoderAccountExpanded: false, qoderPendingCheckSince: 0, kimiAccountExpanded: false, kimiPendingCheckSince: 0, ollamaAccountExpanded: false, ollamaPendingCheckSince: 0, mimoAccountExpanded: false, mimoAccountError: '', copilotAccountExpanded: false, copilotManualExpanded: false, copilotPendingCheckSince: 0, copilotSignInBusy: false, copilotSignInCancelable: false, copilotSignInFlowId: '', copilotAuthorizeMessage: '', copilotLoginStatus: '', copilotErrorMessage: '', accountCredentialsLegacyExpanded: null, accountCredentialsFocusProvider: '', floatingBubble: initialFloatingBubble, suppressInitialNumberAnimation: window.__TOKEN_MONITOR_SUPPRESS_INITIAL_NUMBER_ANIMATION__ === true, openSession: null, detailSort: 'time', recordingWindowShortcut: false, windowShortcutInvalid: false };
 state.homeHistoryLoadedSignature = '';
 state.homeHistoryRetrySignature = '';
 state.homeReturnVisible = false;
@@ -372,6 +377,8 @@ Object.assign(els, {
   accountsSettingsSummary: document.getElementById('accountsSettingsSummary'),
   accountConnectionsSummary: document.getElementById('accountConnectionsSummary'),
   accountConnectionList: document.getElementById('accountConnectionList'),
+  accountCredentialsLegacyReveal: document.getElementById('accountCredentialsLegacyReveal'),
+  accountCredentialsLegacySummary: document.getElementById('accountCredentialsLegacySummary'),
   limitsSettingsSummary: document.getElementById('limitsSettingsSummary'),
   generalSettingsSummary: document.getElementById('generalSettingsSummary'),
   mainSettingsSummary: document.getElementById('mainSettingsSummary'),
@@ -608,13 +615,18 @@ async function onSettingsSectionReorder(sectionId, targetIndex) {
 }
 
 function orderAccountProviderGroups() {
-  const container = document.getElementById('accountsSettingsDetails');
+  const container = document.getElementById('accountCredentialsLegacyGroups')
+    || document.getElementById('accountsSettingsDetails');
   if (!container) return;
   for (const provider of LIMIT_PROVIDERS) {
     const groupId = provider.id === 'opencode'
       ? 'opencodeCookieGroup'
       : `${provider.id}AccountGroup`;
     const group = document.getElementById(groupId);
+    if (group?.parentElement === container) container.append(group);
+  }
+  for (const providerId of POTLUCK_UNIQUE_ACCOUNT_PROVIDERS) {
+    const group = document.getElementById(`${providerId}AccountGroup`);
     if (group?.parentElement === container) container.append(group);
   }
 }
@@ -701,6 +713,7 @@ function settingsSectionSummary(section) {
 
 function renderSettingsSummaries() {
   renderAccountConnectionDirectory();
+  renderAccountCredentialsLegacy();
   for (const section of SETTINGS_SECTION_IDS) {
     const el = els[`${section}SettingsSummary`];
     if (el) el.textContent = settingsSectionSummary(section);
@@ -7744,6 +7757,160 @@ function renderToolPreferences() {
   }
 }
 
+function providerAccountSettingsGroupId(providerId) {
+  return providerId === 'opencode' ? 'opencodeCookieGroup' : `${providerId}AccountGroup`;
+}
+
+function monitorLocalCredentialsConfigured(providerId) {
+  if (!state.settings) return false;
+  switch (providerId) {
+    case 'claude':
+      return Boolean(state.settings.claudeWebCookieConfigured);
+    case 'codex':
+      return (state.settings.codexManagedAccounts || []).length > 0;
+    case 'cursor':
+      return Boolean(state.cursorAccount.status?.loggedIn) && !state.cursorAccount.status?.expired;
+    case 'opencode':
+      return (state.opencodeProfileCount || 0) > 0;
+    case 'openrouter':
+      return (state.openrouterProfileCount || 0) > 0;
+    case 'thirdparty':
+      return (state.thirdPartyProfileCount || 0) > 0;
+    case 'deepseek':
+      return Boolean(state.settings.deepseekApiKeyConfigured);
+    case 'minimax':
+      return Boolean(state.settings.minimaxApiKeyConfigured);
+    case 'mimo':
+      return (state.settings.mimoManagedAccounts || []).length > 0;
+    case 'copilot':
+      return Boolean(state.settings.copilotApiTokenConfigured);
+    default: {
+      const config = externalLimitAccountConfig[providerId];
+      if (config) return Boolean(state.settings[config.configuredKey]);
+      if (POTLUCK_UNIQUE_ACCOUNT_PROVIDERS.includes(providerId)) {
+        return potluckProviderStatus(providerId)?.status === 'ok';
+      }
+      return false;
+    }
+  }
+}
+
+function providerConnectionRows(providerId) {
+  return (state.stats?.limits?.providers || []).filter((row) => row.provider === providerId);
+}
+
+function shouldShowAccountCredentialsGroup(providerId) {
+  if (!providerAccountSettingsEl(providerId)) return false;
+  if (state.accountCredentialsFocusProvider === providerId) return true;
+  if (POTLUCK_UNIQUE_ACCOUNT_PROVIDERS.includes(providerId)) {
+    return potluckProviderStatus(providerId)?.status === 'ok';
+  }
+  const enabled = enabledLimitProviderSet();
+  if (!enabled.has(providerId)) return false;
+  const connections = providerConnectionRows(providerId);
+  const configured = monitorLocalCredentialsConfigured(providerId);
+  const hasMonitorConnection = connections.some(
+    (row) => limitProviderSummaryApi.sourceBucket(row) === 'monitor'
+  );
+  if (configured || hasMonitorConnection) return true;
+  if (connections.length === 0) return true;
+  const potluckOnly = connections.length > 0
+    && connections.every((row) => limitProviderSummaryApi.sourceBucket(row) === 'potluck');
+  return !potluckOnly;
+}
+
+function accountCredentialsLegacyExpandedValue(connectionCount) {
+  if (state.accountCredentialsLegacyExpanded !== null) {
+    return Boolean(state.accountCredentialsLegacyExpanded);
+  }
+  return connectionCount === 0;
+}
+
+function setAccountCredentialsLegacyExpanded(expanded, explicit = true) {
+  if (explicit) state.accountCredentialsLegacyExpanded = Boolean(expanded);
+  const details = document.getElementById('accountCredentialsLegacyDetails');
+  const toggle = document.getElementById('accountCredentialsLegacyToggle');
+  if (!details || !toggle) return;
+  const next = accountCredentialsLegacyExpandedValue(
+    Array.isArray(state.stats?.limits?.providers) ? state.stats.limits.providers.length : 0
+  );
+  details.classList.toggle('hidden', !next);
+  toggle.setAttribute('aria-expanded', next ? 'true' : 'false');
+}
+
+function expandProviderAccountSettings(providerId) {
+  if (externalLimitAccountConfig[providerId]) {
+    setExternalAccountExpanded(providerId, true);
+    return;
+  }
+  const expanders = {
+    codex: () => setCodexAccountExpanded(true),
+    cursor: () => setCursorAccountExpanded(true),
+    opencode: () => setOpencodeCookieExpanded(true),
+    openrouter: () => setOpenrouterAccountExpanded(true),
+    thirdparty: () => setThirdPartyAccountExpanded(true),
+    deepseek: () => setDeepseekAccountExpanded(true),
+    minimax: () => setMinimaxAccountExpanded(true),
+    mimo: () => setMimoAccountExpanded(true),
+    copilot: () => setCopilotAccountExpanded(true)
+  };
+  if (expanders[providerId]) {
+    expanders[providerId]();
+    return;
+  }
+  setAccountGroupExpanded(providerId, true);
+}
+
+function renderAccountCredentialsLegacy() {
+  const wrapper = document.getElementById('accountCredentialsLegacy');
+  const summaryEl = els.accountCredentialsLegacySummary;
+  const revealBtn = els.accountCredentialsLegacyReveal;
+  if (!wrapper) return;
+
+  const connectionCount = Array.isArray(state.stats?.limits?.providers)
+    ? state.stats.limits.providers.length
+    : 0;
+  let visibleCount = 0;
+  let configuredCount = 0;
+
+  for (const providerId of ACCOUNT_CREDENTIAL_PROVIDER_IDS) {
+    const group = providerAccountSettingsEl(providerId);
+    if (!group) continue;
+    const visible = shouldShowAccountCredentialsGroup(providerId);
+    group.classList.toggle('hidden', !visible);
+    if (visible) {
+      visibleCount += 1;
+      if (monitorLocalCredentialsConfigured(providerId)) configuredCount += 1;
+    }
+  }
+
+  const expanded = accountCredentialsLegacyExpandedValue(connectionCount);
+  setAccountCredentialsLegacyExpanded(expanded, false);
+  wrapper.classList.toggle('hidden', visibleCount === 0);
+
+  if (summaryEl) {
+    summaryEl.textContent = visibleCount === 0
+      ? t('settings.accounts.credentials.hidden')
+      : t('settings.accounts.credentials.summary', {
+        visible: visibleCount,
+        configured: configuredCount
+      });
+  }
+  if (revealBtn) {
+    const showReveal = connectionCount > 0 && visibleCount > 0 && !expanded;
+    revealBtn.classList.toggle('hidden', !showReveal);
+  }
+
+  if (state.accountCredentialsFocusProvider) {
+    const focusId = state.accountCredentialsFocusProvider;
+    if (shouldShowAccountCredentialsGroup(focusId)) {
+      expandProviderAccountSettings(focusId);
+      providerAccountSettingsEl(focusId)?.scrollIntoView({ block: 'nearest' });
+    }
+    state.accountCredentialsFocusProvider = '';
+  }
+}
+
 function renderAccountConnectionDirectory() {
   const list = els.accountConnectionList;
   if (!list) return;
@@ -8349,14 +8516,16 @@ function appendQuotaForecastPanels(card, row, archive) {
 }
 
 function providerAccountSettingsEl(providerId) {
-  return document.getElementById(`${providerId}AccountGroup`);
+  return document.getElementById(providerAccountSettingsGroupId(providerId));
 }
 
 function focusProviderAccountSettings(providerId) {
   const group = providerAccountSettingsEl(providerId);
   if (!group) return false;
+  state.accountCredentialsFocusProvider = providerId;
+  state.accountCredentialsLegacyExpanded = true;
   setSettingsSectionExpanded('accounts', true);
-  group.scrollIntoView({ block: 'nearest' });
+  renderAccountCredentialsLegacy();
   return true;
 }
 
@@ -11293,7 +11462,6 @@ function renderPotluckUniqueAccountGroups() {
     if (!group || !statusEl) continue;
     const provider = potluckProviderStatus(providerId);
     const linked = provider?.status === 'ok';
-    group.classList.toggle('hidden', !linked);
     statusEl.textContent = linked
       ? t('settings.common.linkedFromPotluck')
       : t('settings.common.statusNotSet');
@@ -11304,6 +11472,7 @@ function renderPotluckUniqueAccountGroups() {
         || '—';
     }
   }
+  renderAccountCredentialsLegacy();
 }
 
 function setMinimaxAccountExpanded(expanded) {
@@ -13290,6 +13459,23 @@ function setupCursorAccountUI() {
   renderPotluckUniqueAccountGroups();
 }
 
+function setupAccountCredentialsLegacyUI() {
+  const toggle = document.getElementById('accountCredentialsLegacyToggle');
+  toggle?.addEventListener('click', () => {
+    const connectionCount = Array.isArray(state.stats?.limits?.providers)
+      ? state.stats.limits.providers.length
+      : 0;
+    state.accountCredentialsLegacyExpanded = !accountCredentialsLegacyExpandedValue(connectionCount);
+    renderAccountCredentialsLegacy();
+  });
+  els.accountCredentialsLegacyReveal?.addEventListener('click', () => {
+    state.accountCredentialsLegacyExpanded = true;
+    setSettingsSectionExpanded('accounts', true);
+    renderAccountCredentialsLegacy();
+    document.getElementById('accountCredentialsLegacy')?.scrollIntoView({ block: 'nearest' });
+  });
+}
+
 function initSettingsAnimationWrappers() {
   const selectors = [
     '.settings-section-details',
@@ -13341,6 +13527,9 @@ setupSettingsSections();
 try {
 setupCursorAccountUI();
 } catch (error) { console.error('[boot:setupCursorAccountUI]', error); }
+try {
+setupAccountCredentialsLegacyUI();
+} catch (error) { console.error('[boot:setupAccountCredentialsLegacyUI]', error); }
 try {
 setupCustomPricingUI();
 } catch (error) { console.error('[boot:setupCustomPricingUI]', error); }
