@@ -1,6 +1,7 @@
 'use strict';
 
-const quotaHistoryPeer = (() => {
+(function () {
+  const quotaHistoryPeer = (() => {
   try {
     return require('./quotaHistory');
   } catch {
@@ -693,3 +694,4 @@ const quotaForecastApi = {
 
 module.exports = quotaForecastApi;
 if (typeof window !== 'undefined') window.TokenMonitorQuotaForecast = quotaForecastApi;
+}());

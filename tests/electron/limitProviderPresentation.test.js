@@ -1459,3 +1459,15 @@ test('shared quota forecast modules expose renderer globals without route fields
   assert.doesNotMatch(forecast, /route:|switch:|action:/);
   assert.doesNotMatch(risk, /route:|switch:|action:/);
 });
+
+test('classic renderer forecast scripts can load before app.js without duplicate global declarations', () => {
+  const source = [
+    readSharedFile('quotaForecast.js'),
+    readSharedFile('quotaRisk.js'),
+    readRendererFile('app.js')
+  ].join('\n');
+  assert.doesNotThrow(
+    () => new vm.Script(source, { filename: 'renderer-forecast-bundle.js' }),
+    'shared quota scripts must not collide with app.js top-level declarations'
+  );
+});
