@@ -31,6 +31,7 @@ Example response:
   "version": 1,
   "deviceCount": 2,
   "secretRequired": true,
+  "limitsSnapshotEnabled": false,
   "now": "2026-05-18T00:00:00.000Z"
 }
 ```
@@ -241,6 +242,42 @@ Response includes:
 - stale status for devices that have not reported recently
 
 If multiple devices report the same provider account, the hub keeps the freshest valid limits status for that account. When devices also send `quotaPoolKey` / `quotaPools`, the hub merges **only** by that opaque pool id: same key across devices is one pool (connection rows stay, and their `windows` are a projection of the pool); the same display label or matching percentages without a key never become a shared pool. Conflicting fresh windows on one key keep the newest source, set `conflict: true`, and mark window `precision` as `unavailable`. A pool disappears from the live aggregate once no stored device still reports its key. Public Worker stats omit account identifiers.
+
+## `GET /api/limits/snapshot`
+
+Read-only limits export for external consumers (Potluck gateway, automation, or debugging). **Disabled by default** — set `TOKEN_MONITOR_LIMITS_SNAPSHOT_ENABLED=1` on the hub process (or pass `limitsSnapshotEnabled: true` to `createHub`) to expose it.
+
+Requires the same authentication as other protected endpoints. Responses are rate-limited (default one request per second per caller; configure with `limitsSnapshotRateLimitMs` when constructing the hub). When disabled, the route returns `404` with `{ "error": "not_found" }`. When rate-limited, returns `429` with `{ "error": "rate_limited", "retryAfterMs": … }` and a `Retry-After` header.
+
+Version negotiation: pass `?version=1` / `?v=1`, or send `Accept: application/vnd.token-monitor.limits-snapshot.v1+json`. Omitting a version uses the latest supported schema. Unsupported versions return `406` with `{ "error": "unsupported_version", "supported": [1] }`.
+
+The payload is redacted with the same rules as public limits (`accountKey`, `accountEmail`, `connectionKey`, `quotaPoolKey`, and related identity fields are stripped). Forecast outputs never include routing advice fields (`route`, `switch`, `action`).
+
+Example response (schema version 1):
+
+```json
+{
+  "schemaVersion": 1,
+  "negotiatedVersion": 1,
+  "snapshotId": "hub-2026-07-24T10:00:00.000Z",
+  "generatedAt": "2026-07-24T10:00:00.000Z",
+  "capabilities": ["limits"],
+  "staleAfterMs": 600000,
+  "limits": {
+    "providers": [
+      {
+        "provider": "codex",
+        "status": "ok",
+        "windows": [{ "kind": "weekly", "usedPercent": 40, "remainingPercent": 60 }]
+      }
+    ]
+  }
+}
+```
+
+The widget exposes the richer local snapshot (limits + persisted quota history + forecast/risk bundles) through the internal IPC channel `limits:getSnapshot` when the same env flag is enabled. That IPC surface is not part of the HTTP API.
+
+`/api/health` includes `limitsSnapshotEnabled: true|false` so callers can discover whether the route is active without probing it.
 
 ## `GET /api/devices`
 

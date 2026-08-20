@@ -6,7 +6,7 @@ const os = require('node:os');
 const path = require('node:path');
 const fs = require('node:fs');
 
-const { createHub, resolveBindHost } = require('../../src/hub/server');
+const { createHub, resolveBindHost, buildHubLimitsSnapshot, LIMITS_SNAPSHOT_SCHEMA_VERSION } = require('../../src/hub/server');
 const { codexAccountKey } = require('../../src/shared/codexAuth');
 
 function tempDataFile() {
@@ -291,4 +291,181 @@ test('ingest accepts payloads above the legacy 256 KiB limit', async () => {
     await hub.stop();
     fs.rmSync(dataFile, { force: true });
   }
+});
+
+test('GET /api/limits/snapshot returns 404 when the endpoint is disabled', async () => {
+  const dataFile = tempDataFile();
+  const hub = createHub({
+    port: 0,
+    host: '127.0.0.1',
+    secret: 'test-secret',
+    dataFile,
+    limitsSnapshotEnabled: false,
+    logger: { error() {} }
+  });
+  await hub.start();
+  try {
+    const { port } = hub.server.address();
+    const response = await fetch(`http://127.0.0.1:${port}/api/limits/snapshot`, {
+      headers: { authorization: 'Bearer test-secret' }
+    });
+    assert.equal(response.status, 404);
+    assert.deepEqual(await response.json(), { error: 'not_found' });
+  } finally {
+    await hub.stop();
+    fs.rmSync(dataFile, { force: true });
+  }
+});
+
+test('GET /api/limits/snapshot returns redacted limits when enabled', async () => {
+  const dataFile = tempDataFile();
+  const hub = createHub({
+    port: 0,
+    host: '127.0.0.1',
+    secret: 'snap-secret',
+    dataFile,
+    limitsSnapshotEnabled: true,
+    limitsSnapshotRateLimitMs: 0,
+    logger: { error() {} }
+  });
+  const accountKey = 'sha256:abc123';
+  hub.ingest({
+    deviceId: 'widget',
+    limits: {
+      updatedAt: '2026-07-24T10:00:00.000Z',
+      providers: [{
+        provider: 'codex',
+        accountKey,
+        accountEmail: 'user@example.com',
+        connectionKey: 'conn-1',
+        status: 'ok',
+        source: 'rpc',
+        updatedAt: '2026-07-24T10:00:00.000Z',
+        windows: [{ kind: 'weekly', usedPercent: 40, remainingPercent: 60 }]
+      }]
+    }
+  });
+  await hub.start();
+  try {
+    const { port } = hub.server.address();
+    const response = await fetch(`http://127.0.0.1:${port}/api/limits/snapshot?version=1`, {
+      headers: { authorization: 'Bearer snap-secret' }
+    });
+    assert.equal(response.status, 200);
+    const body = await response.json();
+    assert.equal(body.schemaVersion, LIMITS_SNAPSHOT_SCHEMA_VERSION);
+    assert.equal(body.negotiatedVersion, 1);
+    assert.deepEqual(body.capabilities, ['limits']);
+    assert.equal(body.limits.providers.length, 1);
+    assert.equal(body.limits.providers[0].provider, 'codex');
+    assert.equal(body.limits.providers[0].accountEmail, undefined);
+    assert.equal(body.limits.providers[0].connectionKey, undefined);
+    assert.equal(body.limits.providers[0].route, undefined);
+    assert.equal(body.limits.providers[0].switch, undefined);
+    assert.equal(body.limits.providers[0].action, undefined);
+    assert.doesNotMatch(JSON.stringify(body), /"route"|"switch"|"action"/);
+  } finally {
+    await hub.stop();
+    fs.rmSync(dataFile, { force: true });
+  }
+});
+
+test('GET /api/limits/snapshot negotiates version and rejects unsupported versions', async () => {
+  const dataFile = tempDataFile();
+  const hub = createHub({
+    port: 0,
+    host: '127.0.0.1',
+    secret: '',
+    dataFile,
+    limitsSnapshotEnabled: true,
+    limitsSnapshotRateLimitMs: 0,
+    logger: { error() {} }
+  });
+  await hub.start();
+  try {
+    const { port } = hub.server.address();
+    const unsupported = await fetch(`http://127.0.0.1:${port}/api/limits/snapshot?version=99`);
+    assert.equal(unsupported.status, 406);
+    assert.deepEqual(await unsupported.json(), { error: 'unsupported_version', supported: [1] });
+
+    const negotiated = await fetch(`http://127.0.0.1:${port}/api/limits/snapshot`, {
+      headers: { accept: 'application/vnd.token-monitor.limits-snapshot.v1+json' }
+    });
+    assert.equal(negotiated.status, 200);
+    assert.equal((await negotiated.json()).negotiatedVersion, 1);
+  } finally {
+    await hub.stop();
+    fs.rmSync(dataFile, { force: true });
+  }
+});
+
+test('GET /api/limits/snapshot rate limits rapid requests', async () => {
+  const dataFile = tempDataFile();
+  const hub = createHub({
+    port: 0,
+    host: '127.0.0.1',
+    secret: '',
+    dataFile,
+    limitsSnapshotEnabled: true,
+    limitsSnapshotRateLimitMs: 60_000,
+    logger: { error() {} }
+  });
+  await hub.start();
+  try {
+    const { port } = hub.server.address();
+    const url = `http://127.0.0.1:${port}/api/limits/snapshot`;
+    const first = await fetch(url);
+    const second = await fetch(url);
+    assert.equal(first.status, 200);
+    assert.equal(second.status, 429);
+    const body = await second.json();
+    assert.equal(body.error, 'rate_limited');
+    assert.ok(Number.isFinite(body.retryAfterMs));
+  } finally {
+    await hub.stop();
+    fs.rmSync(dataFile, { force: true });
+  }
+});
+
+test('GET /api/limits/snapshot requires auth when a secret is configured', async () => {
+  const dataFile = tempDataFile();
+  const hub = createHub({
+    port: 0,
+    host: '127.0.0.1',
+    secret: 'needs-auth',
+    dataFile,
+    limitsSnapshotEnabled: true,
+    limitsSnapshotRateLimitMs: 0,
+    logger: { error() {} }
+  });
+  await hub.start();
+  try {
+    const { port } = hub.server.address();
+    const denied = await fetch(`http://127.0.0.1:${port}/api/limits/snapshot`);
+    assert.equal(denied.status, 401);
+    const allowed = await fetch(`http://127.0.0.1:${port}/api/limits/snapshot`, {
+      headers: { authorization: 'Bearer needs-auth' }
+    });
+    assert.equal(allowed.status, 200);
+  } finally {
+    await hub.stop();
+    fs.rmSync(dataFile, { force: true });
+  }
+});
+
+test('buildHubLimitsSnapshot strips routing advice fields', () => {
+  const snapshot = buildHubLimitsSnapshot({
+    staleAfterMs: 600000,
+    limits: {
+      providers: [{
+        provider: 'codex',
+        status: 'ok',
+        route: 'switch-model',
+        action: 'pause',
+        switch: 'gpt-5',
+        windows: [{ kind: 'weekly', usedPercent: 10 }]
+      }]
+    }
+  });
+  assert.doesNotMatch(JSON.stringify(snapshot), /"route"|"switch"|"action"/);
 });

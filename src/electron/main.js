@@ -119,7 +119,11 @@ const {
   writeSessionUsageArchive
 } = require('../shared/sessionUsageArchive');
 const { clearDailyHistoryArchive } = require('../shared/dailyHistoryArchive');
-const { clearQuotaHistory, retainQuotaHistoryFromLimits } = require('../shared/quotaHistory');
+const { clearQuotaHistory, quotaHistoryStats, readQuotaHistory, retainQuotaHistoryFromLimits } = require('../shared/quotaHistory');
+const { stripForbidden } = require('../shared/quotaForecast');
+const { evaluateProviderRisks } = require('../shared/quotaRisk');
+const { publicLimits } = require('../shared/limits');
+const { LIMITS_SNAPSHOT_SCHEMA_VERSION, LIMITS_SNAPSHOT_SUPPORTED_VERSIONS } = require('../hub/server');
 const { aggregateDevices, aggregateHistory, applyProjectRollups, todayHoursFromSessions } = require('../shared/usage');
 const { postSyncPayload, syncPayload } = require('../shared/syncPayload');
 const { mergedLocalAllTimeSessions } = require('../shared/localSessions');
@@ -2374,6 +2378,7 @@ async function startEmbeddedHub() {
       host: '0.0.0.0',
       secret: settings.hubHostSecret,
       dataFile: hubDataFile(),
+      limitsSnapshotEnabled: limitsSnapshotEnabled(),
       logger: { error: (err) => console.log(`[hub] ${err?.message || err}`) }
     });
     await hub.start();
@@ -2415,6 +2420,64 @@ function retainDeviceQuotaHistory(record) {
   } catch (error) {
     console.log(`[quota-history] ${error.message}`);
   }
+}
+
+function limitsSnapshotEnabled() {
+  return parseBoolean(process.env.TOKEN_MONITOR_LIMITS_SNAPSHOT_ENABLED, false);
+}
+
+function negotiateLocalLimitsSnapshotVersion(options = {}) {
+  const requested = Number(options.version ?? options.v);
+  if (!Number.isInteger(requested)) return LIMITS_SNAPSHOT_SCHEMA_VERSION;
+  return requested;
+}
+
+function buildLocalLimitsSnapshot(options = {}) {
+  const version = negotiateLocalLimitsSnapshotVersion(options);
+  if (!LIMITS_SNAPSHOT_SUPPORTED_VERSIONS.includes(version)) {
+    return {
+      ok: false,
+      error: 'unsupported_version',
+      supported: LIMITS_SNAPSHOT_SUPPORTED_VERSIONS
+    };
+  }
+  const generatedAt = new Date().toISOString();
+  const record = deviceRuntimeHandle?.getSnapshot?.() || localDevice || null;
+  const limitsRaw = record?.limits || null;
+  const limits = limitsRaw ? publicLimits(limitsRaw) : { providers: [] };
+  const dataDir = sharedDataDir();
+  const archive = readQuotaHistory({ dataDir });
+  const historyStats = quotaHistoryStats({ dataDir });
+  const providers = Array.isArray(limitsRaw?.providers) ? limitsRaw.providers : [];
+  const riskBundle = evaluateProviderRisks(archive, providers, { now: options.now });
+  const snapshotId = `${record?.deviceId || settings.deviceId || 'local'}-${generatedAt}`;
+  return {
+    ok: true,
+    snapshot: stripForbidden({
+      schemaVersion: LIMITS_SNAPSHOT_SCHEMA_VERSION,
+      negotiatedVersion: version,
+      snapshotId,
+      generatedAt,
+      capabilities: ['limits', 'quotaHistory', 'forecast', 'risk'],
+      deviceId: record?.deviceId || settings.deviceId || null,
+      limits,
+      quotaHistory: {
+        stats: historyStats,
+        series: archive.series || {},
+        annotations: archive.annotations || {}
+      },
+      forecasts: riskBundle.items.map((item) => ({
+        seriesKey: item.seriesKey,
+        provider: item.provider?.provider || null,
+        window: item.window,
+        forecast: item.forecast
+      })),
+      risks: {
+        items: riskBundle.risks,
+        binding: riskBundle.binding
+      }
+    })
+  };
 }
 
 async function deleteDeviceFromHub(deviceId) {
@@ -4676,6 +4739,10 @@ app.whenReady().then(() => {
     return true;
   });
   ipcMain.handle('stats:get', (_event, options) => fetchStats(options));
+  ipcMain.handle('limits:getSnapshot', (_event, options) => {
+    if (!limitsSnapshotEnabled()) return { ok: false, error: 'disabled' };
+    return buildLocalLimitsSnapshot(options);
+  });
   ipcMain.handle('export:now', async () => {
     const result = await dialog.showOpenDialog({
       properties: ['openDirectory', 'createDirectory'],
