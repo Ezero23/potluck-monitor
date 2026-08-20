@@ -4,26 +4,22 @@
 
 <!-- app-update-notes:en:start -->
 ### Added
-- **Unsigned macOS auto-update:** builds without a Developer ID signature now download the release zip in the background (proxy-aware, with progress) and install it in place on restart — no manual DMG trip. Signed builds keep the native updater path.
-- **Price audit:** models tokscale cannot price no longer show a misleading $0.00 — they read *Price unknown*, and the row expansion shows the pricing source and matched catalog key when a price exists.
-- **Drag to reorder:** reorder Home modules, Settings groups, and the view switcher menu by dragging.
-- **Home gateway card:** the Potluck Gateway card now lives with Multi-device Sync, shows the tunnel URL and gateway API key with one-tap copy, and can open the web console.
+- **Providers & Limits forecast:** Settings drill-down shows pace vs actual usage, confidence, Last Good age, optional exhaust timing, and sparklines when enough history exists — no routing advice.
+- **Local quota history:** `quota-history.json` keeps raw, hourly, and cycle rollups (14 / 90 / 370 days, 25 MiB cap) for transparent forecast backtests.
+- **Limits schema v2:** split `connectionStatus` / `quotaStatus`, Last Good timestamps, canonical provider ids, external/Potluck snapshot ingest, and hub quota-pool merge by `quotaPoolKey`.
+- **Read-only limits export (optional):** hub `GET /api/limits/snapshot` when `TOKEN_MONITOR_LIMITS_SNAPSHOT_ENABLED=1`; widget IPC always exposes the local snapshot to the app.
 
 ### Fixed
-- **Potluck gateway port:** discovery, status text, settings, and saved legacy configurations now converge on Potluck's single `21023` port instead of falling back to `20129`.
-- **Tunnel status:** the Home gateway card follows the live tunnel process and prefers its current direct URL, avoiding stale short-link state after a reconnect.
-- **Settings page:** expanded sections scroll internally, so the next section header stays in view instead of being pushed off screen.
-- **Day view:** activity and trends now distribute by hour instead of calendar date.
-- **Interface languages:** reduced to English and 简体中文; removed Discord integration and stale version/links from Settings → General.
+- Provider settings keep every connection visible instead of last-row-wins summaries.
 <!-- app-update-notes:en:end -->
 
 ## Download
 
-- **macOS Apple Silicon** — [potluck-monitor-0.1.2-arm64.dmg](https://github.com/Ezero23/potluck-monitor/releases/download/v0.1.2/potluck-monitor-0.1.2-arm64.dmg)
-- **macOS Intel** — [potluck-monitor-0.1.2-x64.dmg](https://github.com/Ezero23/potluck-monitor/releases/download/v0.1.2/potluck-monitor-0.1.2-x64.dmg)
-- **Windows installer** — [potluck-monitor-Setup-0.1.2.exe](https://github.com/Ezero23/potluck-monitor/releases/download/v0.1.2/potluck-monitor-Setup-0.1.2.exe)
-- **Windows portable** — [potluck-monitor-0.1.2.exe](https://github.com/Ezero23/potluck-monitor/releases/download/v0.1.2/potluck-monitor-0.1.2.exe)
-- **Linux** — [potluck-monitor-0.1.2.AppImage](https://github.com/Ezero23/potluck-monitor/releases/download/v0.1.2/potluck-monitor-0.1.2.AppImage)
+- **macOS Apple Silicon** — [potluck-monitor-0.2.0-arm64.dmg](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.0/potluck-monitor-0.2.0-arm64.dmg)
+- **macOS Intel** — [potluck-monitor-0.2.0-x64.dmg](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.0/potluck-monitor-0.2.0-x64.dmg)
+- **Windows installer** — [potluck-monitor-Setup-0.2.0.exe](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.0/potluck-monitor-Setup-0.2.0.exe)
+- **Windows portable** — [potluck-monitor-0.2.0.exe](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.0/potluck-monitor-0.2.0.exe)
+- **Linux** — [potluck-monitor-0.2.0.AppImage](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.0/potluck-monitor-0.2.0.AppImage)
 
 <details>
 <summary><strong>First launch and other notes</strong></summary>
@@ -35,6 +31,8 @@
 ### Other notes
 
 The macOS `.zip` files are updater payloads for the same apps; most people should use the `.dmg` installers above.
+
+Hub HTTP limits export stays **off by default** — set `TOKEN_MONITOR_LIMITS_SNAPSHOT_ENABLED=1` on the hub process only when an external consumer needs it.
 
 ### tokscale dependency
 
@@ -52,26 +50,22 @@ open-source: https://github.com/junhoyeo/tokscale
 
 <!-- app-update-notes:zh:start -->
 ### 新增
-- **未签名 macOS 自动更新：** 没有 Developer ID 签名的构建现在可以在后台下载 release zip（走代理、带进度），重启时自动替换安装，不用手动拖 DMG。已签名构建仍走原生更新通道。
-- **价格审计：** tokscale 拿不到价格的模型不再显示误导性的 $0.00，而是显示「价格未知」；有价格时，展开行可以看到定价来源和匹配的目录键。
-- **拖拽排序：** 主页模块、设置分组、视图切换菜单都可以直接拖动排序。
-- **主页网关卡片：** Potluck 网关卡片与多设备同步放在一起，显示隧道地址和网关 API 密钥并可一键复制，还能直接打开 Web 控制台。
+- **Providers & Limits 额度预测：** 设置页可展开每个连接，查看实际 vs 节奏、置信度、Last Good、可选的耗尽时间，以及有足够样本时的小折线图 —— 不提供切换/路由建议。
+- **本地额度历史：** `quota-history.json` 保存原始/小时/周期三层数据（14 / 90 / 370 天，25 MiB 上限），供透明预测与回测。
+- **Limits schema v2：** 拆分连接/额度状态、Last Good 时间戳、provider 规范 id、外部/Potluck snapshot 接入，以及 hub 按 `quotaPoolKey` 合并共享池。
+- **只读额度导出（可选）：** hub 在 `TOKEN_MONITOR_LIMITS_SNAPSHOT_ENABLED=1` 时提供 `GET /api/limits/snapshot`；widget 本地 IPC 始终可供应用读取快照。
 
 ### 修复
-- **Potluck 网关端口：**发现、状态文案、设置与旧配置迁移现在统一到 Potluck 唯一的 `21023` 端口，不再回退到 `20129`。
-- **隧道状态：**主页网关卡片会跟随真实隧道进程并优先显示当前直连地址，重连后不会继续使用过期短地址状态。
-- **设置页面：** 展开的分区改为内部滚动，下一个分区标题始终停留在视野内，不再被顶出屏幕。
-- **Day 视图：** 活动和趋势按当天小时分布，不再按日期。
-- **界面语言：** 只保留 English 和简体中文；移除 Discord 集成，清理设置 → 常规里过时的版本号与链接。
+- Provider 设置页保留每个连接，不再被「最后一行覆盖」式摘要吞掉。
 <!-- app-update-notes:zh:end -->
 
 ## 下载
 
-- **macOS Apple Silicon** — [potluck-monitor-0.1.2-arm64.dmg](https://github.com/Ezero23/potluck-monitor/releases/download/v0.1.2/potluck-monitor-0.1.2-arm64.dmg)
-- **macOS Intel** — [potluck-monitor-0.1.2-x64.dmg](https://github.com/Ezero23/potluck-monitor/releases/download/v0.1.2/potluck-monitor-0.1.2-x64.dmg)
-- **Windows 安装包** — [potluck-monitor-Setup-0.1.2.exe](https://github.com/Ezero23/potluck-monitor/releases/download/v0.1.2/potluck-monitor-Setup-0.1.2.exe)
-- **Windows 便携版** — [potluck-monitor-0.1.2.exe](https://github.com/Ezero23/potluck-monitor/releases/download/v0.1.2/potluck-monitor-0.1.2.exe)
-- **Linux** — [potluck-monitor-0.1.2.AppImage](https://github.com/Ezero23/potluck-monitor/releases/download/v0.1.2/potluck-monitor-0.1.2.AppImage)
+- **macOS Apple Silicon** — [potluck-monitor-0.2.0-arm64.dmg](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.0/potluck-monitor-0.2.0-arm64.dmg)
+- **macOS Intel** — [potluck-monitor-0.2.0-x64.dmg](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.0/potluck-monitor-0.2.0-x64.dmg)
+- **Windows 安装包** — [potluck-monitor-Setup-0.2.0.exe](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.0/potluck-monitor-Setup-0.2.0.exe)
+- **Windows 便携版** — [potluck-monitor-0.2.0.exe](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.0/potluck-monitor-0.2.0.exe)
+- **Linux** — [potluck-monitor-0.2.0.AppImage](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.0/potluck-monitor-0.2.0.AppImage)
 
 <details>
 <summary><strong>首次启动与其他说明</strong></summary>
@@ -83,6 +77,8 @@ open-source: https://github.com/junhoyeo/tokscale
 ### 其他说明
 
 macOS 的 `.zip` 是同一应用的自动更新载荷；大多数用户应使用上方的 `.dmg` 安装包。
+
+Hub 的 HTTP 额度导出**默认关闭** —— 只有外部程序需要读 hub 时才在 hub 进程上设置 `TOKEN_MONITOR_LIMITS_SNAPSHOT_ENABLED=1`。
 
 ### tokscale 依赖
 
