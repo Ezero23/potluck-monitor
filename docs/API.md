@@ -275,7 +275,7 @@ Example response (schema version 1):
 }
 ```
 
-The widget exposes the richer local snapshot (limits + persisted quota history + forecast/risk bundles) through the internal IPC channel `limits:getSnapshot` when the same env flag is enabled. That IPC surface is not part of the HTTP API.
+The widget exposes the richer local snapshot (limits + persisted quota history + forecast/risk bundles) through the internal IPC channel `limits:getSnapshot` (`getLimitsSnapshot` in preload). That IPC surface is always available to the widget process and is not part of the HTTP API. Only the hub route above is gated by `TOKEN_MONITOR_LIMITS_SNAPSHOT_ENABLED`.
 
 `/api/health` includes `limitsSnapshotEnabled: true|false` so callers can discover whether the route is active without probing it.
 

@@ -1416,12 +1416,17 @@ test('Kimi usage and limits share the canonical provider id and vendor color', (
 test('settings connection cards load quota forecast modules and render pace, confidence, and last good', () => {
   const html = readRendererFile('index.html');
   const app = readRendererFile('app.js');
+  const preload = fs.readFileSync(path.join(__dirname, '../../src/electron/preload.js'), 'utf8');
   const styles = readRendererFile('styles.css');
   const i18n = readRendererFile('i18n.js');
   const connectionCard = functionBody(app, 'appendLimitProviderConnectionCard', 'renderLimitsDataHealth');
 
   assert.match(html, /src="\.\.\/\.\.\/shared\/quotaForecast\.js"/);
   assert.match(html, /src="\.\.\/\.\.\/shared\/quotaRisk\.js"/);
+  assert.match(preload, /getLimitsSnapshot:\s*\(options\)\s*=>\s*ipcRenderer\.invoke\('limits:getSnapshot'/);
+  assert.match(app, /async function refreshQuotaArchiveFromSnapshot\(/);
+  assert.match(app, /await refreshQuotaArchiveFromSnapshot\(\)/);
+  assert.match(app, /window\.tokenMonitor\.getLimitsSnapshot/);
   assert.match(app, /const quotaForecastApi = window\.TokenMonitorQuotaForecast;/);
   assert.match(app, /const quotaRiskApi = window\.TokenMonitorQuotaRisk;/);
   assert.match(app, /mergeQuotaArchiveFromLimits\(/);

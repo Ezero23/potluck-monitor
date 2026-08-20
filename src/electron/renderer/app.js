@@ -5557,6 +5557,7 @@ async function refreshStats(options = {}) {
   }
   try {
     state.stats = overlayAllTimeSessions(await window.tokenMonitor.getStats(options));
+    await refreshQuotaArchiveFromSnapshot();
     mergeQuotaArchiveFromLimits(state.stats?.limits);
     ensurePricingAudit();
     if (options.forceHistory === true) {
@@ -7907,6 +7908,20 @@ function emptyQuotaArchive() {
   return { version: 1, series: {}, annotations: {} };
 }
 
+async function refreshQuotaArchiveFromSnapshot() {
+  if (!window.tokenMonitor?.getLimitsSnapshot) return;
+  try {
+    const result = await window.tokenMonitor.getLimitsSnapshot();
+    if (!result?.ok || !result.snapshot?.quotaHistory) return;
+    const disk = result.snapshot.quotaHistory;
+    state.quotaArchive = {
+      version: disk.stats?.version || 1,
+      series: { ...(disk.series || {}) },
+      annotations: { ...(disk.annotations || {}) }
+    };
+  } catch (_) {}
+}
+
 function quotaSampleFingerprint(sample) {
   return JSON.stringify([
     sample.used,
@@ -9251,7 +9266,9 @@ window.tokenMonitor.onStatsPush?.((payload) => {
     }
     if (payload.data?.mode) state.mode = payload.data.mode;
     state.stats = overlayAllTimeSessions(payload.data.stats);
-    mergeQuotaArchiveFromLimits(state.stats?.limits);
+    void refreshQuotaArchiveFromSnapshot().then(() => {
+      mergeQuotaArchiveFromLimits(state.stats?.limits);
+    });
     applyCodexActiveAccountFromStats();
     // Progressive mid-tick pushes never carry a fresh history scan (see
     // AGENTS.md collector notes), so only the final push can retire the

@@ -4739,10 +4739,7 @@ app.whenReady().then(() => {
     return true;
   });
   ipcMain.handle('stats:get', (_event, options) => fetchStats(options));
-  ipcMain.handle('limits:getSnapshot', (_event, options) => {
-    if (!limitsSnapshotEnabled()) return { ok: false, error: 'disabled' };
-    return buildLocalLimitsSnapshot(options);
-  });
+  ipcMain.handle('limits:getSnapshot', (_event, options) => buildLocalLimitsSnapshot(options));
   ipcMain.handle('export:now', async () => {
     const result = await dialog.showOpenDialog({
       properties: ['openDirectory', 'createDirectory'],
