@@ -89,8 +89,8 @@ test('OpenRouter Limits presentation shows a real balance meter and compact spen
     /if \(id === 'openrouter' && Array\.isArray\(visibleProviders\) && visibleProviders\.length > 1\) \{\s*nodes\.push\(renderOpenRouterAccountGroup\(label, visibleProviders, color\)\);\s*continue;\s*\}/
   );
   assert.match(app, /function openrouterSpendEntries\(balance\)/);
-  assert.match(app, /\['Week', optionalFiniteNumber\(balance\?\.weekSpend\)\]/);
-  assert.match(app, /\['All time', optionalFiniteNumber\(balance\?\.allTimeSpend\)\]/);
+  assert.match(app, /\[t\('spend\.week'\), optionalFiniteNumber\(balance\?\.weekSpend\)\]/);
+  assert.match(app, /\[t\('spend\.allTime'\), optionalFiniteNumber\(balance\?\.allTimeSpend\)\]/);
   assert.match(app, /summary\.className = 'limit-spend-summary'/);
   assert.match(app, /function limitDetailInfoNode\(entries, extraClass = ''\)/);
   assert.match(app, /tooltip\.className = 'limit-detail-tooltip'/);

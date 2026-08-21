@@ -952,7 +952,7 @@ test('DeepSeek main Limits row preserves the intentional month-spend balance met
 
   assert.match(renderProviderWindows, /\{ remainingPercent: creditsMeterPercent\(provider, null\) \},/);
   assert.match(renderProviderWindows, /balanceNode\.classList\.add\('limit-window-wide', 'limit-window-no-reset'\);/);
-  assert.match(renderProviderWindows, /const spendNode = limitWindowNode\('Spend', \{ showMeter: false \}, color, 0\.6,/);
+  assert.match(renderProviderWindows, /const spendNode = limitWindowNode\(t\('spend\.label'\), \{ showMeter: false \}, color, 0\.6,/);
   assert.doesNotMatch(renderProviderWindows, /Month \(since tracking\)/);
   assert.doesNotMatch(renderProviderWindows, /monthSinceTracking \? 'Month \(since tracking\)' : 'Month'/);
   // The month-spend denominator now lives in the shared balance module.
@@ -1023,7 +1023,7 @@ test('main Limits plan text shows failure status before account labels', () => {
   const app = readRendererFile('app.js');
   const planBody = functionBody(app, 'limitProviderPlan', 'configuredLimitProviderOrder');
 
-  assert.match(planBody, /if \(provider\?\.status && provider\.status !== 'ok' && !provider\.stale\) return limitStatusLabel\(provider\.status, false\);/);
+  assert.match(planBody, /if \(provider\?\.status && provider\.status !== 'ok' && !provider\.stale\) return translatedLimitStatusLabel\(provider\.status\);/);
   assert.match(planBody, /const label = String\(provider\?\.planLabel \|\| provider\?\.accountLabel \|\| ''\)\.trim\(\);/);
 });
 

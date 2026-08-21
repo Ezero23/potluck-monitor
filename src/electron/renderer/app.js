@@ -844,14 +844,14 @@ function formatActiveDuration(ms) {
 }
 function formatUpdatedAge(value) {
   const date = value ? new Date(value) : null;
-  if (!date || Number.isNaN(date.getTime())) return 'Update unknown';
+  if (!date || Number.isNaN(date.getTime())) return t('status.updated.unknown');
   const diffMs = Math.max(0, Date.now() - date.getTime());
-  if (diffMs < 45_000) return 'Updated just now';
+  if (diffMs < 45_000) return t('status.updated.justNow');
   const minutes = Math.round(diffMs / 60000);
-  if (minutes < 60) return `Updated ${minutes}m ago`;
+  if (minutes < 60) return t('status.updated.minutes', { n: minutes });
   const hours = Math.round(minutes / 60);
-  if (hours < 24) return `Updated ${hours}h ago`;
-  return `Updated ${Math.round(hours / 24)}d ago`;
+  if (hours < 24) return t('status.updated.hours', { n: hours });
+  return t('status.updated.days', { n: Math.round(hours / 24) });
 }
 function versionText(value) {
   return value ? `v${value}` : 'unknown';
@@ -2074,6 +2074,12 @@ function limitStatusLabel(status) {
   return 'Error';
 }
 
+function translatedLimitStatusLabel(status) {
+  if (status === 'notConfigured') return t('limits.status.notSignedIn');
+  const key = LIMIT_CAPABILITY_TAG_KEYS[limitStatusLabel(status)];
+  return key ? t(key) : limitStatusLabel(status);
+}
+
 function syncProvenanceActive() {
   return state.mode === 'sync' || Boolean(String(state.settings?.hubUrl || '').trim());
 }
@@ -2089,7 +2095,7 @@ function limitProviderProvenance(provider) {
 function limitProviderMeta(provider, provenance = null) {
   const sourceDevice = limitProviderPresentationApi.limitProviderMainDeviceLabel(provenance, { showSource: Boolean(state.settings?.showLimitSource) });
   if (provider.stale) {
-    const parts = ['Stale', formatUpdatedAge(provider.updatedAt).replace('Updated ', '')];
+    const parts = [t('settings.limits.status.stale'), formatUpdatedAge(provider.updatedAt)];
     if (sourceDevice) parts.push(sourceDevice);
     return parts.join(' · ');
   }
@@ -2102,14 +2108,14 @@ function limitProviderMeta(provider, provenance = null) {
     if (sourceDevice) parts.push(sourceDevice);
     return `${formatUpdatedAge(provider.updatedAt)}${parts.length ? ` · ${parts.join(' · ')}` : ''}`;
   }
-  return limitStatusLabel(provider.status, false);
+  return translatedLimitStatusLabel(provider.status);
 }
 
 function limitProviderPlan(provider) {
-  if (provider?.status && provider.status !== 'ok' && !provider.stale) return limitStatusLabel(provider.status, false);
+  if (provider?.status && provider.status !== 'ok' && !provider.stale) return translatedLimitStatusLabel(provider.status);
   const label = String(provider?.planLabel || provider?.accountLabel || '').trim();
   if (label) return limitProviderPresentationApi.limitProviderDisplayLabel(label);
-  return provider?.status && provider.status !== 'ok' ? limitStatusLabel(provider.status, false) : '';
+  return provider?.status && provider.status !== 'ok' ? translatedLimitStatusLabel(provider.status) : '';
 }
 
 function configuredLimitProviderOrder() {
@@ -2342,10 +2348,10 @@ function codexResetCreditsNode(resetCredits) {
 
 function openrouterSpendEntries(balance) {
   return [
-    ['Today', optionalFiniteNumber(balance?.todaySpend)],
-    ['Week', optionalFiniteNumber(balance?.weekSpend)],
-    ['Month', optionalFiniteNumber(balance?.monthSpend)],
-    ['All time', optionalFiniteNumber(balance?.allTimeSpend)]
+    [t('spend.today'), optionalFiniteNumber(balance?.todaySpend)],
+    [t('spend.week'), optionalFiniteNumber(balance?.weekSpend)],
+    [t('spend.month'), optionalFiniteNumber(balance?.monthSpend)],
+    [t('spend.allTime'), optionalFiniteNumber(balance?.allTimeSpend)]
   ].filter(([, value]) => value !== null);
 }
 
@@ -2399,7 +2405,7 @@ function openrouterSpendNode(balance) {
   const entries = openrouterSpendEntries(balance);
   if (entries.length === 0) return null;
   const currency = balance?.currency || 'USD';
-  const preferredSummary = entries.filter(([label]) => label === 'Today' || label === 'Month');
+  const preferredSummary = entries.filter(([label]) => label === t('spend.today') || label === t('spend.month'));
   const summaryEntries = preferredSummary.length > 0 ? preferredSummary : entries.slice(0, 2);
   const summaryText = summaryEntries
     .map(([label, value]) => `${label} ${formatMoney(value, currency)}`)
@@ -2410,7 +2416,7 @@ function openrouterSpendNode(balance) {
   const line = document.createElement('div');
   line.className = 'limit-window-text limit-spend-line';
   const label = document.createElement('span');
-  label.textContent = 'Spend';
+  label.textContent = t('spend.label');
   const right = document.createElement('span');
   right.className = 'limit-spend-right';
   const summary = document.createElement('span');
@@ -2429,7 +2435,7 @@ function openrouterSpendNode(balance) {
   item.append(line);
   item.setAttribute(
     'aria-label',
-    ['Spend', ...entries.map(([entryLabel, value]) => `${entryLabel} ${formatMoney(value, currency)}`)].join(', ')
+    [t('spend.label'), ...entries.map(([entryLabel, value]) => `${entryLabel} ${formatMoney(value, currency)}`)].join(', ')
   );
   return item;
 }
@@ -2458,13 +2464,13 @@ function thirdPartySpendNode(provider, quotaWindow) {
   const line = document.createElement('div');
   line.className = 'limit-window-text limit-spend-line';
   const label = document.createElement('span');
-  label.textContent = allTimeSpend === null ? 'Details' : 'Spend';
+  label.textContent = allTimeSpend === null ? t('spend.details') : t('spend.label');
   const right = document.createElement('span');
   right.className = 'limit-spend-right';
   if (allTimeSpend !== null) {
     const summary = document.createElement('span');
     summary.className = 'limit-spend-summary';
-    summary.textContent = `All time ${formatMoney(allTimeSpend, currency)}`;
+    summary.textContent = t('spend.allTimeValue', { value: formatMoney(allTimeSpend, currency) });
     right.append(summary);
   }
   const infoNode = limitDetailInfoNode(entries, 'limit-spend-info-wrap');
@@ -2474,8 +2480,8 @@ function thirdPartySpendNode(provider, quotaWindow) {
   item.setAttribute(
     'aria-label',
     [
-      allTimeSpend === null ? 'Details' : 'Spend',
-      ...(allTimeSpend === null ? [] : [`All time ${formatMoney(allTimeSpend, currency)}`]),
+      allTimeSpend === null ? t('spend.details') : t('spend.label'),
+      ...(allTimeSpend === null ? [] : [t('spend.allTimeValue', { value: formatMoney(allTimeSpend, currency) })]),
       ...entries.map(([entryLabel, value]) => `${entryLabel} ${value}`)
     ].join(', ')
   );
@@ -3135,7 +3141,7 @@ function renderProviderWindows(provider, color) {
         parts.push(`Month ${formatMoney(balance.monthSpend, currency)}`);
       }
       if (parts.length) {
-        const spendNode = limitWindowNode('Spend', { showMeter: false }, color, 0.6, parts.join(' · '));
+        const spendNode = limitWindowNode(t('spend.label'), { showMeter: false }, color, 0.6, parts.join(' · '));
         spendNode.classList.add('limit-window-wide', 'limit-window-note');
         windows.append(spendNode);
       }
@@ -4812,7 +4818,7 @@ function renderHomeDeviceModule() {
     if (row.isLocal) {
       const badge = document.createElement('span');
       badge.className = 'home-device-badge';
-      badge.textContent = 'you';
+      badge.textContent = t('home.device.you');
       label.append(badge);
     }
     const value = document.createElement('span');
@@ -4913,7 +4919,7 @@ function homeActivityTooltipEl() {
   const label = document.createElement('span');
   label.className = 'home-activity-tooltip-label';
   label.dataset.homeActivityTooltipLabel = 'true';
-  label.textContent = 'tokens';
+  label.textContent = t('dashboard.heatmap.tokens').toLowerCase();
 
   const date = document.createElement('span');
   date.className = 'home-activity-tooltip-date';
@@ -5025,7 +5031,7 @@ function setupHomeActivityHover(scroller) {
       activeCell = cell;
       activeCell.setAttribute('data-active', 'true');
       tooltip.querySelector('[data-home-activity-tooltip-count]').textContent = formatCompact(Number(cell.dataset.t || 0));
-      tooltip.querySelector('[data-home-activity-tooltip-label]').textContent = 'tokens';
+      tooltip.querySelector('[data-home-activity-tooltip-label]').textContent = t('dashboard.heatmap.tokens').toLowerCase();
       tooltip.querySelector('[data-home-activity-tooltip-date]').textContent = cell.dataset.d || '';
     }
     tooltip.dataset.visible = 'true';
@@ -5585,9 +5591,9 @@ function streamFailureText(failure) {
 }
 
 function statusTextFor(mode, connected) {
-  if (mode === 'sync') return connected ? 'Live' : 'Offline';
-  if (mode === 'local') return connected ? 'Local' : 'Collecting…';
-  return 'Starting…';
+  if (mode === 'sync') return connected ? t('status.connection.live') : t('status.connection.offline');
+  if (mode === 'local') return connected ? t('status.connection.local') : t('status.connection.collecting');
+  return t('status.connection.starting');
 }
 
 function liveDotTitle(mode, connected) {
@@ -5596,8 +5602,8 @@ function liveDotTitle(mode, connected) {
     const reason = streamFailureText(state.streamFailure);
     return reason ? `${t('status.hubStreamOffline')}: ${reason}` : t('status.hubStreamOffline');
   }
-  if (mode === 'local') return connected ? 'Local collector running' : 'Local collector starting…';
-  return 'Idle';
+  if (mode === 'local') return connected ? t('status.connection.localRunning') : t('status.connection.localStarting');
+  return t('status.connection.idle');
 }
 
 function setLiveDot(connected) {
@@ -11613,7 +11619,7 @@ function renderPotluckProviderAccounts(providerName, providers) {
       || providerName;
     const info = document.createElement('span');
     info.className = 'managed-account-info';
-    info.textContent = translatedLimitCapabilityTag(limitStatusLabel(provider.status));
+    info.textContent = translatedLimitStatusLabel(provider.status);
     main.append(identity);
     row.append(dot, main, info);
     list.append(row);

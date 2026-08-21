@@ -143,7 +143,7 @@ test('Home configures heatmap color in Settings while keeping token tooltips', (
   assert.match(app, /function renderHomeActivitySettings/);
   assert.match(app, /saveSettings\(\{ heatmapMetric: metric \}\)/);
   assert.match(app, /data-home-activity-tooltip-count[^\n]*formatCompact\(Number\(cell\.dataset\.t/);
-  assert.match(app, /data-home-activity-tooltip-label[^\n]*textContent = 'tokens'/);
+  assert.match(app, /data-home-activity-tooltip-label[^\n]*textContent = t\('dashboard\.heatmap\.tokens'\)\.toLowerCase\(\)/);
   assert.doesNotMatch(app, /home-heatmap-metric/);
   assert.match(css, /\.home-activity-settings/);
   assert.doesNotMatch(css, /\.home-heatmap-metric/);
