@@ -1499,19 +1499,26 @@ test('Accounts settings expose a unified provider connection and quota directory
   const styles = readRendererFile('styles.css');
   const i18n = readRendererFile('i18n.js');
   const overview = html.indexOf('id="accountConnectionsOverview"');
+  const legacyWrapper = html.indexOf('id="accountCredentialsLegacy"');
   const legacyAccounts = html.indexOf('id="claudeAccountGroup"');
 
   assert.notEqual(overview, -1);
-  assert.ok(overview < legacyAccounts, 'the connection directory should lead the legacy credential groups');
+  assert.notEqual(legacyWrapper, -1);
+  assert.ok(overview < legacyWrapper, 'the connection directory should lead the legacy credential wrapper');
+  assert.ok(legacyWrapper < legacyAccounts, 'legacy credential groups should live inside the wrapper');
   assert.match(html, /id="accountConnectionList"/);
+  assert.match(html, /id="accountCredentialsLegacyGroups"/);
   assert.match(app, /function renderAccountConnectionDirectory\(\)/);
+  assert.match(app, /function renderAccountCredentialsLegacy\(\)/);
+  assert.match(app, /function shouldShowAccountCredentialsGroup\(/);
   assert.match(app, /limitProviderSummaryApi\.connectionsByProvider/);
   assert.match(app, /settings\.accounts\.connections\.viewQuota/);
   assert.match(app, /settings\.limits\.manageInPotluck/);
   assert.match(styles, /\.account-connections-overview/);
+  assert.match(styles, /\.account-credentials-legacy/);
   assert.match(styles, /\.account-connection-entry/);
   assert.match(i18n, /'settings\.accounts\.connections\.title'/);
-  assert.match(i18n, /'settings\.accounts\.connections\.description'/);
+  assert.match(i18n, /'settings\.accounts\.credentials\.title'/);
 });
 
 test('MiMo limits keep credits balance separate from Token Plan and settings show its amount', () => {

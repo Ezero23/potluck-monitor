@@ -5813,6 +5813,25 @@ html.is-windows .limit-live-badge {
 .account-connections-empty {
   margin: 0;
 }
+.account-connections-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+.account-credentials-reveal {
+  font-size: 11px;
+}
+.account-credentials-legacy {
+  display: grid;
+  gap: 8px;
+  margin-top: 4px;
+}
+.account-credentials-description {
+  margin: 0 0 8px;
+}
+.account-credentials-groups {
+  display: grid;
+  gap: 8px;
+}
 .account-provider-connection-group {
   display: grid;
   gap: 6px;
