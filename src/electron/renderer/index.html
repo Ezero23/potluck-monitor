@@ -515,7 +515,21 @@
               </div>
               <p class="settings-note account-connections-description" data-i18n="settings.accounts.connections.description">Every Connection appears here with its owner, source, quota status, and management entry. Credentials stay with their owner.</p>
               <div id="accountConnectionList" class="account-connection-list"></div>
+              <div class="account-connections-actions">
+                <button id="accountCredentialsLegacyReveal" type="button" class="account-credentials-reveal hidden" data-i18n="settings.accounts.credentials.reveal">Show Monitor-local credential forms</button>
+              </div>
             </div>
+            <div id="accountCredentialsLegacy" class="settings-subgroup account-credentials-legacy">
+              <button id="accountCredentialsLegacyToggle" class="settings-group-header cursor-settings-toggle" type="button" aria-expanded="false" aria-controls="accountCredentialsLegacyDetails">
+                <span data-i18n="settings.accounts.credentials.title">Monitor-local credentials</span>
+                <span class="cursor-settings-summary">
+                  <span id="accountCredentialsLegacySummary" class="settings-section-summary"></span>
+                  <span class="cursor-disclosure-icon" aria-hidden="true"></span>
+                </span>
+              </button>
+              <div id="accountCredentialsLegacyDetails" class="cursor-settings-details hidden">
+                <p class="settings-note account-credentials-description" data-i18n="settings.accounts.credentials.description">Use these forms only when a Connection is owned by Monitor on this device. Potluck-managed accounts stay in Potluck Web.</p>
+                <div id="accountCredentialsLegacyGroups" class="account-credentials-groups">
             <div id="claudeAccountGroup" class="settings-group cursor-account-group">
               <button id="claudeSettingsToggle" class="settings-group-header cursor-settings-toggle" type="button" aria-expanded="false" aria-controls="claudeSettingsDetails">
                 <span data-i18n="settings.claude.title">Claude Account</span>
@@ -1280,6 +1294,9 @@
                 <div class="settings-row">
                   <span class="settings-label" data-i18n="settings.common.accountLabel">Account</span>
                   <span id="nvidiaAccountLabel" class="settings-value">—</span>
+                </div>
+              </div>
+            </div>
                 </div>
               </div>
             </div>
