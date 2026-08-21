@@ -152,10 +152,10 @@ test('no limits provider can render a raw account email while masking is on', ()
 test('title resolution matches between the limits panel and Home', () => {
   const app = readRendererFile('app.js');
   const renderGroups = [
-    ["renderLimitProviderRow\\('codex', limitAccountTitle\\('codex', provider, index, providers\\)", 'codex'],
-    ["renderLimitProviderRow\\('claude', limitAccountTitle\\('claude', provider, index, providers\\)", 'claude'],
-    ["renderLimitProviderRow\\('mimo', limitAccountTitle\\('mimo', provider, index, providers\\)", 'mimo'],
-    ["renderLimitProviderRow\\('opencode', limitAccountTitle\\('opencode', provider, index, providers\\)", 'opencode']
+    ["renderLimitConnectionRow\\('codex', limitAccountTitle\\('codex', provider, index, providers\\)", 'codex'],
+    ["renderLimitConnectionRow\\('claude', limitAccountTitle\\('claude', provider, index, providers\\)", 'claude'],
+    ["renderLimitConnectionRow\\('mimo', limitAccountTitle\\('mimo', provider, index, providers\\)", 'mimo'],
+    ["renderLimitConnectionRow\\('opencode', limitAccountTitle\\('opencode', provider, index, providers\\)", 'opencode']
   ];
   for (const [pattern, provider] of renderGroups) {
     assert.match(app, new RegExp(pattern), `${provider} rows should resolve titles through limitAccountTitle`);

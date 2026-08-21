@@ -486,10 +486,10 @@ test('Codex system account switching is exposed from limits account rows', () =>
   assert.doesNotMatch(refreshBody, /collectLimitsOnce/);
   const renderLimits = functionBody(app, 'renderLimits', 'serviceStatusLabel');
   assert.match(renderLimits, /const rowOptions = id === 'codex'\s*\? \{ accountTitle: true, allowSystemSwitch: true \}/s);
-  assert.match(renderLimits, /renderLimitProviderRow\(id, label, provider, color, rowOptions\)/);
+  assert.match(renderLimits, /renderLimitConnectionRow\(id, label, provider, 0, connectionList, color, rowOptions\)/);
   assert.doesNotMatch(
     renderLimits,
-    /renderLimitProviderRow\(id, label, provider, color, id === 'codex' \? \{[\s\S]*?showActiveBadge: true/
+    /renderLimitConnectionRow\(id, label, provider, 0, connectionList, color, id === 'codex' \? \{[\s\S]*?allowSystemSwitch: true/
   );
   assert.match(renderLimits, /const holdCodexSwitchPopoverRender = codexSwitchPopoverShouldHoldRender\(\);/);
   assert.match(renderLimits, /holdLimitDetailTooltipRender \|\| holdCodexSwitchPopoverRender/);
@@ -1248,7 +1248,7 @@ test('Home limits groups multiple MiMo accounts like Codex', () => {
   const renderLimitsBody = functionBody(app, 'renderLimits', 'serviceStatusLabel');
   assert.match(groupBody, /const groupProvider = \{ provider: 'mimo', status: 'ok', windows: \[\] \};/);
   assert.match(groupBody, /planText: t\('settings\.mimo\.nAccounts', \{ count: providers\.length \}\)/);
-  assert.match(groupBody, /renderLimitProviderRow\('mimo', limitAccountTitle\('mimo', provider, index, providers\), provider, color/);
+  assert.match(groupBody, /renderLimitConnectionRow\('mimo', limitAccountTitle\('mimo', provider, index, providers\), provider, index, providers, color/);
   assert.match(renderLimitsBody, /if \(id === 'mimo' && Array\.isArray\(visibleProviders\) && visibleProviders\.length > 1\) \{/);
   assert.match(renderLimitsBody, /nodes\.push\(renderMimoAccountGroup\(label, visibleProviders, color\)\);/);
 });

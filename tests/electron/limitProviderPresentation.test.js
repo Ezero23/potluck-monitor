@@ -1529,10 +1529,18 @@ test('Connection fusion exposes expandable provider groups and detailed per-conn
   assert.match(i18n, /'settings\.accounts\.connections\.failure'/);
 });
 
-test('Limits and Accounts surfaces use distinct detail ids while sharing Connection state', () => {
+test('Limits, Accounts, and Home surfaces use distinct detail ids while sharing Connection state', () => {
   const app = readRendererFile('app.js');
+  const styles = readRendererFile('styles.css');
+  assert.match(app, /function refreshAccountConnectionSurfaces\(\)/);
+  assert.match(app, /function toggleAccountConnectionDetails\(/);
+  assert.match(app, /function renderLimitConnectionRow\(/);
   assert.match(app, /appendAccountConnectionDetails\(card, providerId, connection, connectionKey\)/);
   assert.match(app, /appendAccountConnectionDetails\(card, providerId, row, connectionKey, 'limits'\)/);
+  assert.match(app, /appendLimitConnectionActions\(wrapper, providerId, connection, index, 'home'\)/);
+  assert.match(app, /\$\{surface\}-connection-detail-/);
   assert.match(app, /limits-connection-detail-/);
   assert.match(app, /surface = 'accounts'/);
+  assert.match(styles, /\.limit-connection-wrap/);
+  assert.match(styles, /\.limit-connection-actions/);
 });

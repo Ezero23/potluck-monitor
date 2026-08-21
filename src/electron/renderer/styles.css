@@ -1746,6 +1746,27 @@ span.settings-note.settings-item-desc {
   padding: 2px 7px;
   font-size: 10px;
 }
+.limit-connection-wrap {
+  display: grid;
+  gap: 6px;
+}
+.limit-connection-wrap > .limit-row {
+  margin: 0;
+}
+.limit-connection-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 0 2px 4px;
+}
+.limit-connection-actions button {
+  margin: 0;
+  padding: 2px 7px;
+  font-size: 10px;
+}
+.limit-connection-wrap .account-connection-detail-panel {
+  margin: 0 2px 4px;
+}
 .limit-quota-forecast-grid {
   display: grid;
   gap: 8px;
