@@ -122,8 +122,10 @@ test('refreshCodexAuthFile merges refreshed tokens into auth.json, preserving ot
   assert.notEqual(written.tokens.access_token, authFile({ expMs: 0 }).tokens.access_token);
   assert.equal(codexAccessTokenExpiryMs(written) > Date.now(), true);
   assert.notEqual(written.last_refresh, '2026-08-01T00:00:00.000Z');
-  // Written atomically with restrictive permissions.
-  assert.equal(fs.statSync(authPath).mode & 0o777, 0o600);
+  // Written atomically with restrictive permissions. Windows reports 0666 here.
+  if (process.platform !== 'win32') {
+    assert.equal(fs.statSync(authPath).mode & 0o777, 0o600);
+  }
 });
 
 test('refreshCodexAuthFile discards its write when the CLI rotated the file mid-refresh', async () => {
