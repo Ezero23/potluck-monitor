@@ -8859,10 +8859,6 @@ function appendQuotaForecastPanels(card, row, archive) {
   if (grid.childElementCount > 0) card.append(grid);
 }
 
-function providerAccountSettingsGroupId(providerId) {
-  return providerId === 'opencode' ? 'opencodeCookieGroup' : `${providerId}AccountGroup`;
-}
-
 function providerAccountSettingsEl(providerId) {
   return document.getElementById(providerAccountSettingsGroupId(providerId));
 }
