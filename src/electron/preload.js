@@ -26,7 +26,6 @@ const bridge = {
     close: () => ipcRenderer.send('dashboard:close')
   },
   getHubInfo: () => ipcRenderer.invoke('hub:getInfo'),
-  getPotluckConnections: () => ipcRenderer.invoke('potluck:getConnections'),
   potluckGateway: {
     getState: () => ipcRenderer.invoke('potluck:gatewayGetState'),
     openWeb: () => ipcRenderer.invoke('potluck:gatewayOpenWeb'),

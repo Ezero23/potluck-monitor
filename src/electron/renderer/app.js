@@ -273,8 +273,6 @@ state.animateChartsOnRender = true;
 let directBreakdownOverride = null;
 state.projectSettingsExpanded = false;
 state.homeActivitySettingsExpanded = false;
-state.potluckConnections = null;
-state.potluckConnectionsFetched = false;
 state.potluckGateway = null;
 state.settingsSections = Object.fromEntries(SETTINGS_SECTION_IDS.map((id) => [id, false]));
 state.limitProviderDetailsOpen = new Set();
@@ -3741,52 +3739,6 @@ function renderThirdPartyAccountGroup(label, providers, color) {
   });
 }
 
-function fetchPotluckConnections() {
-  if (state.potluckConnectionsFetched) return;
-  state.potluckConnectionsFetched = true;
-  window.tokenMonitor.getPotluckConnections().then(res => {
-    if (res?.ok && Array.isArray(res.result)) {
-      state.potluckConnections = res.result;
-      if (state.breakdown === 'limits') renderLimits();
-    }
-  }).catch(() => {});
-}
-
-function renderPotluckConnectionsSection() {
-  const conns = state.potluckConnections;
-  if (!conns || conns.length === 0) return null;
-  const section = document.createElement('div');
-  section.className = 'potluck-connections';
-  const header = document.createElement('div');
-  header.className = 'potluck-connections-header';
-  header.textContent = 'Potluck Monitor';
-  section.appendChild(header);
-  for (const conn of conns) {
-    const row = document.createElement('div');
-    row.className = 'potluck-conn-row' + (conn.active ? '' : ' inactive');
-    const left = document.createElement('div');
-    left.className = 'potluck-conn-left';
-    const dot = document.createElement('span');
-    dot.className = 'potluck-conn-dot' + (conn.active ? ' active' : '');
-    const name = document.createElement('span');
-    name.className = 'potluck-conn-name';
-    name.textContent = conn.provider;
-    left.append(dot, name);
-    const right = document.createElement('div');
-    right.className = 'potluck-conn-right';
-    const badge = document.createElement('span');
-    badge.className = 'potluck-conn-badge ' + conn.authType;
-    badge.textContent = conn.authType === 'oauth' ? 'OAuth' : 'API Key';
-    const account = document.createElement('span');
-    account.className = 'potluck-conn-account';
-    account.textContent = conn.name || conn.email || '';
-    right.append(badge, account);
-    row.append(left, right);
-    section.appendChild(row);
-  }
-  return section;
-}
-
 function renderLimits() {
   if (!els.limitsPanel) return;
   const holdLimitDetailTooltipRender = limitDetailTooltipShouldHoldRender();
@@ -3798,13 +3750,10 @@ function renderLimits() {
   }
   state.limitDetailTooltipRenderPending = false;
   state.codexSwitchPopoverRenderPending = false;
-  fetchPotluckConnections();
   const limitsEnabled = state.settings?.limitsEnabled !== false;
   const enabled = enabledLimitProviderSet();
   const providers = providersByLimitProviderId(state.stats?.limits?.providers || []);
   const nodes = [];
-  const potluckSection = renderPotluckConnectionsSection();
-  if (potluckSection) nodes.push(potluckSection);
   const rows = limitProviderOrderApi
     .orderedLimitProviders(LIMIT_PROVIDERS, state.settings?.limitProviderOrder)
     .filter(({ id }) => limitsEnabled && enabled.has(id));
@@ -3863,6 +3812,16 @@ function renderLimits() {
     const connectionList = Array.isArray(visibleProviders) ? visibleProviders : [provider];
     nodes.push(renderLimitConnectionRow(id, label, provider, 0, connectionList, color, rowOptions));
   }
+  // Inline provider reordering: one drag handle per provider row, wired into the
+  // shared preference-drag system as 'limitProviderLive' (visible rows only; the
+  // commit folds the order back into the full limitProviderOrder setting).
+  nodes.forEach((node, nodeIndex) => {
+    const { id, label } = rows[nodeIndex] || {};
+    if (!id || !node) return;
+    node.dataset.provider = id;
+    const head = node.querySelector('.limit-head');
+    head?.append(createPreferenceOrderHandle({ kind: 'limitProviderLive', id, label, count: rows.length }));
+  });
   els.limitsPanel.replaceChildren(...nodes);
 }
 
@@ -7025,6 +6984,7 @@ function preferenceListForKind(kind) {
   if (kind === 'homeModule') return document.getElementById('homeSettingsList');
   if (kind === 'homeLimitProvider') return document.getElementById('homeLimitProviderList');
   if (kind === 'homeLive') return els.homePanel;
+  if (kind === 'limitProviderLive') return els.limitsPanel;
   if (kind === 'settingsSection') return els.settingsPanel;
   if (kind === 'viewLive') return els.viewSwitcher?.querySelector('#viewSwitcherMenu');
   return els.limitProviderCheckboxes;
@@ -7058,7 +7018,9 @@ function preferenceRows(kind) {
                 ? '.settings-collapsible-group[data-settings-section]'
                 : kind === 'viewLive'
                   ? '.view-switcher-menu-item[data-view]'
-                  : '.limit-provider-row[data-provider]';
+                  : kind === 'limitProviderLive'
+                    ? ':scope > [data-provider]'
+                    : '.limit-provider-row[data-provider]';
   return Array.from(list?.querySelectorAll(selector) || []);
 }
 
@@ -9312,6 +9274,14 @@ async function onPreferenceOrderCommit(kind, order, id) {
     const full = viewDisplayPreferencesApi.normalizeViewDisplayOrder(effectiveViewDisplayOrderValue(), VIEW_DISPLAY_OPTIONS);
     const next = preferenceDragSortApi.mergeVisibleOrderIntoFull(full, order).join(',');
     if (next !== full.join(',')) await saveSettings({ viewDisplayOrder: next });
+    return;
+  }
+  if (kind === 'limitProviderLive') {
+    // The limits page only lists enabled providers; fold the visible drag order
+    // back into the full order so disabled providers keep their positions.
+    const full = limitProviderOrderApi.normalizeLimitProviderOrder(state.settings?.limitProviderOrder, LIMIT_PROVIDERS);
+    const next = preferenceDragSortApi.mergeVisibleOrderIntoFull(full, order).join(',');
+    if (next !== full.join(',')) await saveSettings({ limitProviderOrder: next });
     return;
   }
   if (kind === 'settingsSection') {

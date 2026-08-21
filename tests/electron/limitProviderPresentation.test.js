@@ -1584,3 +1584,15 @@ test('Limits, Accounts, and Home surfaces use distinct detail ids while sharing 
   assert.match(styles, /\.limit-connection-wrap/);
   assert.match(styles, /\.limit-connection-actions/);
 });
+
+test('Limits page supports inline drag reorder and drops the redundant Potluck id list', () => {
+  const app = readRendererFile('app.js');
+  const styles = readRendererFile('styles.css');
+  assert.match(app, /kind: 'limitProviderLive'/);
+  assert.match(app, /node\.dataset\.provider = id/);
+  assert.match(app, /kind === 'limitProviderLive'[\s\S]*mergeVisibleOrderIntoFull/);
+  assert.doesNotMatch(app, /renderPotluckConnectionsSection/);
+  assert.doesNotMatch(app, /fetchPotluckConnections/);
+  assert.match(styles, /\.limit-head \.preference-order-handle/);
+  assert.doesNotMatch(styles, /\.potluck-connections/);
+});

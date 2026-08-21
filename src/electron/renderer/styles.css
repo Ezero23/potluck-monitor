@@ -1976,7 +1976,8 @@ span.settings-note.settings-item-desc {
   cursor: default;
 }
 .home-module-head-end .preference-order-handle,
-.settings-section-meta .preference-order-handle {
+.settings-section-meta .preference-order-handle,
+.limit-head .preference-order-handle {
   flex: 0 0 auto;
   width: 18px;
   height: 18px;
@@ -3365,82 +3366,6 @@ html.is-windows .settings-panel select option {
   color: var(--muted);
   font-size: 10px;
   line-height: 1.2;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-/* Potluck connections */
-.potluck-connections {
-  padding: 0 0 13px;
-  border-bottom: 1px solid rgba(var(--line-rgb), 0.12);
-  margin-bottom: 13px;
-}
-.potluck-connections-header {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--text);
-  margin-bottom: 10px;
-}
-.potluck-connections-header::before {
-  content: '';
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--accent, #22d3ee);
-}
-.potluck-conn-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 5px 0;
-}
-.potluck-conn-row.inactive { opacity: 0.45; }
-.potluck-conn-left {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-}
-.potluck-conn-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--muted);
-  flex-shrink: 0;
-}
-.potluck-conn-dot.active { background: #34d399; }
-.potluck-conn-name {
-  font-size: 12px;
-  color: var(--text);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.potluck-conn-right {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-shrink: 0;
-}
-.potluck-conn-badge {
-  font-size: 9px;
-  font-weight: 500;
-  padding: 2px 5px;
-  border-radius: 3px;
-  background: rgba(var(--line-rgb), 0.08);
-  color: var(--muted);
-  text-transform: uppercase;
-  letter-spacing: 0.3px;
-}
-.potluck-conn-badge.oauth { color: #a78bfa; background: rgba(167, 139, 250, 0.1); }
-.potluck-conn-badge.apikey { color: #fbbf24; background: rgba(251, 191, 36, 0.1); }
-.potluck-conn-account {
-  font-size: 10px;
-  color: var(--muted);
-  max-width: 100px;
-  overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
