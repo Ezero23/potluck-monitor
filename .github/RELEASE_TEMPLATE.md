@@ -3,38 +3,32 @@
 ## What's changed
 
 <!-- app-update-notes:en:start -->
-### Added
-- **Unsigned macOS auto-update:** builds without a Developer ID signature now download the release zip in the background (proxy-aware, with progress) and install it in place on restart — no manual DMG trip. Signed builds keep the native updater path.
-- **Price audit:** models tokscale cannot price no longer show a misleading $0.00 — they read *Price unknown*, and the row expansion shows the pricing source and matched catalog key when a price exists.
-- **Drag to reorder:** reorder Home modules, Settings groups, and the view switcher menu by dragging.
-- **Home gateway card:** the Potluck Gateway card now lives with Multi-device Sync, shows the tunnel URL and gateway API key with one-tap copy, and can open the web console.
-
 ### Fixed
-- **Potluck gateway port:** discovery, status text, settings, and saved legacy configurations now converge on Potluck's single `21023` port instead of falling back to `20129`.
-- **Tunnel status:** the Home gateway card follows the live tunnel process and prefers its current direct URL, avoiding stale short-link state after a reconnect.
-- **Settings page:** expanded sections scroll internally, so the next section header stays in view instead of being pushed off screen.
-- **Day view:** activity and trends now distribute by hour instead of calendar date.
-- **Interface languages:** reduced to English and 简体中文; removed Discord integration and stale version/links from Settings → General.
+- **Renderer crash on launch:** `quotaForecast.js` / `quotaRisk.js` no longer declare global `quotaForecastApi` / `quotaRiskApi` names that collided with `app.js` when loaded as classic scripts — the widget showed `SyntaxError: Identifier 'quotaForecastApi' has already been declared` and stayed at TOTAL TOKENS 0.
+- **Blank Home boot:** first paint no longer waits on settings, hub, tokscale, or app-update IPC; Home starts visible and renderer errors surface in the widget.
 <!-- app-update-notes:en:end -->
 
 ## Download
 
-- **macOS Apple Silicon** — [potluck-monitor-0.1.2-arm64.dmg](https://github.com/Ezero23/potluck-monitor/releases/download/v0.1.2/potluck-monitor-0.1.2-arm64.dmg)
-- **macOS Intel** — [potluck-monitor-0.1.2-x64.dmg](https://github.com/Ezero23/potluck-monitor/releases/download/v0.1.2/potluck-monitor-0.1.2-x64.dmg)
-- **Windows installer** — [potluck-monitor-Setup-0.1.2.exe](https://github.com/Ezero23/potluck-monitor/releases/download/v0.1.2/potluck-monitor-Setup-0.1.2.exe)
-- **Windows portable** — [potluck-monitor-0.1.2.exe](https://github.com/Ezero23/potluck-monitor/releases/download/v0.1.2/potluck-monitor-0.1.2.exe)
-- **Linux** — [potluck-monitor-0.1.2.AppImage](https://github.com/Ezero23/potluck-monitor/releases/download/v0.1.2/potluck-monitor-0.1.2.AppImage)
+- **macOS Apple Silicon** — [potluck-monitor-0.2.6-arm64.dmg](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.6/potluck-monitor-0.2.6-arm64.dmg)
+- **macOS Intel** — [potluck-monitor-0.2.6-x64.dmg](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.6/potluck-monitor-0.2.6-x64.dmg)
+- **Windows installer** — [potluck-monitor-Setup-0.2.6.exe](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.6/potluck-monitor-Setup-0.2.6.exe)
+- **Windows portable** — [potluck-monitor-0.2.6.exe](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.6/potluck-monitor-0.2.6.exe)
+- **Linux** — [potluck-monitor-0.2.6.AppImage](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.6/potluck-monitor-0.2.6.AppImage)
 
 <details>
 <summary><strong>First launch and other notes</strong></summary>
 
 ### First launch
 
-**macOS:** this release is unsigned. Open the `.dmg`, drag Potluck Monitor to Applications, then right-click the app and choose **Open** on first launch. Windows may likewise show a SmartScreen warning because no SignPath credential is configured for this repository.
+**macOS:** this release is unsigned. Open the `.dmg`, drag Potluck Monitor to Applications, then run:
 
-### Other notes
+```bash
+xattr -cr "/Applications/Potluck Monitor.app"
+open "/Applications/Potluck Monitor.app"
+```
 
-The macOS `.zip` files are updater payloads for the same apps; most people should use the `.dmg` installers above.
+If macOS says the app is damaged, that is Gatekeeper quarantine — the command above clears it. Confirm **Settings → App Updates → Installed** shows `v0.2.6`.
 
 ### tokscale dependency
 
@@ -51,38 +45,32 @@ open-source: https://github.com/junhoyeo/tokscale
 ## 更新内容
 
 <!-- app-update-notes:zh:start -->
-### 新增
-- **未签名 macOS 自动更新：** 没有 Developer ID 签名的构建现在可以在后台下载 release zip（走代理、带进度），重启时自动替换安装，不用手动拖 DMG。已签名构建仍走原生更新通道。
-- **价格审计：** tokscale 拿不到价格的模型不再显示误导性的 $0.00，而是显示「价格未知」；有价格时，展开行可以看到定价来源和匹配的目录键。
-- **拖拽排序：** 主页模块、设置分组、视图切换菜单都可以直接拖动排序。
-- **主页网关卡片：** Potluck 网关卡片与多设备同步放在一起，显示隧道地址和网关 API 密钥并可一键复制，还能直接打开 Web 控制台。
-
 ### 修复
-- **Potluck 网关端口：**发现、状态文案、设置与旧配置迁移现在统一到 Potluck 唯一的 `21023` 端口，不再回退到 `20129`。
-- **隧道状态：**主页网关卡片会跟随真实隧道进程并优先显示当前直连地址，重连后不会继续使用过期短地址状态。
-- **设置页面：** 展开的分区改为内部滚动，下一个分区标题始终停留在视野内，不再被顶出屏幕。
-- **Day 视图：** 活动和趋势按当天小时分布，不再按日期。
-- **界面语言：** 只保留 English 和简体中文；移除 Discord 集成，清理设置 → 常规里过时的版本号与链接。
+- **启动即崩溃：** `quotaForecast.js` / `quotaRisk.js` 不再在全局声明与 `app.js` 冲突的 `quotaForecastApi` / `quotaRiskApi`，避免经典 script 加载时报 `SyntaxError: Identifier 'quotaForecastApi' has already been declared`，窗口一直停在 TOTAL TOKENS 0。
+- **主页空白启动：** 首次绘制不再等待设置、hub、tokscale 或应用更新 IPC；Home 一开始可见，渲染错误会显示在窗口里。
 <!-- app-update-notes:zh:end -->
 
 ## 下载
 
-- **macOS Apple Silicon** — [potluck-monitor-0.1.2-arm64.dmg](https://github.com/Ezero23/potluck-monitor/releases/download/v0.1.2/potluck-monitor-0.1.2-arm64.dmg)
-- **macOS Intel** — [potluck-monitor-0.1.2-x64.dmg](https://github.com/Ezero23/potluck-monitor/releases/download/v0.1.2/potluck-monitor-0.1.2-x64.dmg)
-- **Windows 安装包** — [potluck-monitor-Setup-0.1.2.exe](https://github.com/Ezero23/potluck-monitor/releases/download/v0.1.2/potluck-monitor-Setup-0.1.2.exe)
-- **Windows 便携版** — [potluck-monitor-0.1.2.exe](https://github.com/Ezero23/potluck-monitor/releases/download/v0.1.2/potluck-monitor-0.1.2.exe)
-- **Linux** — [potluck-monitor-0.1.2.AppImage](https://github.com/Ezero23/potluck-monitor/releases/download/v0.1.2/potluck-monitor-0.1.2.AppImage)
+- **macOS Apple Silicon** — [potluck-monitor-0.2.6-arm64.dmg](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.6/potluck-monitor-0.2.6-arm64.dmg)
+- **macOS Intel** — [potluck-monitor-0.2.6-x64.dmg](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.6/potluck-monitor-0.2.6-x64.dmg)
+- **Windows 安装包** — [potluck-monitor-Setup-0.2.6.exe](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.6/potluck-monitor-Setup-0.2.6.exe)
+- **Windows 便携版** — [potluck-monitor-0.2.6.exe](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.6/potluck-monitor-0.2.6.exe)
+- **Linux** — [potluck-monitor-0.2.6.AppImage](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.6/potluck-monitor-0.2.6.AppImage)
 
 <details>
 <summary><strong>首次启动与其他说明</strong></summary>
 
 ### 首次启动
 
-**macOS：**本次发布包未签名。打开 `.dmg`，把 Potluck Monitor 拖到 Applications，首次启动时右键应用并选择「打开」。由于仓库尚未配置 SignPath 凭据，Windows 也可能显示 SmartScreen 提示。
+**macOS：**本次发布包未签名。打开 `.dmg`，把 Potluck Monitor 拖到 Applications，然后在终端执行：
 
-### 其他说明
+```bash
+xattr -cr "/Applications/Potluck Monitor.app"
+open "/Applications/Potluck Monitor.app"
+```
 
-macOS 的 `.zip` 是同一应用的自动更新载荷；大多数用户应使用上方的 `.dmg` 安装包。
+若提示「已损坏」，那是隔离标记；上面命令会清掉。打开后到 **设置 → App Updates → Installed** 确认是 `v0.2.6`。
 
 ### tokscale 依赖
 

@@ -31,6 +31,7 @@ Example response:
   "version": 1,
   "deviceCount": 2,
   "secretRequired": true,
+  "limitsSnapshotEnabled": false,
   "now": "2026-05-18T00:00:00.000Z"
 }
 ```
@@ -197,7 +198,7 @@ Current agents and widgets include `osName` and, when known, `osVersion` so devi
 
 `limits` is optional. Agents and widgets include it when AI Tool Limits detection is enabled. Raw OAuth credentials, access tokens, refresh tokens, and provider response bodies must never be sent.
 
-`limits.providers[].provider` is one of `claude`, `codex`, `cursor`, `antigravity`, `opencode`, `openrouter`, `deepseek`, `minimax`, `mimo`, `grok`, `copilot`, `kiro`, `zai`, `zaiteam`, `volcengine`, `qoder`, `kimi`, `ollama`, or `thirdparty`.
+`limits.providers[].provider` is a canonical id: `claude`, `codex`, `cursor`, `antigravity`, `opencode`, `openrouter`, `deepseek`, `minimax`, `mimo`, `grok`, `copilot`, `kiro`, `zai`, `zaiteam`, `volcengine`, `qoder`, `kimi`, `ollama`, or `thirdparty` (ingest also accepts `brave-search`, `gemini-cli`, `kimchi`, `nvidia`, `opencode-go`, `qoder-cn`, and `tavily`). Identity is the id after case-folding, never a display label. On ingest, legacy aliases rewrite to that canonical id: `glm` → `zai` (fills `region: "global"` when the payload omitted one), `glm-cn` → `zai` (`cn`), `zai-team` → `zaiteam`, `minimax-cn` → `minimax` (`cn`). `qoder-cn` stays `qoder-cn`. `ollama-local` rewrites to `ollama` (local usage, not a cloud quota vendor). Unknown ids are dropped. Hub aggregation still collapses `claude` / `codex` / `opencode` / `openrouter` / `thirdparty` / `mimo` by configured `accountKey` and every other provider by canonical id.
 `limits.providers[].accountKey` is a stable hashed account identifier (`sha256:…`) used to dedupe the same account across devices. `accountEmail` is the account email when available, and `accountName` is a sanitized display/profile name. Codex may additionally send `workspaceKind: "personal"` when the workspace has no provider-supplied name, allowing account-management UI to localize the Personal label without persisting translated text. `accountLabel` is the legacy provider-defined short label retained for mixed-version compatibility: older OpenCode renderers use it as the profile name, while existing providers may use it for the plan. `planLabel` is the explicit plan label (for example `Plus`, `Go`, or `Zen`) when identity and plan must be carried separately; readers fall back to `accountLabel` for payloads produced before `planLabel` existed. These fields MAY be sent to the authenticated hub so devices can identify each account and its plan. The hub ingest is protected by the shared `secret`; the **public** stats endpoints (`publicLimits`) strip `accountKey`, `accountEmail`, `accountName`, `accountLabel`, `planLabel`, `workspaceKind`, and the third-party `balance.quotaGroup` so neither account identity, plan labels, nor custom group labels are exposed publicly.
 `limits.providers[].source` is one of `oauth`, `cli`, `web`, `rpc`, `local`, or `api`; `local` means the value was read from an on-disk store such as OpenCode Go usage from `opencode.db`, `web` means a browser/session cookie backed web endpoint (Cursor, OpenCode web accounts, Qoder, MiMo, Kimi membership, Ollama cookie), and `api` means a provider HTTP API authenticated by an API key, access token, or AK/SK credentials (OpenRouter, DeepSeek, Minimax, Copilot, GLM/Z.ai, Volcengine, Kimi Code, Ollama API key, and third-party adapters).
 `limits.providers[].balanceUsd` is an optional prepaid credit balance in USD (OpenCode Zen); `null` when the provider has no balance concept or none could be read. A genuine `0` (no remaining credit) is distinct from `null`.
@@ -207,6 +208,16 @@ Current agents and widgets include `osName` and, when known, `osVersion` so devi
 
 DeepSeek uses `source: "api"` and has no rate-limit windows; its `windows` array carries only the balance as a `credits` window. OpenRouter, GLM/Z.ai, Volcengine, Qoder, Kimi, Ollama, and third-party adapters report quota/credit windows through the same `windows` array. Third-party adapter identifiers, profile Base URLs, endpoint paths, response mappings, user IDs, and raw credentials remain local and are never added to this wire shape.
 `windows[].kind` is `session`, `weekly`, or `billing`. `windows[].metric` is an optional stable machine-readable role; `credits` identifies a provider's balance/credits meter independently of its display label (currently OpenRouter account credits, third-party account/token quota, DeepSeek balance, and MiMo balance). A `credits` window's headline value is money, carried as an absolute `remaining` amount rather than a percentage; balance providers with no fixed quota denominator report no `usedPercent`/`remainingPercent` at all, and any meter percentage for them is derived by the renderer and deliberately kept off the wire. `windows[].currency` is an optional currency code (uppercase, at most 8 characters) that applies to the window's absolute `used`/`limit`/`remaining` amounts, so a balance renders in its own currency without conversion. Normalization restores a `credits` window from a provider's `balance.amount` when the record carries a balance but no such window, so records posted by devices older than this field keep rendering; only the amount is restored, never a percentage. `windows[].detail` is an optional bounded display-only description for a window, such as the Kimi-vs-Code composition of the single shared monthly membership meter; it must not contain credentials or raw provider response data.
+
+Limits payloads are additive. Readers without `limits.schemaVersion` treat the document as v1. Writers may send `schemaVersion: 2` with the extra envelope fields `snapshotId`, `snapshotType` (`full` or `partial`), `sourceInstanceId`, `generatedAt`, `capabilities`, optional `quotaPools`, and for `partial` snapshots a `scope` containing `connectionKeys` and/or `providers`. A `partial` snapshot without that scope is stored as ordinary provider rows and does **not** receive `snapshotType`, so missing connections cannot be interpreted as deletes. `full` means the source instance's complete live connection set; omitted connections may be treated as removed from the live set, never from history.
+
+Optional Potluck/external snapshots are accepted only through the Monitor adapter. They must declare `schemaVersion` 1 or 2 plus `snapshotId` and `sourceInstanceId`. Provider subtrees are allowlisted: credential material (`apiKey`, tokens, cookies, `rawResponse`, …) and control/routing fields (`route`, `action`, `switch`, …) are rejected, as are prototype-polluting keys, oversize payloads, and out-of-range timestamps. `managedBy` is forced to `potluck`; `sourceDetail: "managed"` still means the connection is owned by that external source, not by Monitor. A `full` snapshot replaces that `sourceInstanceId`'s live connections; `partial` requires `scope` and never deletes outside it. Duplicate `snapshotId` values are idempotent, and an older `generatedAt` for the same source is ignored. Local Monitor rows are never overwritten by an external failure, even when the opaque identity collides.
+
+Each provider row still carries the v1 `status` field. New readers should prefer the split pair `connectionStatus` (`ok`, `disabled`, `unauthorized`, `rateLimited`, `unavailable`, `error`, `notChecked`, `notConfigured`) and `quotaStatus` (`fresh`, `stale`, `unsupported`, `unavailable`, `unauthorized`, `rateLimited`, `error`, `notChecked`). When only `status` is present, the hub derives the split pair and leaves the original `status` unchanged, including `sourceRateLimited`. When the split pair is present, `status` is a compatibility projection: `disabled` / `notConfigured` / `unauthorized` follow `connectionStatus`; `connectionStatus=ok` with `quotaStatus` `fresh` or `unsupported` projects to `ok`; `quotaStatus=rateLimited` projects to `rateLimited`; Last Good windows may remain on a failed current attempt. Unknown split enums are ignored rather than crashing old clients.
+
+`windows[].resetsAt` remains the canonical reset timestamp. Readers also accept `resetAt`, `resets_at`, and `reset_at`; writers emit only `resetsAt`. Optional window fields include `windowKey`, `windowStartedAt`, `windowDurationMs` (derived from or to `windowMinutes`), `resetPolicy`, `resetConfidence`, and `precision`. `used: 0` is a true zero; unknown usage is `null`, never coerced to `0`.
+
+Optional connection identity fields are `connectionKey`, `identityKind` (`connection` or `legacy_account_key` for records that only have `accountKey`), `managedBy` (`monitor`, `potluck`, `external`), `authType`, `enabled`, `tracked`, `upstreamAccountKey`, `quotaPoolKey`, `lastAttemptAt`, `lastSuccessAt`, `precision`, and a structured `error` object `{ code, category, retryAt, messageKey, safeDetail, recoverable }`. Raw `error` strings, `lastAttempt` objects, credential material, and provider response bodies are dropped. Authenticated hub ingest may keep `connectionKey` and pool membership; `publicLimits` strips `connectionKey`, `upstreamAccountKey`, `quotaPoolKey`, and the existing account/plan identity fields. Provider subtrees must never contain `apiKey`, cookies, tokens, or `rawResponse`.
 
 ## `GET /api/stats`
 
@@ -226,10 +237,47 @@ Response includes:
 - `projectsIncomplete` plus the corresponding `devices[].allTimeProjectsOmitted`, `devices[].allTimeProjectsIncomplete`, or `devices[].projectsEnabled` diagnostic
 - `historyPreview.daily[].activeTimeMs`, `historyPreview.monthly[].activeTimeMs`, and `historyPreview.summary.activeTimeMs` when tokscale graph exposes session active-time metrics
 - `limits.providers` aggregated by provider account
+- `limits.quotaPools` aggregated only by `quotaPoolKey` when present
 - `devices`, including each device's normalized `periods`, `limits`, `receivedAt`, `osName` / `osVersion` when reported, optional `syncUploadIntervalMs`, and optional `periodWindows`
 - stale status for devices that have not reported recently
 
-If multiple devices report the same provider account, the hub keeps the freshest valid limits status for that account. Public Worker stats omit account identifiers.
+If multiple devices report the same provider account, the hub keeps the freshest valid limits status for that account. When devices also send `quotaPoolKey` / `quotaPools`, the hub merges **only** by that opaque pool id: same key across devices is one pool (connection rows stay, and their `windows` are a projection of the pool); the same display label or matching percentages without a key never become a shared pool. Conflicting fresh windows on one key keep the newest source, set `conflict: true`, and mark window `precision` as `unavailable`. A pool disappears from the live aggregate once no stored device still reports its key. Public Worker stats omit account identifiers.
+
+## `GET /api/limits/snapshot`
+
+Read-only limits export for external consumers (Potluck gateway, automation, or debugging). **Disabled by default** — set `TOKEN_MONITOR_LIMITS_SNAPSHOT_ENABLED=1` on the hub process (or pass `limitsSnapshotEnabled: true` to `createHub`) to expose it.
+
+Requires the same authentication as other protected endpoints. Responses are rate-limited (default one request per second per caller; configure with `limitsSnapshotRateLimitMs` when constructing the hub). When disabled, the route returns `404` with `{ "error": "not_found" }`. When rate-limited, returns `429` with `{ "error": "rate_limited", "retryAfterMs": … }` and a `Retry-After` header.
+
+Version negotiation: pass `?version=1` / `?v=1`, or send `Accept: application/vnd.token-monitor.limits-snapshot.v1+json`. Omitting a version uses the latest supported schema. Unsupported versions return `406` with `{ "error": "unsupported_version", "supported": [1] }`.
+
+The payload is redacted with the same rules as public limits (`accountKey`, `accountEmail`, `connectionKey`, `quotaPoolKey`, and related identity fields are stripped). Forecast outputs never include routing advice fields (`route`, `switch`, `action`).
+
+Example response (schema version 1):
+
+```json
+{
+  "schemaVersion": 1,
+  "negotiatedVersion": 1,
+  "snapshotId": "hub-2026-07-24T10:00:00.000Z",
+  "generatedAt": "2026-07-24T10:00:00.000Z",
+  "capabilities": ["limits"],
+  "staleAfterMs": 600000,
+  "limits": {
+    "providers": [
+      {
+        "provider": "codex",
+        "status": "ok",
+        "windows": [{ "kind": "weekly", "usedPercent": 40, "remainingPercent": 60 }]
+      }
+    ]
+  }
+}
+```
+
+The widget exposes the richer local snapshot (limits + persisted quota history + forecast/risk bundles) through the internal IPC channel `limits:getSnapshot` (`getLimitsSnapshot` in preload). That IPC surface is always available to the widget process and is not part of the HTTP API. Only the hub route above is gated by `TOKEN_MONITOR_LIMITS_SNAPSHOT_ENABLED`.
+
+`/api/health` includes `limitsSnapshotEnabled: true|false` so callers can discover whether the route is active without probing it.
 
 ## `GET /api/devices`
 

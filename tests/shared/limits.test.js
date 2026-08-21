@@ -5,12 +5,16 @@ const test = require('node:test');
 
 const {
   aggregateLimits,
+  LIMITS_SCHEMA_VERSION,
   mergeCodexTransientWindows,
   normalizeLimitProvider,
+  normalizeLimitsSummary,
   normalizeLimitWindow,
   publicLimits,
   syncLimits
 } = require('../../src/shared/limits');
+const srcRegistry = require('../../src/shared/limitProviderRegistry');
+const workerRegistry = require('../../worker/src/shared/limitProviderRegistry');
 const { collectLimitsOnce } = require('../../src/shared/limitCollector');
 const { codexAccountKey } = require('../../src/shared/codexAuth');
 
@@ -1077,4 +1081,417 @@ test('normalizeLimitProvider keeps a restored balance behind the MiMo token plan
   });
 
   assert.deepEqual(mimo.windows.map((window) => window.label), ['Token Plan', 'Balance']);
+});
+
+const V1_LIMITS_FIXTURE = {
+  updatedAt: '2026-05-18T00:00:00.000Z',
+  refreshMs: 300000,
+  providers: [{
+    provider: 'claude',
+    accountKey: 'sha256:v1-claude',
+    status: 'ok',
+    updatedAt: '2026-05-18T00:00:00.000Z',
+    windows: [{
+      kind: 'session',
+      usedPercent: 42,
+      remainingPercent: 58,
+      resetAt: '2026-05-18T05:00:00.000Z'
+    }]
+  }]
+};
+
+const V2_LIMITS_FIXTURE = {
+  schemaVersion: LIMITS_SCHEMA_VERSION,
+  snapshotId: 'snap-7db5b124',
+  snapshotType: 'full',
+  sourceInstanceId: 'monitor:macbook-pro',
+  generatedAt: '2026-08-19T10:30:00.000Z',
+  refreshMs: 300000,
+  capabilities: ['connection_status_v2', 'quota_status_v2', 'quota_pool_key'],
+  quotaPools: [{
+    quotaPoolKey: 'zai-pool-1',
+    provider: 'zai',
+    label: 'Coding Plan',
+    connectionKeys: ['potluck:mac-esther:conn-a'],
+    windows: [{ kind: 'session', usedPercent: 32, resetAt: '2026-08-19T12:00:00.000Z' }]
+  }],
+  providers: [{
+    provider: 'zai',
+    region: 'global',
+    connectionKey: 'potluck:mac-esther:conn-a',
+    accountKey: 'potluck:mac-esther:conn-a',
+    identityKind: 'connection',
+    accountLabel: 'Work GLM',
+    planLabel: 'Coding Plan',
+    managedBy: 'potluck',
+    source: 'api',
+    sourceDetail: 'managed',
+    authType: 'apikey',
+    enabled: true,
+    tracked: true,
+    connectionStatus: 'ok',
+    quotaStatus: 'fresh',
+    lastAttemptAt: '2026-08-19T10:30:00.000Z',
+    lastSuccessAt: '2026-08-19T10:30:00.000Z',
+    updatedAt: '2026-08-19T10:30:00.000Z',
+    quotaPoolKey: 'zai-pool-1',
+    precision: 'providerReported',
+    windows: [{
+      windowKey: 'session:primary',
+      kind: 'session',
+      used: 32,
+      limit: 100,
+      remaining: 68,
+      usedPercent: 32,
+      resetAt: '2026-08-19T12:00:00.000Z',
+      windowStartedAt: '2026-08-19T07:00:00.000Z',
+      windowDurationMs: 18000000,
+      resetPolicy: 'fixed',
+      resetConfidence: 0.96,
+      precision: 'providerReported'
+    }],
+    error: {
+      code: 'provider_rate_limited',
+      category: 'rate_limit',
+      retryAt: '2026-08-19T10:35:00.000Z',
+      messageKey: 'limits.error.rateLimited',
+      safeDetail: 'HTTP 429',
+      recoverable: true
+    },
+    apiKey: 'sk-secret-must-drop',
+    cookie: 'session=secret',
+    rawResponse: { remaining: 1 }
+  }]
+};
+
+test('v1 limits fixtures keep legacy status and gain split status projection', () => {
+  const summary = normalizeLimitsSummary(V1_LIMITS_FIXTURE);
+  assert.equal(Object.hasOwn(summary, 'schemaVersion'), false);
+  assert.equal(Object.hasOwn(summary, 'snapshotType'), false);
+  assert.equal(summary.providers.length, 1);
+  const provider = summary.providers[0];
+  assert.equal(provider.status, 'ok');
+  assert.equal(provider.connectionStatus, 'ok');
+  assert.equal(provider.quotaStatus, 'fresh');
+  assert.equal(provider.identityKind, 'legacy_account_key');
+  assert.equal(Object.hasOwn(provider, 'connectionKey'), false);
+  assert.equal(provider.windows[0].resetsAt, '2026-05-18T05:00:00.000Z');
+  assert.equal(Object.hasOwn(provider.windows[0], 'resetAt'), false);
+});
+
+test('v2 limits fixtures project legacy status and keep additive identity fields', () => {
+  const summary = normalizeLimitsSummary(V2_LIMITS_FIXTURE);
+  assert.equal(summary.schemaVersion, 2);
+  assert.equal(summary.snapshotType, 'full');
+  assert.equal(summary.sourceInstanceId, 'monitor:macbook-pro');
+  assert.equal(summary.snapshotId, 'snap-7db5b124');
+  assert.deepEqual(summary.capabilities, ['connection_status_v2', 'quota_status_v2', 'quota_pool_key']);
+  assert.equal(summary.quotaPools[0].quotaPoolKey, 'zai-pool-1');
+  assert.equal(summary.quotaPools[0].windows[0].resetsAt, '2026-08-19T12:00:00.000Z');
+
+  const provider = summary.providers[0];
+  assert.equal(provider.status, 'ok');
+  assert.equal(provider.connectionStatus, 'ok');
+  assert.equal(provider.quotaStatus, 'fresh');
+  assert.equal(provider.connectionKey, 'potluck:mac-esther:conn-a');
+  assert.equal(provider.accountKey, 'potluck:mac-esther:conn-a');
+  assert.equal(provider.identityKind, 'connection');
+  assert.equal(provider.managedBy, 'potluck');
+  assert.equal(provider.authType, 'apikey');
+  assert.equal(provider.enabled, true);
+  assert.equal(provider.tracked, true);
+  assert.equal(provider.lastAttemptAt, '2026-08-19T10:30:00.000Z');
+  assert.equal(provider.windows[0].windowKey, 'session:primary');
+  assert.equal(provider.windows[0].windowDurationMs, 18000000);
+  assert.equal(provider.windows[0].windowMinutes, 300);
+  assert.equal(provider.windows[0].resetsAt, '2026-08-19T12:00:00.000Z');
+  assert.equal(Object.hasOwn(provider.windows[0], 'resetAt'), false);
+  assert.equal(provider.error.code, 'provider_rate_limited');
+  assert.equal(Object.hasOwn(provider, 'apiKey'), false);
+  assert.equal(Object.hasOwn(provider, 'cookie'), false);
+  assert.equal(Object.hasOwn(provider, 'rawResponse'), false);
+  assert.equal(JSON.stringify(summary).includes('sk-secret'), false);
+});
+
+test('split statuses project the documented legacy status table', () => {
+  const cases = [
+    [{ connectionStatus: 'disabled', quotaStatus: 'fresh' }, 'disabled'],
+    [{ connectionStatus: 'notConfigured', quotaStatus: 'notChecked' }, 'notConfigured'],
+    [{ connectionStatus: 'unauthorized', quotaStatus: 'stale' }, 'unauthorized'],
+    [{ connectionStatus: 'ok', quotaStatus: 'fresh' }, 'ok'],
+    [{ connectionStatus: 'ok', quotaStatus: 'unsupported' }, 'ok'],
+    [{ connectionStatus: 'ok', quotaStatus: 'rateLimited' }, 'rateLimited'],
+    [{ connectionStatus: 'ok', quotaStatus: 'unavailable' }, 'unavailable'],
+    [{ connectionStatus: 'error', quotaStatus: 'stale' }, 'error']
+  ];
+  for (const [input, status] of cases) {
+    const provider = normalizeLimitProvider({
+      provider: 'claude',
+      accountKey: 'sha256:status',
+      windows: [{ kind: 'session', usedPercent: 10 }],
+      ...input
+    });
+    assert.equal(provider.status, status, `${input.connectionStatus}/${input.quotaStatus}`);
+    assert.equal(provider.connectionStatus, input.connectionStatus);
+    assert.equal(provider.quotaStatus, input.quotaStatus);
+  }
+});
+
+test('legacy sourceRateLimited keeps its status while exposing split fields', () => {
+  const provider = normalizeLimitProvider({
+    provider: 'claude',
+    accountKey: 'sha256:rate',
+    status: 'sourceRateLimited',
+    windows: [{ kind: 'session', usedPercent: 10 }]
+  });
+  assert.equal(provider.status, 'sourceRateLimited');
+  assert.equal(provider.connectionStatus, 'ok');
+  assert.equal(provider.quotaStatus, 'rateLimited');
+});
+
+test('explicit status patches win over leftover split fields from last-good overlays', () => {
+  const lastGood = normalizeLimitProvider({
+    provider: 'kimi',
+    accountKey: 'account',
+    status: 'ok',
+    windows: [{ kind: 'session', usedPercent: 10 }]
+  });
+  const overlay = normalizeLimitProvider({ ...lastGood, status: 'unavailable' });
+  assert.equal(lastGood.connectionStatus, 'ok');
+  assert.equal(overlay.status, 'unavailable');
+  assert.equal(overlay.connectionStatus, 'unavailable');
+  assert.equal(overlay.quotaStatus, 'unavailable');
+  assert.equal(overlay.windows.length, 1);
+  assert.equal(overlay.windows[0].usedPercent, 10);
+});
+
+test('unknown used stays null and true zero is preserved', () => {
+  const unknown = normalizeLimitWindow({ kind: 'session', usedPercent: 12 });
+  assert.equal(unknown.used, null);
+  assert.equal(unknown.limit, null);
+  const zero = normalizeLimitWindow({ kind: 'session', used: 0, limit: 100 });
+  assert.equal(zero.used, 0);
+  assert.equal(zero.usedPercent, 0);
+  assert.equal(zero.remainingPercent, 100);
+});
+
+test('windowDurationMs is accepted and projected to windowMinutes', () => {
+  const window = normalizeLimitWindow({
+    kind: 'session',
+    usedPercent: 20,
+    windowDurationMs: 18_000_000,
+    resetAt: '2026-08-19T12:00:00.000Z'
+  });
+  assert.equal(window.windowMinutes, 300);
+  assert.equal(window.windowDurationMs, 18_000_000);
+  assert.equal(window.resetsAt, '2026-08-19T12:00:00.000Z');
+});
+
+test('partial snapshots without scope are not treated as full or partial', () => {
+  const summary = normalizeLimitsSummary({
+    snapshotType: 'partial',
+    providers: [{ provider: 'claude', status: 'ok', windows: [] }]
+  });
+  assert.equal(Object.hasOwn(summary, 'snapshotType'), false);
+  assert.equal(Object.hasOwn(summary, 'scope'), false);
+  assert.equal(summary.providers.length, 1);
+});
+
+test('partial snapshots keep scope and do not imply deletions outside it', () => {
+  const summary = normalizeLimitsSummary({
+    snapshotType: 'partial',
+    scope: { connectionKeys: ['monitor:macbook:conn-b'], providers: ['claude'] },
+    providers: [{
+      provider: 'claude',
+      connectionKey: 'monitor:macbook:conn-b',
+      connectionStatus: 'ok',
+      quotaStatus: 'fresh',
+      windows: [{ kind: 'weekly', usedPercent: 8 }]
+    }]
+  });
+  assert.equal(summary.snapshotType, 'partial');
+  assert.deepEqual(summary.scope, {
+    connectionKeys: ['monitor:macbook:conn-b'],
+    providers: ['claude']
+  });
+  assert.equal(summary.providers[0].connectionKey, 'monitor:macbook:conn-b');
+});
+
+test('string errors and runtime-only provider fields stay off the normalized record', () => {
+  const provider = normalizeLimitProvider({
+    provider: 'codex',
+    status: 'unavailable',
+    accountKey: 'account-1',
+    windows: [{ kind: 'session', usedPercent: 40 }],
+    lastAttempt: { status: 'unavailable' },
+    lastAttemptAt: '2026-07-21T01:01:00.000Z',
+    error: 'private diagnostic',
+    credentialDigest: 'private digest',
+    revision: 99
+  });
+  assert.equal(provider.status, 'unavailable');
+  assert.equal(provider.connectionStatus, 'unavailable');
+  assert.equal(provider.lastAttemptAt, '2026-07-21T01:01:00.000Z');
+  assert.equal(Object.hasOwn(provider, 'lastAttempt'), false);
+  assert.equal(Object.hasOwn(provider, 'error'), false);
+  assert.equal(Object.hasOwn(provider, 'credentialDigest'), false);
+  assert.equal(Object.hasOwn(provider, 'revision'), false);
+});
+
+test('publicLimits strips v2 identity keys while syncLimits keeps them', () => {
+  const synced = syncLimits(V2_LIMITS_FIXTURE);
+  assert.equal(synced.schemaVersion, 2);
+  assert.equal(synced.snapshotType, 'full');
+  assert.equal(synced.providers[0].connectionKey, 'potluck:mac-esther:conn-a');
+  assert.equal(synced.quotaPools[0].connectionKeys[0], 'potluck:mac-esther:conn-a');
+
+  const publicPayload = publicLimits(V2_LIMITS_FIXTURE);
+  assert.equal(publicPayload.schemaVersion, 2);
+  for (const field of ['accountKey', 'accountEmail', 'accountName', 'accountLabel', 'planLabel', 'connectionKey', 'upstreamAccountKey', 'quotaPoolKey']) {
+    assert.equal(Object.hasOwn(publicPayload.providers[0], field), false, field);
+  }
+  assert.equal(Object.hasOwn(publicPayload.quotaPools[0], 'connectionKeys'), false);
+  assert.equal(publicPayload.quotaPools[0].quotaPoolKey, 'zai-pool-1');
+  assert.equal(publicPayload.providers[0].connectionStatus, 'ok');
+});
+
+test('canonical provider ids fold case and drop unknown or display-name values', () => {
+  assert.equal(srcRegistry.canonicalProviderId('Claude'), 'claude');
+  assert.equal(srcRegistry.canonicalProviderId('CODEX'), 'codex');
+  assert.equal(srcRegistry.canonicalProviderId('not-a-provider'), null);
+  assert.equal(srcRegistry.canonicalProviderId('GitHub Copilot'), null);
+  assert.equal(srcRegistry.canonicalProviderId('Z.ai'), null);
+  assert.equal(srcRegistry.canonicalProviderId('GLM Team'), null);
+  assert.equal(normalizeLimitProvider({
+    provider: 'GitHub Copilot',
+    status: 'ok',
+    updatedAt: '2026-08-19T12:00:00.000Z'
+  }), null);
+});
+
+test('legacy provider aliases rewrite to one canonical id', () => {
+  assert.equal(srcRegistry.canonicalProviderId('glm'), 'zai');
+  assert.equal(srcRegistry.canonicalProviderId('GLM'), 'zai');
+  assert.equal(srcRegistry.canonicalProviderId('glm-cn'), 'zai');
+  assert.equal(srcRegistry.canonicalProviderId('zai-team'), 'zaiteam');
+  assert.equal(srcRegistry.canonicalProviderId('ZAI-TEAM'), 'zaiteam');
+  assert.equal(srcRegistry.canonicalProviderId('minimax-cn'), 'minimax');
+  assert.equal(srcRegistry.canonicalProviderId('qoder-cn'), 'qoder-cn');
+  assert.equal(srcRegistry.canonicalProviderId('qoder'), 'qoder');
+
+  const glm = normalizeLimitProvider({
+    provider: 'glm',
+    status: 'ok',
+    updatedAt: '2026-08-19T12:00:00.000Z'
+  });
+  const glmCn = normalizeLimitProvider({
+    provider: 'glm-cn',
+    status: 'ok',
+    updatedAt: '2026-08-19T12:00:00.000Z'
+  });
+  assert.equal(glm.provider, 'zai');
+  assert.equal(glm.region, 'global');
+  assert.equal(glmCn.provider, 'zai');
+  assert.equal(glmCn.region, 'cn');
+  // Duplicate aliases of the same vendor stay one id; an explicit region wins.
+  const glmCnGlobal = normalizeLimitProvider({
+    provider: 'glm-cn',
+    region: 'global',
+    status: 'ok',
+    updatedAt: '2026-08-19T12:00:00.000Z'
+  });
+  assert.equal(glmCnGlobal.provider, 'zai');
+  assert.equal(glmCnGlobal.region, 'global');
+});
+
+test('ollama-local maps to the local ollama provider, not a cloud quota vendor', () => {
+  assert.equal(srcRegistry.canonicalProviderId('ollama-local'), 'ollama');
+  assert.equal(srcRegistry.isLocalQuotaProvider('ollama'), true);
+  assert.equal(srcRegistry.isLocalQuotaProvider('openrouter'), false);
+  assert.equal(srcRegistry.isLocalQuotaProvider('zai'), false);
+  const row = normalizeLimitProvider({
+    provider: 'ollama-local',
+    status: 'ok',
+    source: 'local',
+    updatedAt: '2026-08-19T12:00:00.000Z'
+  });
+  assert.equal(row.provider, 'ollama');
+  assert.notEqual(row.provider, 'openrouter');
+  assert.notEqual(row.provider, 'cursor');
+});
+
+test('hub collapse policy stays account-scoped only for configured multi-account providers', () => {
+  assert.equal(srcRegistry.collapsesByAccount('claude'), true);
+  assert.equal(srcRegistry.collapsesByAccount('minimax'), false);
+  assert.equal(srcRegistry.providerCapabilities('claude').supportsAccountScope, true);
+  assert.equal(srcRegistry.providerCapabilities('minimax').supportsAccountScope, false);
+
+  const aggregate = aggregateLimits([
+    {
+      deviceId: 'mac',
+      limits: {
+        updatedAt: '2026-08-19T12:00:00.000Z',
+        providers: [{
+          provider: 'glm',
+          accountKey: 'sha256:glm-a',
+          status: 'ok',
+          updatedAt: '2026-08-19T12:00:00.000Z',
+          windows: []
+        }]
+      }
+    },
+    {
+      deviceId: 'pc',
+      limits: {
+        updatedAt: '2026-08-19T12:01:00.000Z',
+        providers: [{
+          provider: 'zai',
+          accountKey: 'sha256:zai-b',
+          status: 'ok',
+          updatedAt: '2026-08-19T12:01:00.000Z',
+          windows: []
+        }]
+      }
+    }
+  ], 0, Date.parse('2026-08-19T12:02:00.000Z'));
+
+  // glm aliases to zai, and zai is account-scoped: distinct accountKeys from
+  // different devices must survive aggregation instead of fresher-wins merging.
+  const zaiRows = aggregate.providers.filter((provider) => provider.provider === 'zai');
+  assert.equal(zaiRows.length, 2);
+  assert.deepEqual(
+    new Set(zaiRows.map((provider) => provider.accountKey)),
+    new Set(['sha256:glm-a', 'sha256:zai-b'])
+  );
+});
+
+test('worker vendored provider registry stays in lockstep with src', () => {
+  assert.deepEqual(srcRegistry.CANONICAL_PROVIDER_IDS, workerRegistry.CANONICAL_PROVIDER_IDS);
+  assert.equal(workerRegistry.canonicalProviderId('glm-cn'), 'zai');
+  assert.equal(workerRegistry.canonicalProviderId('zai-team'), 'zaiteam');
+  assert.equal(workerRegistry.canonicalProviderId('ollama-local'), 'ollama');
+  assert.equal(workerRegistry.canonicalProviderId('unknown'), null);
+  assert.deepEqual(
+    srcRegistry.providerCapabilities('codex'),
+    workerRegistry.providerCapabilities('codex')
+  );
+});
+
+test('v2 writers remain readable by the v1 status field', () => {
+  const provider = normalizeLimitProvider(V2_LIMITS_FIXTURE.providers[0]);
+  const v1Reader = normalizeLimitProvider({
+    provider: provider.provider,
+    accountKey: provider.accountKey,
+    status: provider.status,
+    updatedAt: provider.updatedAt,
+    windows: provider.windows.map((window) => ({
+      kind: window.kind,
+      usedPercent: window.usedPercent,
+      resetsAt: window.resetsAt
+    }))
+  });
+  assert.equal(v1Reader.status, 'ok');
+  assert.equal(v1Reader.connectionStatus, 'ok');
+  assert.equal(v1Reader.quotaStatus, 'fresh');
+  assert.equal(v1Reader.windows[0].resetsAt, '2026-08-19T12:00:00.000Z');
 });

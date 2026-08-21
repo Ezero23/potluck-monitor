@@ -57,11 +57,9 @@ test('fallback tray icon source stays transparent and high-resolution', () => {
   assert.equal(scanlines[4], 0, 'tray PNG corner should remain fully transparent');
 });
 
-test('macOS tray icon downsamples the high-resolution template like provider icons', () => {
+test('macOS tray icon downsamples the high-resolution black-and-white badge without template tinting', () => {
   const calls = [];
-  const resized = {
-    setTemplateImage(value) { calls.push(['template', value]); }
-  };
+  const resized = {};
   const image = {
     resize(size) { calls.push(['resize', size]); return resized; }
   };
@@ -78,8 +76,7 @@ test('macOS tray icon downsamples the high-resolution template like provider ico
 
   assert.match(calls[0][1], /assets[\\/]icons[\\/]tray-token-monitor\.png$/);
   assert.deepEqual(calls.slice(1), [
-    ['resize', { height: 20, quality: 'best' }],
-    ['template', true]
+    ['resize', { height: 20, quality: 'best' }]
   ]);
 });
 
@@ -724,4 +721,26 @@ test('tray cost text uses the selected display currency', () => {
   assert.equal(formatTrayText({ periods: { today: { costUsd: 1, totalTokens: 12_000 } } }, 'cost'), '$1.0000');
   assert.equal(formatTrayText({ periods: { today: { costUsd: 1, totalTokens: 12_000 } } }, 'cost', 'TWD'), 'NT$31.50');
   assert.equal(formatTrayText({ periods: { today: { costUsd: 1, totalTokens: 12_000 } } }, 'both', 'HKD'), '12.0K · HK$7.80');
+});
+
+test('tray session quota text keeps credits as money instead of a derived percent', () => {
+  const limitStats = {
+    limits: {
+      providers: [
+        {
+          provider: 'deepseek',
+          status: 'ok',
+          balance: { amount: 4, currency: 'CNY', monthSpend: 6 },
+          windows: [{ kind: 'billing', metric: 'credits', label: 'Balance', remaining: 4 }]
+        },
+        { provider: 'codex', status: 'ok', windows: [{ kind: 'session', remainingPercent: 24 }] }
+      ]
+    }
+  };
+
+  assert.equal(formatTrayText(limitStats, 'limitsAllSessions', 'USD', {
+    limitProviderOrder: 'deepseek,codex',
+    limitProviders: 'deepseek,codex',
+    showLimitUsed: false
+  }), '¥4.00 · 24%');
 });

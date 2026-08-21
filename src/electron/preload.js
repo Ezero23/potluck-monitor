@@ -9,6 +9,7 @@ const bridge = {
   lookupModelPricing: (modelId) => ipcRenderer.invoke('pricing:lookup', modelId),
   previewAppearance: (patch) => ipcRenderer.invoke('appearance:preview', patch),
   getStats: (options) => ipcRenderer.invoke('stats:get', options),
+  getLimitsSnapshot: (options) => ipcRenderer.invoke('limits:getSnapshot', options),
   getSessionDetail: (args) => ipcRenderer.invoke('session:getDetail', args),
   getStreamStatus: () => ipcRenderer.invoke('stream:status'),
   getServiceStatus: (options) => ipcRenderer.invoke('serviceStatus:get', options),

@@ -1123,3 +1123,149 @@ test('aggregateDevices falls back to UTC-day compare for old agents without peri
   }], 10 * 60 * 1000, Date.parse('2026-06-26T06:00:00.000Z'));
   assert.equal(kept.periods.today.totalTokens, 7);
 });
+
+function claudePoolDevice(deviceId, poolKey, label, usedPercent, updatedAt, connectionKey) {
+  return recordWithLimits({
+    deviceId,
+    updatedAt,
+    receivedAt: updatedAt,
+    limits: {
+      schemaVersion: 2,
+      snapshotType: 'full',
+      snapshotId: `${deviceId}-${updatedAt}`,
+      sourceInstanceId: `monitor:${deviceId}`,
+      updatedAt,
+      refreshMs: 300000,
+      quotaPools: [{
+        quotaPoolKey: poolKey,
+        provider: 'claude',
+        label,
+        connectionKeys: [connectionKey],
+        windows: [{ kind: 'session', usedPercent, remainingPercent: 100 - usedPercent }]
+      }],
+      providers: [{
+        provider: 'claude',
+        connectionKey,
+        accountKey: connectionKey,
+        quotaPoolKey: poolKey,
+        accountLabel: label,
+        status: 'ok',
+        source: 'oauth',
+        updatedAt,
+        windows: [{ kind: 'session', usedPercent: usedPercent + 9 }]
+      }]
+    }
+  });
+}
+
+test('aggregateDevices merges the same quota pool across devices and projects windows onto connections', () => {
+  const mac = claudePoolDevice('mac', 'pool-team', 'Team', 20, '2026-08-19T10:00:00.000Z', 'monitor:mac:conn-a');
+  const pc = claudePoolDevice('pc', 'pool-team', 'Team', 35, '2026-08-19T10:05:00.000Z', 'monitor:pc:conn-b');
+  const forward = aggregateDevices([mac, pc], 0);
+  const reverse = aggregateDevices([pc, mac], 0);
+
+  assert.equal(forward.limits.quotaPools.length, 1);
+  assert.equal(reverse.limits.quotaPools[0].quotaPoolKey, 'pool-team');
+  assert.equal(forward.limits.quotaPools[0].windows[0].usedPercent, 35);
+  assert.deepEqual(forward.limits.quotaPools[0], reverse.limits.quotaPools[0]);
+  assert.deepEqual(forward.limits.quotaPools[0].connectionKeys, ['monitor:mac:conn-a', 'monitor:pc:conn-b']);
+  const claudeRows = forward.limits.providers.filter((row) => row.provider === 'claude');
+  assert.equal(claudeRows.length, 2);
+  assert.ok(claudeRows.every((row) => row.windows[0].usedPercent === 35));
+});
+
+test('aggregateDevices keeps same-label pools distinct without a shared quotaPoolKey', () => {
+  const left = claudePoolDevice('mac', 'pool-a', '工作 GLM', 10, '2026-08-19T10:00:00.000Z', 'monitor:mac:conn-a');
+  const right = claudePoolDevice('pc', 'pool-b', '工作 GLM', 10, '2026-08-19T10:00:00.000Z', 'monitor:pc:conn-b');
+  const aggregate = aggregateDevices([left, right], 0);
+  assert.deepEqual(
+    aggregate.limits.quotaPools.map((pool) => pool.quotaPoolKey),
+    ['pool-a', 'pool-b']
+  );
+});
+
+test('aggregateDevices does not guess a shared pool from matching windows or labels', () => {
+  const window = { kind: 'session', usedPercent: 44, remainingPercent: 56 };
+  const device = (deviceId, accountKey) => recordWithLimits({
+    deviceId,
+    updatedAt: '2026-08-19T10:00:00.000Z',
+    receivedAt: '2026-08-19T10:00:00.000Z',
+    limits: {
+      updatedAt: '2026-08-19T10:00:00.000Z',
+      providers: [{
+        provider: 'claude',
+        accountKey,
+        accountLabel: 'Max 5x',
+        status: 'ok',
+        updatedAt: '2026-08-19T10:00:00.000Z',
+        windows: [window]
+      }]
+    }
+  });
+  const aggregate = aggregateDevices([
+    device('mac', 'sha256:claude-a'),
+    device('pc', 'sha256:claude-b')
+  ], 0);
+  assert.equal(Object.hasOwn(aggregate.limits, 'quotaPools'), false);
+  assert.equal(aggregate.limits.providers.filter((row) => row.provider === 'claude').length, 2);
+});
+
+test('aggregateDevices merges differently labeled rows that share a quotaPoolKey and surfaces window conflicts', () => {
+  const mac = claudePoolDevice('mac', 'pool-1', '工作', 10, '2026-08-19T10:00:00.000Z', 'monitor:mac:conn-a');
+  const pc = claudePoolDevice('pc', 'pool-1', '备用', 80, '2026-08-19T10:06:00.000Z', 'monitor:pc:conn-b');
+  const aggregate = aggregateDevices([mac, pc], 0);
+  assert.equal(aggregate.limits.quotaPools.length, 1);
+  assert.equal(aggregate.limits.quotaPools[0].label, '备用');
+  assert.equal(aggregate.limits.quotaPools[0].conflict, true);
+  assert.equal(aggregate.limits.quotaPools[0].windows[0].usedPercent, 80);
+  assert.equal(aggregate.limits.quotaPools[0].windows[0].precision, 'unavailable');
+});
+
+test('aggregateDevices drops a pool once no live device still reports its quotaPoolKey', () => {
+  const mac = claudePoolDevice('mac', 'pool-team', 'Team', 20, '2026-08-19T10:00:00.000Z', 'monitor:mac:conn-a');
+  const pc = claudePoolDevice('pc', 'pool-team', 'Team', 20, '2026-08-19T10:00:00.000Z', 'monitor:pc:conn-b');
+  const macCleared = mergeDeviceRecord(mac, {
+    ...mac,
+    updatedAt: '2026-08-19T11:00:00.000Z',
+    receivedAt: '2026-08-19T11:00:00.000Z',
+    limits: {
+      schemaVersion: 2,
+      snapshotType: 'full',
+      snapshotId: 'mac-cleared',
+      sourceInstanceId: 'monitor:mac',
+      updatedAt: '2026-08-19T11:00:00.000Z',
+      providers: [{
+        provider: 'claude',
+        accountKey: 'monitor:mac:conn-a',
+        status: 'ok',
+        updatedAt: '2026-08-19T11:00:00.000Z',
+        windows: []
+      }]
+    }
+  });
+  const stillShared = aggregateDevices([macCleared, pc], 0);
+  assert.equal(stillShared.limits.quotaPools.length, 1);
+  assert.deepEqual(stillShared.limits.quotaPools[0].connectionKeys, ['monitor:pc:conn-b']);
+
+  const pcCleared = mergeDeviceRecord(pc, {
+    ...pc,
+    updatedAt: '2026-08-19T11:01:00.000Z',
+    receivedAt: '2026-08-19T11:01:00.000Z',
+    limits: {
+      schemaVersion: 2,
+      snapshotType: 'full',
+      snapshotId: 'pc-cleared',
+      sourceInstanceId: 'monitor:pc',
+      updatedAt: '2026-08-19T11:01:00.000Z',
+      providers: [{
+        provider: 'claude',
+        accountKey: 'monitor:pc:conn-b',
+        status: 'ok',
+        updatedAt: '2026-08-19T11:01:00.000Z',
+        windows: []
+      }]
+    }
+  });
+  const gone = aggregateDevices([macCleared, pcCleared], 0);
+  assert.equal(Object.hasOwn(gone.limits, 'quotaPools'), false);
+});
