@@ -8042,6 +8042,8 @@ function appendAccountConnectionDetails(card, providerId, row, connectionKey, su
   }
   panel.append(windows);
 
+  appendAccountConnectionCredentialPanel(panel, providerId, row);
+
   const error = row?.error;
   const errorText = String(error?.safeDetail || error?.code || error?.category || '').trim();
   if (errorText || error?.retryAt) {
@@ -8059,6 +8061,44 @@ function appendAccountConnectionDetails(card, providerId, row, connectionKey, su
 
 function providerAccountSettingsGroupId(providerId) {
   return providerId === 'opencode' ? 'opencodeCookieGroup' : `${providerId}AccountGroup`;
+}
+
+function accountConnectionCredentialStatusKey(providerId, row) {
+  if (!monitorLocalCredentialsConfigured(providerId)) {
+    return 'settings.accounts.connections.credentials.notConfigured';
+  }
+  const status = String(row?.connectionStatus || row?.status || '').trim();
+  if (status === 'unauthorized') return 'settings.accounts.connections.credentials.invalid';
+  if (status === 'error' || status === 'unavailable' || status === 'rateLimited') {
+    return 'settings.accounts.connections.credentials.needsAttention';
+  }
+  return 'settings.accounts.connections.credentials.configured';
+}
+
+function appendAccountConnectionCredentialPanel(panel, providerId, row) {
+  if (limitProviderSummaryApi.sourceBucket(row) !== 'monitor') return;
+  if (!providerAccountSettingsEl(providerId)) return;
+  const section = document.createElement('div');
+  section.className = 'account-connection-credential-panel';
+  const heading = document.createElement('strong');
+  heading.className = 'account-connection-credential-title';
+  heading.textContent = t('settings.accounts.connections.credentials.title');
+  const status = document.createElement('div');
+  status.className = 'account-connection-credential-status';
+  status.textContent = t(accountConnectionCredentialStatusKey(providerId, row));
+  const actions = document.createElement('div');
+  actions.className = 'account-connection-credential-actions';
+  const manage = document.createElement('button');
+  manage.type = 'button';
+  manage.textContent = t('settings.accounts.connections.credentials.manage');
+  manage.addEventListener('click', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    focusProviderAccountSettings(providerId);
+  });
+  actions.append(manage);
+  section.append(heading, status, actions);
+  panel.append(section);
 }
 
 function monitorLocalCredentialsConfigured(providerId) {

@@ -1555,6 +1555,20 @@ test('Connection fusion exposes expandable provider groups and detailed per-conn
   assert.match(i18n, /'settings\.accounts\.connections\.failure'/);
 });
 
+test('Connection detail panels surface Monitor credential status and management', () => {
+  const app = readRendererFile('app.js');
+  const styles = readRendererFile('styles.css');
+  const i18n = readRendererFile('i18n.js');
+
+  assert.match(app, /function appendAccountConnectionCredentialPanel\(/);
+  assert.match(app, /function accountConnectionCredentialStatusKey\(/);
+  assert.match(app, /appendAccountConnectionCredentialPanel\(panel, providerId, row\)/);
+  assert.match(app, /limitProviderSummaryApi\.sourceBucket\(row\) !== 'monitor'/);
+  assert.match(app, /settings\.accounts\.connections\.credentials\.manage/);
+  assert.match(styles, /\.account-connection-credential-panel/);
+  assert.match(i18n, /'settings\.accounts\.connections\.credentials\.title'/);
+});
+
 test('Limits, Accounts, and Home surfaces use distinct detail ids while sharing Connection state', () => {
   const app = readRendererFile('app.js');
   const styles = readRendererFile('styles.css');
