@@ -273,6 +273,9 @@ state.potluckConnectionsFetched = false;
 state.potluckGateway = null;
 state.settingsSections = Object.fromEntries(SETTINGS_SECTION_IDS.map((id) => [id, false]));
 state.limitProviderDetailsOpen = new Set();
+state.accountProviderGroupsCollapsed = new Set();
+state.accountConnectionDetailsOpen = new Set();
+state.accountConnectionRefreshBusy = new Set();
 state.limitsDataHealthOpen = false;
 state.quotaArchive = { version: 1, series: {}, annotations: {} };
 const defaultAppearance = { glassOpacity: 68, glassBlur: 32, zoomFactor: 1, systemGlass: true, windowsBackdrop: 'acrylic', reduceMotion: 'system', showLiveDot: true, showToolIcons: true, titleIconOnly: true, showCompactTotalTokens: false, settingsInTitlebar: false };
@@ -7744,6 +7747,144 @@ function renderToolPreferences() {
   }
 }
 
+function accountConnectionRowKey(providerId, row, index) {
+  const identity = String(
+    row?.connectionKey
+      || row?.accountKey
+      || row?.upstreamAccountKey
+      || row?.accountEmail
+      || row?.accountName
+      || row?.accountLabel
+      || `${providerId}:${index}`
+  ).trim();
+  return `${providerId}:${identity}`;
+}
+
+function accountConnectionReference(row) {
+  const identity = String(row?.connectionKey || row?.accountKey || row?.upstreamAccountKey || '').trim();
+  if (!identity) return '';
+  return identity.length > 20 ? `…${identity.slice(-16)}` : identity;
+}
+
+function accountConnectionRefreshScope(providerId, row) {
+  const scope = { provider: providerId };
+  for (const key of ['accountKey', 'accountEmail', 'accountName', 'accountLabel', 'id']) {
+    const value = String(row?.[key] || '').trim();
+    if (value) {
+      scope[key] = value;
+      break;
+    }
+  }
+  return scope;
+}
+
+function appendConnectionDetailField(container, label, value, className = '') {
+  if (!value) return;
+  const item = document.createElement('div');
+  item.className = `account-connection-detail-field${className ? ` ${className}` : ''}`;
+  const labelEl = document.createElement('span');
+  labelEl.className = 'account-connection-detail-label';
+  labelEl.textContent = label;
+  const valueEl = document.createElement('span');
+  valueEl.className = 'account-connection-detail-value';
+  valueEl.textContent = value;
+  item.append(labelEl, valueEl);
+  container.append(item);
+}
+
+function appendConnectionWindowDetail(container, window, row) {
+  const item = document.createElement('div');
+  item.className = 'account-connection-detail-window';
+  const heading = document.createElement('strong');
+  heading.textContent = String(window?.label || window?.kind || t('settings.accounts.connections.window')).trim();
+  item.append(heading);
+  const value = document.createElement('div');
+  value.className = 'account-connection-detail-window-value';
+  value.textContent = settingsWindowLine(window, row);
+  item.append(value);
+  const metrics = [];
+  if (isCreditsWindow(window)) {
+    const amount = formatCompactMoney(creditsAmount(row, window), creditsCurrency(row, window));
+    if (amount) metrics.push(t('settings.accounts.connections.balance', { value: amount }));
+  } else {
+    const remaining = Number(window?.remainingPercent);
+    const used = Number(window?.usedPercent);
+    if (Number.isFinite(remaining)) metrics.push(t('settings.accounts.connections.remaining', { value: `${Math.round(remaining)}%` }));
+    if (Number.isFinite(used)) metrics.push(t('settings.accounts.connections.used', { value: `${Math.round(used)}%` }));
+  }
+  const reset = formatReset(window?.resetsAt || window?.resetAt);
+  if (reset) metrics.push(t('settings.accounts.connections.reset', { value: reset }));
+  if (window?.precision) metrics.push(t('settings.accounts.connections.precision', { value: String(window.precision) }));
+  if (window?.resetPolicy) metrics.push(t('settings.accounts.connections.resetPolicy', { value: String(window.resetPolicy) }));
+  if (metrics.length) {
+    const meta = document.createElement('div');
+    meta.className = 'account-connection-detail-window-meta';
+    meta.textContent = metrics.join(' · ');
+    item.append(meta);
+  }
+  container.append(item);
+}
+
+function appendAccountConnectionDetails(card, providerId, row, connectionKey, surface = 'accounts') {
+  const detailId = `${surface}-connection-detail-${connectionKey.replace(/[^a-zA-Z0-9_-]/g, '-').slice(0, 120)}`;
+  const panel = document.createElement('div');
+  panel.className = 'account-connection-detail-panel';
+  panel.dataset.provider = providerId;
+  panel.id = detailId;
+  panel.hidden = !state.accountConnectionDetailsOpen.has(connectionKey);
+
+  const identityGrid = document.createElement('div');
+  identityGrid.className = 'account-connection-detail-grid';
+  appendConnectionDetailField(identityGrid, t('settings.accounts.connections.sourceLabel'), settingsManagedByLabel(row));
+  appendConnectionDetailField(identityGrid, t('settings.accounts.connections.authType'), String(row?.authType || t('settings.limits.age.unknown')));
+  appendConnectionDetailField(identityGrid, t('settings.accounts.connections.connectionId'), accountConnectionReference(row));
+  appendConnectionDetailField(identityGrid, t('settings.accounts.connections.poolLabel'), String(row?.quotaPoolKey || ''));
+  appendConnectionDetailField(identityGrid, t('settings.accounts.connections.planLabel'), String(row?.planLabel || limitProviderPlan(row) || ''));
+  panel.append(identityGrid);
+
+  const healthGrid = document.createElement('div');
+  healthGrid.className = 'account-connection-detail-grid account-connection-health';
+  const attempt = row?.lastAttemptAt ? formatSettingsAge(row.lastAttemptAt) : t('settings.limits.age.unknown');
+  const success = row?.lastSuccessAt || row?.updatedAt;
+  const successAge = success ? formatSettingsAge(success) : t('settings.limits.age.unknown');
+  appendConnectionDetailField(healthGrid, t('settings.accounts.connections.lastAttempt'), attempt);
+  appendConnectionDetailField(healthGrid, t('settings.accounts.connections.lastSuccess'), successAge);
+  appendConnectionDetailField(
+    healthGrid,
+    t('settings.accounts.connections.lastGood'),
+    success ? t(row?.stale || row?.quotaStatus === 'stale' ? 'settings.accounts.connections.lastGoodStale' : 'settings.accounts.connections.lastGoodFresh', { age: successAge }) : t('settings.accounts.connections.lastGoodUnknown'),
+    row?.stale || row?.quotaStatus === 'stale' ? 'is-stale' : ''
+  );
+  panel.append(healthGrid);
+
+  const windows = document.createElement('div');
+  windows.className = 'account-connection-detail-windows';
+  const windowList = Array.isArray(row?.windows) ? row.windows : [];
+  if (windowList.length === 0) {
+    const empty = document.createElement('div');
+    empty.className = 'settings-note';
+    empty.textContent = t('settings.accounts.connections.noWindows');
+    windows.append(empty);
+  } else {
+    for (const window of windowList) appendConnectionWindowDetail(windows, window, row);
+  }
+  panel.append(windows);
+
+  const error = row?.error;
+  const errorText = String(error?.safeDetail || error?.code || error?.category || '').trim();
+  if (errorText || error?.retryAt) {
+    const errorBox = document.createElement('div');
+    errorBox.className = 'account-connection-error';
+    const errorLabel = document.createElement('strong');
+    errorLabel.textContent = t('settings.accounts.connections.failure');
+    const detail = [errorText, error?.retryAt ? t('settings.accounts.connections.retryAt', { value: formatSettingsRetryAt(error.retryAt) }) : ''].filter(Boolean);
+    errorBox.append(errorLabel, document.createTextNode(` ${detail.join(' · ')}`));
+    panel.append(errorBox);
+  }
+  card.append(panel);
+  return detailId;
+}
+
 function renderAccountConnectionDirectory() {
   const list = els.accountConnectionList;
   if (!list) return;
@@ -7776,24 +7917,57 @@ function renderAccountConnectionDirectory() {
 
     const heading = document.createElement('div');
     heading.className = 'account-provider-connection-heading';
+    const collapsed = state.accountProviderGroupsCollapsed.has(providerId);
+    const headingToggle = document.createElement('button');
+    headingToggle.type = 'button';
+    headingToggle.className = 'account-provider-connection-heading-toggle';
+    headingToggle.setAttribute('aria-expanded', String(!collapsed));
+    headingToggle.setAttribute('aria-label', t(collapsed ? 'settings.accounts.connections.expandProvider' : 'settings.accounts.connections.collapseProvider', { name: providerName }));
     const name = document.createElement('strong');
     name.className = 'account-provider-connection-name';
     name.textContent = providerName;
     const summaryText = document.createElement('span');
     summaryText.className = 'account-provider-connection-summary';
     summaryText.textContent = limitProviderSettingsSummaryText(summary, tracked.has(providerId));
-    heading.append(name, summaryText);
+    const chevron = document.createElement('span');
+    chevron.className = 'account-provider-connection-chevron';
+    chevron.setAttribute('aria-hidden', 'true');
+    chevron.textContent = collapsed ? '▸' : '▾';
+    headingToggle.append(name, summaryText, chevron);
+    headingToggle.addEventListener('click', () => {
+      if (collapsed) state.accountProviderGroupsCollapsed.delete(providerId);
+      else state.accountProviderGroupsCollapsed.add(providerId);
+      renderAccountConnectionDirectory();
+    });
+    heading.append(headingToggle);
     group.append(heading);
 
     const connectionList = document.createElement('div');
-    connectionList.className = 'account-provider-connection-list';
+    connectionList.className = `account-provider-connection-list${collapsed ? ' hidden' : ''}`;
     connections.forEach((connection, index) => {
       const card = document.createElement('article');
       card.className = 'account-connection-entry';
-      const title = document.createElement('div');
+      const connectionKey = accountConnectionRowKey(providerId, connection, index);
+      const detailOpen = state.accountConnectionDetailsOpen.has(connectionKey);
+      const titleToggle = document.createElement('button');
+      titleToggle.type = 'button';
+      titleToggle.className = 'account-connection-entry-toggle';
+      titleToggle.setAttribute('aria-expanded', String(detailOpen));
+      const detailId = `accounts-connection-detail-${connectionKey.replace(/[^a-zA-Z0-9_-]/g, '-').slice(0, 120)}`;
+      titleToggle.setAttribute('aria-controls', detailId);
+      const title = document.createElement('strong');
       title.className = 'account-connection-entry-title';
       title.textContent = limitAccountTitle(providerId, connection, index, connections);
-      card.append(title);
+      const toggleHint = document.createElement('span');
+      toggleHint.className = 'account-connection-entry-toggle-hint';
+      toggleHint.textContent = t(detailOpen ? 'settings.accounts.connections.hideDetails' : 'settings.accounts.connections.showDetails');
+      titleToggle.append(title, toggleHint);
+      titleToggle.addEventListener('click', () => {
+        if (detailOpen) state.accountConnectionDetailsOpen.delete(connectionKey);
+        else state.accountConnectionDetailsOpen.add(connectionKey);
+        renderAccountConnectionDirectory();
+      });
+      card.append(titleToggle);
 
       const meta = document.createElement('div');
       meta.className = 'account-connection-entry-meta';
@@ -7818,12 +7992,30 @@ function renderAccountConnectionDirectory() {
         poolLine.textContent = t('settings.limits.connection.pool', { pool: poolKey });
         card.append(poolLine);
       }
-      for (const window of connection?.windows || []) {
+      const reference = accountConnectionReference(connection);
+      if (reference) {
+        const referenceLine = document.createElement('div');
+        referenceLine.className = 'account-connection-entry-meta account-connection-reference';
+        referenceLine.textContent = t('settings.accounts.connections.connectionId', { value: reference });
+        card.append(referenceLine);
+      }
+      const summaryWindows = document.createElement('div');
+      summaryWindows.className = 'account-connection-entry-windows';
+      const visibleWindows = (connection?.windows || []).slice(0, 2);
+      for (const window of visibleWindows) {
         const line = document.createElement('div');
         line.className = 'account-connection-entry-window';
         line.textContent = settingsWindowLine(window, connection);
-        card.append(line);
+        summaryWindows.append(line);
       }
+      if ((connection?.windows || []).length > visibleWindows.length) {
+        const more = document.createElement('div');
+        more.className = 'account-connection-entry-window account-connection-entry-window-more';
+        more.textContent = t('settings.accounts.connections.moreWindows', { count: connection.windows.length - visibleWindows.length });
+        summaryWindows.append(more);
+      }
+      if (summaryWindows.childElementCount > 0) card.append(summaryWindows);
+      appendAccountConnectionDetails(card, providerId, connection, connectionKey);
 
       const actions = document.createElement('div');
       actions.className = 'account-connection-entry-actions';
@@ -7832,7 +8024,33 @@ function renderAccountConnectionDirectory() {
       viewQuota.textContent = t('settings.accounts.connections.viewQuota');
       viewQuota.addEventListener('click', () => focusLimitProviderSettings(providerId));
       actions.append(viewQuota);
-      if (limitProviderSummaryApi.sourceBucket(connection) === 'potluck') {
+      const sourceBucket = limitProviderSummaryApi.sourceBucket(connection);
+      if (sourceBucket !== 'potluck') {
+        const refresh = document.createElement('button');
+        refresh.type = 'button';
+        const refreshBusy = state.accountConnectionRefreshBusy.has(connectionKey);
+        refresh.disabled = refreshBusy;
+        refresh.textContent = t(refreshBusy ? 'settings.accounts.connections.refreshing' : 'settings.accounts.connections.refresh');
+        refresh.addEventListener('click', async (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          if (state.accountConnectionRefreshBusy.has(connectionKey)) return;
+          state.accountConnectionRefreshBusy.add(connectionKey);
+          renderAccountConnectionDirectory();
+          try {
+            await refreshStats({
+              force: true,
+              feedback: true,
+              limitScope: accountConnectionRefreshScope(providerId, connection)
+            });
+          } finally {
+            state.accountConnectionRefreshBusy.delete(connectionKey);
+            renderAccountConnectionDirectory();
+          }
+        });
+        actions.append(refresh);
+      }
+      if (sourceBucket === 'potluck') {
         const manage = document.createElement('button');
         manage.type = 'button';
         manage.textContent = t('settings.limits.manageInPotluck');
@@ -7995,6 +8213,14 @@ function formatSettingsAge(value) {
   const hours = Math.round(minutes / 60);
   if (hours < 24) return t('settings.limits.age.hours', { n: hours });
   return t('settings.limits.age.days', { n: Math.round(hours / 24) });
+}
+
+function formatSettingsRetryAt(value) {
+  const date = value ? new Date(value) : null;
+  if (!date || Number.isNaN(date.getTime())) return t('settings.limits.age.unknown');
+  const diffMs = date.getTime() - Date.now();
+  if (diffMs > 0) return t('settings.accounts.connections.retryIn', { value: formatDuration(diffMs) });
+  return formatSettingsAge(value);
 }
 
 function settingsManagedByLabel(row) {
@@ -8376,9 +8602,26 @@ function setLimitProviderDetailsOpen(providerId, open) {
 function appendLimitProviderConnectionCard(details, row, index, rows, providerId) {
   const card = document.createElement('div');
   card.className = 'limit-provider-connection';
-  const title = document.createElement('div');
-  title.className = 'limit-provider-connection-title';
-  title.textContent = limitAccountTitle(providerId, row, index, rows);
+  const connectionKey = accountConnectionRowKey(providerId, row, index);
+  const detailOpen = state.accountConnectionDetailsOpen.has(connectionKey);
+  const title = document.createElement('button');
+  title.type = 'button';
+  title.className = 'limit-provider-connection-title limit-provider-connection-title-toggle';
+  title.setAttribute('aria-expanded', String(detailOpen));
+  const detailId = `limits-connection-detail-${connectionKey.replace(/[^a-zA-Z0-9_-]/g, '-').slice(0, 120)}`;
+  title.setAttribute('aria-controls', detailId);
+  const titleText = document.createElement('strong');
+  titleText.textContent = limitAccountTitle(providerId, row, index, rows);
+  const titleHint = document.createElement('span');
+  titleHint.textContent = t(detailOpen ? 'settings.accounts.connections.hideDetails' : 'settings.accounts.connections.showDetails');
+  title.append(titleText, titleHint);
+  title.addEventListener('click', () => {
+    if (detailOpen) state.accountConnectionDetailsOpen.delete(connectionKey);
+    else state.accountConnectionDetailsOpen.add(connectionKey);
+    renderLimitProviderCheckboxes();
+    renderAccountConnectionDirectory();
+  });
+  card.append(title);
   const source = document.createElement('div');
   source.className = 'limit-provider-connection-meta';
   source.textContent = t('settings.limits.connection.source', { source: settingsManagedByLabel(row) });
@@ -8403,15 +8646,30 @@ function appendLimitProviderConnectionCard(details, row, index, rows, providerId
     card.append(line);
   }
   appendQuotaForecastPanels(card, row, state.quotaArchive || emptyQuotaArchive());
+  appendAccountConnectionDetails(card, providerId, row, connectionKey, 'limits');
   const actions = document.createElement('div');
   actions.className = 'limit-provider-connection-actions';
   const refresh = document.createElement('button');
   refresh.type = 'button';
-  refresh.textContent = t('settings.common.refresh');
-  refresh.addEventListener('click', (event) => {
+  const refreshBusy = state.accountConnectionRefreshBusy.has(connectionKey);
+  refresh.disabled = refreshBusy;
+  refresh.textContent = t(refreshBusy ? 'settings.accounts.connections.refreshing' : 'settings.accounts.connections.refresh');
+  refresh.addEventListener('click', async (event) => {
     event.preventDefault();
     event.stopPropagation();
-    refreshStats({ force: true });
+    if (state.accountConnectionRefreshBusy.has(connectionKey)) return;
+    state.accountConnectionRefreshBusy.add(connectionKey);
+    renderLimitProviderCheckboxes();
+    try {
+      await refreshStats({
+        force: true,
+        feedback: true,
+        limitScope: accountConnectionRefreshScope(providerId, row)
+      });
+    } finally {
+      state.accountConnectionRefreshBusy.delete(connectionKey);
+      renderLimitProviderCheckboxes();
+    }
   });
   actions.append(refresh);
   if (limitProviderSummaryApi.sourceBucket(row) === 'potluck') {

@@ -1507,3 +1507,32 @@ test('MiMo limits keep credits balance separate from Token Plan and settings sho
   assert.match(app, /settingsWindowLine\(window, connection\)/);
   assert.match(app, /settingsWindowLine\(window, row\)/);
 });
+
+test('Connection fusion exposes expandable provider groups and detailed per-connection health', () => {
+  const app = readRendererFile('app.js');
+  const styles = readRendererFile('styles.css');
+  const i18n = readRendererFile('i18n.js');
+
+  assert.match(app, /accountProviderGroupsCollapsed/);
+  assert.match(app, /accountConnectionDetailsOpen/);
+  assert.match(app, /accountConnectionRowKey/);
+  assert.match(app, /appendAccountConnectionDetails/);
+  assert.match(app, /lastAttemptAt/);
+  assert.match(app, /lastSuccessAt/);
+  assert.match(app, /lastGoodStale/);
+  assert.match(app, /safeDetail/);
+  assert.match(app, /limitScope: accountConnectionRefreshScope/);
+  assert.match(app, /settings\.accounts\.connections\.refresh/);
+  assert.match(styles, /\.account-connection-detail-panel/);
+  assert.match(styles, /\.account-connection-detail-window/);
+  assert.match(i18n, /'settings\.accounts\.connections\.lastAttempt'/);
+  assert.match(i18n, /'settings\.accounts\.connections\.failure'/);
+});
+
+test('Limits and Accounts surfaces use distinct detail ids while sharing Connection state', () => {
+  const app = readRendererFile('app.js');
+  assert.match(app, /appendAccountConnectionDetails\(card, providerId, connection, connectionKey\)/);
+  assert.match(app, /appendAccountConnectionDetails\(card, providerId, row, connectionKey, 'limits'\)/);
+  assert.match(app, /limits-connection-detail-/);
+  assert.match(app, /surface = 'accounts'/);
+});

@@ -68,3 +68,30 @@ test('manual refresh reports a late limits failure without rejecting completed u
   await Promise.resolve();
   assert.deepEqual(errors, ['quota offline']);
 });
+
+test('manual refresh forwards a sanitized Connection scope to the limits runtime', async () => {
+  const calls = [];
+  const runtime = {
+    refreshLimits: async (scope, reason) => { calls.push([scope, reason]); },
+    tick: async () => {}
+  };
+  await runManualDeviceRefresh(runtime, {
+    limitScope: {
+      provider: ' MiMo ',
+      accountKey: 'mimo-account-1',
+      accountEmail: 'ignored@example.com',
+      unsafe: 'ignored'
+    }
+  });
+  assert.deepEqual(calls, [[{ provider: 'mimo', accountKey: 'mimo-account-1', accountEmail: 'ignored@example.com' }, 'manual']]);
+});
+
+test('manual refresh falls back to all providers without a scope', async () => {
+  const calls = [];
+  const runtime = {
+    refreshLimits: async (scope, reason) => { calls.push([scope, reason]); },
+    tick: async () => {}
+  };
+  await runManualDeviceRefresh(runtime);
+  assert.deepEqual(calls, [[{ all: true }, 'manual']]);
+});
