@@ -5964,6 +5964,32 @@ html.is-windows .limit-live-badge {
   border-radius: 5px;
   background: rgba(var(--overlay-rgb), 0.35);
 }
+.account-connection-credential-panel {
+  display: grid;
+  gap: 6px;
+  padding-top: 7px;
+  border-top: 1px solid rgba(var(--line-rgb), 0.12);
+}
+.account-connection-credential-title {
+  color: var(--text);
+  font-size: 10px;
+  font-weight: 600;
+}
+.account-connection-credential-status {
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.35;
+}
+.account-connection-credential-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.account-connection-credential-actions button {
+  margin: 0;
+  padding: 2px 7px;
+  font-size: 10px;
+}
 .account-connection-detail-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
