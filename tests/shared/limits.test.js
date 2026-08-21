@@ -226,6 +226,85 @@ test('aggregateLimits keeps a local Ollama account with windows alongside a sync
   assert.equal(local.windows[0].usedPercent, 5.7);
 });
 
+test('aggregateLimits merges same-account rows across Potluck Web and local sources', () => {
+  const aggregate = aggregateLimits([
+    {
+      deviceId: 'mac-mini-local',
+      limits: {
+        updatedAt: '2026-08-21T06:00:00.000Z',
+        providers: [{
+          provider: 'ollama',
+          accountKey: 'sha256:local',
+          accountEmail: 'estherzhu1023@gmail.com',
+          status: 'ok',
+          quotaStatus: 'fresh',
+          source: 'api',
+          updatedAt: '2026-08-21T06:00:00.000Z',
+          windows: [
+            { kind: 'session', usedPercent: 0, resetsAt: '2026-08-23T00:00:00.000Z', showMeter: true },
+            { kind: 'weekly', usedPercent: 100, resetsAt: '2026-08-23T00:00:00.000Z', showMeter: true }
+          ]
+        }]
+      }
+    },
+    {
+      deviceId: 'potluck',
+      limits: {
+        updatedAt: '2026-08-21T06:01:00.000Z',
+        providers: [{
+          provider: 'ollama',
+          accountKey: 'conn-uuid-1',
+          accountName: 'estherzhu',
+          accountEmail: 'estherzhu1023@gmail.com',
+          planLabel: 'Pro',
+          managedBy: 'potluck',
+          status: 'ok',
+          quotaStatus: 'fresh',
+          source: 'api',
+          updatedAt: '2026-08-21T06:01:00.000Z',
+          windows: [
+            { kind: 'session', label: 'Session', usedPercent: 0 },
+            { kind: 'weekly', label: 'Weekly', usedPercent: 100 }
+          ]
+        }]
+      }
+    }
+  ], 0, Date.parse('2026-08-21T06:02:00.000Z'));
+
+  const ollama = aggregate.providers.filter((item) => item.provider === 'ollama');
+  assert.equal(ollama.length, 1);
+  // The local row's windows win because they carry reset times; the Potluck
+  // row's plan label fills in.
+  assert.deepEqual(ollama[0].windows.map((window) => [window.kind, window.usedPercent, Boolean(window.resetsAt)]), [
+    ['session', 0, true],
+    ['weekly', 100, true]
+  ]);
+  assert.equal(ollama[0].planLabel, 'Pro');
+  assert.equal(ollama[0].accountEmail, 'estherzhu1023@gmail.com');
+});
+
+test('aggregateLimits does not merge same-email rows from a single source', () => {
+  const row = (accountKey) => ({
+    provider: 'ollama',
+    accountKey,
+    accountEmail: 'shared@example.com',
+    managedBy: 'potluck',
+    status: 'ok',
+    updatedAt: '2026-08-21T06:01:00.000Z',
+    windows: [{ kind: 'session', usedPercent: 10 }]
+  });
+  const aggregate = aggregateLimits([{
+    deviceId: 'potluck',
+    limits: {
+      updatedAt: '2026-08-21T06:01:00.000Z',
+      providers: [row('conn-a'), row('conn-b')]
+    }
+  }], 0, Date.parse('2026-08-21T06:02:00.000Z'));
+
+  const ollama = aggregate.providers.filter((item) => item.provider === 'ollama');
+  assert.equal(ollama.length, 2);
+});
+
 test('aggregateLimits preserves same-email Codex workspaces by hashed account key', () => {
   const aggregate = aggregateLimits([{
     deviceId: 'macbook',
