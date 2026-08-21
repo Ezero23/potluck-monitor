@@ -1769,6 +1769,10 @@ span.settings-note.settings-item-desc {
   padding: 2px 7px;
   font-size: 10px;
 }
+.limit-connection-pin.pinned {
+  border-color: var(--accent, #4d9fff);
+  color: var(--accent, #4d9fff);
+}
 .limit-connection-wrap {
   display: grid;
   gap: 6px;

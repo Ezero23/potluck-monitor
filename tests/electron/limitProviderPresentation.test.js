@@ -1577,7 +1577,7 @@ test('Limits, Accounts, and Home surfaces use distinct detail ids while sharing 
   assert.match(app, /function renderLimitConnectionRow\(/);
   assert.match(app, /appendAccountConnectionDetails\(card, providerId, connection, connectionKey\)/);
   assert.match(app, /appendAccountConnectionDetails\(card, providerId, row, connectionKey, 'limits'\)/);
-  assert.match(app, /appendLimitConnectionActions\(wrapper, providerId, connection, index, 'home'\)/);
+  assert.match(app, /appendLimitConnectionActions\(wrapper, providerId, connection, index, 'home', \(connections \|\| \[\]\)\.length\)/);
   assert.match(app, /\$\{surface\}-connection-detail-/);
   assert.match(app, /limits-connection-detail-/);
   assert.match(app, /surface = 'accounts'/);

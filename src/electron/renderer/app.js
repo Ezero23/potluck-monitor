@@ -3387,9 +3387,22 @@ function toggleAccountConnectionDetails(connectionKey) {
   refreshAccountConnectionSurfaces();
 }
 
-function appendLimitConnectionRefreshActions(actions, providerId, connection, index) {
+function appendLimitConnectionRefreshActions(actions, providerId, connection, index, showPin = false) {
   const connectionKey = accountConnectionRowKey(providerId, connection, index);
   const sourceBucket = limitProviderSummaryApi.sourceBucket(connection);
+  if (showPin) {
+    const pinned = pinnedHomeLimitAccountSet().has(connectionKey);
+    const pin = document.createElement('button');
+    pin.type = 'button';
+    pin.className = pinned ? 'limit-connection-pin pinned' : 'limit-connection-pin';
+    pin.textContent = t(pinned ? 'settings.limits.unpinHomeAccount' : 'settings.limits.pinHomeAccount');
+    pin.addEventListener('click', async (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      await onHomeLimitAccountPinToggle(connectionKey);
+    });
+    actions.append(pin);
+  }
   if (sourceBucket !== 'potluck') {
     const refresh = document.createElement('button');
     refresh.type = 'button';
@@ -3438,7 +3451,7 @@ function appendLimitConnectionRefreshActions(actions, providerId, connection, in
   }
 }
 
-function appendLimitConnectionActions(container, providerId, connection, index, surface) {
+function appendLimitConnectionActions(container, providerId, connection, index, surface, accountCount = 1) {
   const connectionKey = accountConnectionRowKey(providerId, connection, index);
   const detailOpen = state.accountConnectionDetailsOpen.has(connectionKey);
   const actions = document.createElement('div');
@@ -3454,7 +3467,7 @@ function appendLimitConnectionActions(container, providerId, connection, index, 
     });
     actions.append(details);
   }
-  appendLimitConnectionRefreshActions(actions, providerId, connection, index);
+  appendLimitConnectionRefreshActions(actions, providerId, connection, index, accountCount > 1);
   container.append(actions);
   appendAccountConnectionDetails(container, providerId, connection, connectionKey, surface);
 }
@@ -3464,7 +3477,7 @@ function renderLimitConnectionRow(providerId, label, connection, index, connecti
   wrapper.className = 'limit-connection-wrap';
   if (connection?.stale) wrapper.classList.add('stale');
   wrapper.append(renderLimitProviderRow(providerId, label, connection, color, options));
-  appendLimitConnectionActions(wrapper, providerId, connection, index, 'home');
+  appendLimitConnectionActions(wrapper, providerId, connection, index, 'home', (connections || []).length);
   return wrapper;
 }
 
@@ -4643,6 +4656,8 @@ function homeLimitRows() {
     colors: clientColors,
     limit: state.settings?.homeLimitAccountCount ?? 20,
     sort: hasConfiguredOrder ? 'configured' : 'remaining',
+    pinnedAccountKeys: Array.from(pinnedHomeLimitAccountSet()),
+    pinKey: (provider, index, providerId) => accountConnectionRowKey(providerId, provider, index),
     accountName: (provider, index, providerEntries) => {
       const id = String(provider?.provider || '').trim().toLowerCase();
       const option = providerOptions.find((entry) => entry.id === id);
@@ -6948,6 +6963,20 @@ function hiddenHomeLimitProviderSet() {
   return new Set(hidden);
 }
 
+// Comma-joined account row keys (providerId:identity, same shape as
+// accountConnectionRowKey) the user pinned for the home limits module.
+function pinnedHomeLimitAccountSet() {
+  const raw = String(state.settings?.pinnedHomeLimitAccounts || '');
+  return new Set(raw.split(',').map((key) => key.trim()).filter(Boolean));
+}
+
+async function onHomeLimitAccountPinToggle(pinKey) {
+  const pinned = pinnedHomeLimitAccountSet();
+  if (pinned.has(pinKey)) pinned.delete(pinKey);
+  else pinned.add(pinKey);
+  await saveSettings({ pinnedHomeLimitAccounts: Array.from(pinned).join(',') });
+}
+
 function homeLimitProviderOrderValue() {
   return state.settings?.homeLimitProviderOrder || state.settings?.limitProviderOrder;
 }
@@ -8970,7 +8999,7 @@ function appendLimitProviderConnectionCard(details, row, index, rows, providerId
   appendQuotaForecastPanels(card, row, state.quotaArchive || emptyQuotaArchive());
   const actions = document.createElement('div');
   actions.className = 'limit-provider-connection-actions';
-  appendLimitConnectionRefreshActions(actions, providerId, row, index);
+  appendLimitConnectionRefreshActions(actions, providerId, row, index, (rows || []).length > 1);
   card.append(actions);
   appendAccountConnectionDetails(card, providerId, row, connectionKey, 'limits');
   details.append(card);

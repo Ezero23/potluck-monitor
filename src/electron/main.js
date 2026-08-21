@@ -348,6 +348,7 @@ function defaultSettings() {
     homeLimitProviderOrder: '',
     hiddenHomeLimitProviders: '',
     homeLimitAccountCount: HOME_LIMIT_ACCOUNT_COUNT_DEFAULT,
+    pinnedHomeLimitAccounts: '',
     limitsRefreshMs: normalizeLimitsRefreshMs(process.env.TOKEN_MONITOR_LIMITS_REFRESH_MS),
     showLimitSource: parseBoolean(process.env.TOKEN_MONITOR_SHOW_LIMIT_SOURCE, false),
     maskLimitAccountEmails: false,
@@ -1934,6 +1935,9 @@ function readSettings() {
     }
     if (saved.hiddenHomeLimitProviders !== undefined) {
       merged.hiddenHomeLimitProviders = normalizeHiddenLimitProviders(saved.hiddenHomeLimitProviders);
+    }
+    if (saved.pinnedHomeLimitAccounts !== undefined) {
+      merged.pinnedHomeLimitAccounts = String(saved.pinnedHomeLimitAccounts || '').slice(0, 8000);
     }
     merged.homeLimitAccountCount = normalizeHomeLimitAccountCount(merged.homeLimitAccountCount);
     if (saved.historyEnabled !== undefined) {
@@ -4550,6 +4554,7 @@ app.whenReady().then(() => {
       showHomeLimitBars: parseBoolean(patch.showHomeLimitBars ?? settings.showHomeLimitBars, false),
       homeLimitProviderOrder: patch.homeLimitProviderOrder !== undefined ? migrateHomeLimitProviderOrder(patch.homeLimitProviderOrder) : (settings.homeLimitProviderOrder || ''),
       hiddenHomeLimitProviders: patch.hiddenHomeLimitProviders !== undefined ? normalizeHiddenLimitProviders(patch.hiddenHomeLimitProviders) : normalizeHiddenLimitProviders(settings.hiddenHomeLimitProviders),
+      pinnedHomeLimitAccounts: patch.pinnedHomeLimitAccounts !== undefined ? String(patch.pinnedHomeLimitAccounts || '').slice(0, 8000) : (settings.pinnedHomeLimitAccounts || ''),
       homeLimitAccountCount: normalizeHomeLimitAccountCount(patch.homeLimitAccountCount ?? settings.homeLimitAccountCount),
       historyEnabled: parseBoolean(patch.historyEnabled ?? settings.historyEnabled, false),
       projectsEnabled: parseBoolean(patch.projectsEnabled ?? settings.projectsEnabled, true),
