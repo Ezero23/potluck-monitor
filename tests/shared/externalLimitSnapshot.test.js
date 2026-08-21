@@ -269,3 +269,47 @@ test('deviceState keeps potluck rows across local collector ticks', () => {
   assert.equal(state.applyExternalLimits(snapshot({ schemaVersion: 3 })), null);
   assert.equal(state.getSnapshot().limits.providers.length, 2);
 });
+
+test('snapshot rows replace upgrade leftovers keyed by the same connection id', () => {
+  // Pre-snapshot push formats stored this source's rows without managedBy,
+  // keyed by the connection id the snapshot now reuses. The incoming row must
+  // win, otherwise the source's quota data stays hidden behind a stale ghost.
+  const leftoverStore = {
+    updatedAt: '2026-08-19T10:00:00.000Z',
+    refreshMs: 300000,
+    providers: [{
+      provider: 'opencode-go',
+      accountKey: 'conn-71f11859',
+      identityKind: 'legacy_account_key',
+      status: 'rateLimited',
+      quotaStatus: 'rateLimited',
+      updatedAt: '2026-08-19T09:00:00.000Z',
+      windows: []
+    }, {
+      provider: 'tavily',
+      accountKey: 'conn-unrelated',
+      identityKind: 'legacy_account_key',
+      status: 'ok',
+      updatedAt: '2026-08-19T09:00:00.000Z',
+      windows: []
+    }]
+  };
+  const merged = applyExternalLimitSnapshot(leftoverStore, snapshot({
+    providers: [{
+      provider: 'opencode-go',
+      connectionKey: 'conn-71f11859',
+      accountKey: 'conn-71f11859',
+      status: 'ok',
+      quotaStatus: 'fresh',
+      updatedAt: '2026-08-19T10:30:00.000Z',
+      windows: [{ kind: 'weekly', usedPercent: 86, resetsAt: '2026-08-24T00:00:00.000Z' }]
+    }]
+  }));
+  assert.equal(merged.ok, true);
+  const opencodeRows = merged.summary.providers.filter((row) => row.provider === 'opencode-go');
+  assert.equal(opencodeRows.length, 1);
+  assert.equal(opencodeRows[0].managedBy, 'potluck');
+  assert.equal(opencodeRows[0].windows[0].usedPercent, 86);
+  // Non-colliding legacy rows are untouched.
+  assert.equal(merged.summary.providers.some((row) => row.provider === 'tavily'), true);
+});

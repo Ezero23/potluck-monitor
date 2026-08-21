@@ -264,7 +264,16 @@ function inPartialScope(row, scope) {
 
 function mergeExternalLimitSnapshot(previous, incoming) {
   const prevProviders = Array.isArray(previous?.providers) ? previous.providers : [];
-  const localRows = prevProviders.filter((row) => !isExternalManagedLimitsRow(row));
+  const incomingKeys = new Set(incoming.providers.map(providerIdentityKey).filter(Boolean));
+  // Upgrade leftovers: pre-snapshot push formats stored this source's rows
+  // without a managedBy marker, keyed by the same connection id the snapshot
+  // now uses. They are stale duplicates of rows the external source owns, so
+  // the incoming row must replace them — not be dropped as a local collision.
+  const isUpgradeLeftover = (row) =>
+    !isExternalManagedLimitsRow(row)
+    && row?.identityKind === 'legacy_account_key'
+    && incomingKeys.has(providerIdentityKey(row));
+  const localRows = prevProviders.filter((row) => !isExternalManagedLimitsRow(row) && !isUpgradeLeftover(row));
   const localKeys = new Set(localRows.map(providerIdentityKey).filter(Boolean));
   const incomingRows = incoming.providers.filter((row) => {
     const key = providerIdentityKey(row);
