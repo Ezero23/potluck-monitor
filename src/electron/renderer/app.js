@@ -3378,6 +3378,7 @@ function refreshAccountConnectionSurfaces() {
   if (state.breakdown === 'limits') renderLimits();
   renderLimitProviderCheckboxes();
   renderAccountConnectionDirectory();
+  renderAccountCredentialsLegacy();
 }
 
 function toggleAccountConnectionDetails(connectionKey) {
@@ -3439,7 +3440,7 @@ function appendLimitConnectionRefreshActions(actions, providerId, connection, in
     edit.addEventListener('click', (event) => {
       event.preventDefault();
       event.stopPropagation();
-      focusProviderAccountSettings(providerId);
+      focusAccountConnectionCredentials(providerId, connectionKey);
     });
     actions.append(edit);
   }
@@ -7979,14 +7980,31 @@ function restoreInlineCredentialForms() {
   }
 }
 
+function accountsCredentialSlot(connectionKey) {
+  const list = els.accountConnectionList;
+  if (!list) return null;
+  return Array.from(list.querySelectorAll('.account-connection-credential-slot'))
+    .find((el) => el.dataset.connectionKey === connectionKey) || null;
+}
+
+function firstMonitorConnectionKey(providerId) {
+  const rows = providerConnectionRows(providerId);
+  for (let index = 0; index < rows.length; index += 1) {
+    if (limitProviderSummaryApi.sourceBucket(rows[index]) === 'monitor') {
+      return accountConnectionRowKey(providerId, rows[index], index);
+    }
+  }
+  return '';
+}
+
 function mountInlineCredentialForm(connectionKey, providerId) {
   const group = providerAccountSettingsEl(providerId);
-  if (!group) return false;
-  const slot = document.querySelector(`.account-connection-credential-slot[data-connection-key="${CSS.escape(connectionKey)}"]`);
-  if (!slot) return false;
+  const slot = accountsCredentialSlot(connectionKey);
+  if (!group || !slot) return false;
   ensureInlineCredentialAnchor(providerId);
   state.inlineCredentialMount = connectionKey;
   expandProviderAccountSettings(providerId);
+  group.classList.remove('hidden');
   group.classList.add('account-connection-credential-inline');
   slot.replaceChildren(group);
   renderAccountCredentialsLegacy();
@@ -8185,13 +8203,16 @@ function appendAccountConnectionCredentialPanel(panel, providerId, row, connecti
       refreshAccountConnectionSurfaces();
       return;
     }
-    focusProviderAccountSettings(providerId);
+    focusAccountConnectionCredentials(providerId, connectionKey);
   });
   actions.append(manage);
-  const slot = document.createElement('div');
-  slot.className = 'account-connection-credential-slot';
-  if (connectionKey) slot.dataset.connectionKey = connectionKey;
-  section.append(heading, status, actions, slot);
+  section.append(heading, status, actions);
+  if (surface === 'accounts') {
+    const slot = document.createElement('div');
+    slot.className = 'account-connection-credential-slot';
+    if (connectionKey) slot.dataset.connectionKey = connectionKey;
+    section.append(slot);
+  }
   panel.append(section);
 }
 
@@ -8311,7 +8332,11 @@ function renderAccountCredentialsLegacy() {
   for (const providerId of ACCOUNT_CREDENTIAL_PROVIDER_IDS) {
     const group = providerAccountSettingsEl(providerId);
     if (!group) continue;
-    const visible = shouldShowAccountCredentialsGroup(providerId) && !isCredentialFormMountedInline(providerId);
+    if (isCredentialFormMountedInline(providerId)) {
+      group.classList.remove('hidden');
+      continue;
+    }
+    const visible = shouldShowAccountCredentialsGroup(providerId);
     group.classList.toggle('hidden', !visible);
     if (visible) {
       visibleCount += 1;
@@ -8999,18 +9024,38 @@ function providerAccountSettingsEl(providerId) {
   return document.getElementById(providerAccountSettingsGroupId(providerId));
 }
 
-function focusProviderAccountSettings(providerId) {
+function focusAccountConnectionCredentials(providerId, connectionKey = '') {
   const group = providerAccountSettingsEl(providerId);
   if (!group) return false;
+  const resolvedKey = String(connectionKey || firstMonitorConnectionKey(providerId) || '').trim();
+  openSettingsPanel();
+  setSettingsSectionExpanded('accounts', true);
+  state.accountProviderGroupsCollapsed.delete(providerId);
+  if (resolvedKey) {
+    state.accountConnectionDetailsOpen.add(resolvedKey);
+    state.inlineCredentialMount = resolvedKey;
+    state.accountCredentialsLegacyExpanded = false;
+    refreshAccountConnectionSurfaces();
+    requestAnimationFrame(() => {
+      accountsCredentialSlot(resolvedKey)?.closest('.account-connection-entry')?.scrollIntoView({ block: 'nearest' });
+    });
+    return true;
+  }
   if (state.inlineCredentialMount) {
     state.inlineCredentialMount = '';
     restoreInlineCredentialForms();
   }
   state.accountCredentialsFocusProvider = providerId;
   state.accountCredentialsLegacyExpanded = true;
-  setSettingsSectionExpanded('accounts', true);
   renderAccountCredentialsLegacy();
+  requestAnimationFrame(() => {
+    providerAccountSettingsEl(providerId)?.scrollIntoView({ block: 'nearest' });
+  });
   return true;
+}
+
+function focusProviderAccountSettings(providerId) {
+  return focusAccountConnectionCredentials(providerId);
 }
 
 function focusLimitProviderSettings(providerId) {
