@@ -3359,6 +3359,102 @@ function renderLimitProviderRow(id, label, provider, color, options = {}) {
   return row;
 }
 
+function refreshAccountConnectionSurfaces() {
+  if (state.breakdown === 'limits') renderLimits();
+  renderLimitProviderCheckboxes();
+  renderAccountConnectionDirectory();
+}
+
+function toggleAccountConnectionDetails(connectionKey) {
+  if (state.accountConnectionDetailsOpen.has(connectionKey)) {
+    state.accountConnectionDetailsOpen.delete(connectionKey);
+  } else {
+    state.accountConnectionDetailsOpen.add(connectionKey);
+  }
+  refreshAccountConnectionSurfaces();
+}
+
+function appendLimitConnectionRefreshActions(actions, providerId, connection, index) {
+  const connectionKey = accountConnectionRowKey(providerId, connection, index);
+  const sourceBucket = limitProviderSummaryApi.sourceBucket(connection);
+  if (sourceBucket !== 'potluck') {
+    const refresh = document.createElement('button');
+    refresh.type = 'button';
+    const refreshBusy = state.accountConnectionRefreshBusy.has(connectionKey);
+    refresh.disabled = refreshBusy;
+    refresh.textContent = t(refreshBusy ? 'settings.accounts.connections.refreshing' : 'settings.accounts.connections.refresh');
+    refresh.addEventListener('click', async (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      if (state.accountConnectionRefreshBusy.has(connectionKey)) return;
+      state.accountConnectionRefreshBusy.add(connectionKey);
+      refreshAccountConnectionSurfaces();
+      try {
+        await refreshStats({
+          force: true,
+          feedback: true,
+          limitScope: accountConnectionRefreshScope(providerId, connection)
+        });
+      } finally {
+        state.accountConnectionRefreshBusy.delete(connectionKey);
+        refreshAccountConnectionSurfaces();
+      }
+    });
+    actions.append(refresh);
+  }
+  if (sourceBucket === 'potluck') {
+    const manage = document.createElement('button');
+    manage.type = 'button';
+    manage.textContent = t('settings.limits.manageInPotluck');
+    manage.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      window.tokenMonitor.potluckGateway?.openWeb?.();
+    });
+    actions.append(manage);
+  } else if (providerAccountSettingsEl(providerId)) {
+    const edit = document.createElement('button');
+    edit.type = 'button';
+    edit.textContent = t('settings.limits.editInAccounts');
+    edit.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      focusProviderAccountSettings(providerId);
+    });
+    actions.append(edit);
+  }
+}
+
+function appendLimitConnectionActions(container, providerId, connection, index, surface) {
+  const connectionKey = accountConnectionRowKey(providerId, connection, index);
+  const detailOpen = state.accountConnectionDetailsOpen.has(connectionKey);
+  const actions = document.createElement('div');
+  actions.className = surface === 'home' ? 'limit-connection-actions' : 'limit-provider-connection-actions';
+  if (surface === 'home') {
+    const details = document.createElement('button');
+    details.type = 'button';
+    details.textContent = t(detailOpen ? 'settings.accounts.connections.hideDetails' : 'settings.accounts.connections.showDetails');
+    details.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      toggleAccountConnectionDetails(connectionKey);
+    });
+    actions.append(details);
+  }
+  appendLimitConnectionRefreshActions(actions, providerId, connection, index);
+  container.append(actions);
+  appendAccountConnectionDetails(container, providerId, connection, connectionKey, surface);
+}
+
+function renderLimitConnectionRow(providerId, label, connection, index, connections, color, options = {}) {
+  const wrapper = document.createElement('div');
+  wrapper.className = 'limit-connection-wrap';
+  if (connection?.stale) wrapper.classList.add('stale');
+  wrapper.append(renderLimitProviderRow(providerId, label, connection, color, options));
+  appendLimitConnectionActions(wrapper, providerId, connection, index, 'home');
+  return wrapper;
+}
+
 // Every limits surface (the limits panel and the Home cards) resolves account
 // titles here. One table keeps a provider from masking its email on one surface
 // while leaking it on the other, and from rendering two different titles for the
@@ -3441,7 +3537,7 @@ function renderCodexAccountGroup(label, providers, color) {
   const accountList = document.createElement('div');
   accountList.className = 'limit-account-list';
   providers.forEach((provider, index) => {
-    accountList.append(renderLimitProviderRow('codex', limitAccountTitle('codex', provider, index, providers), provider, color, {
+    accountList.append(renderLimitConnectionRow('codex', limitAccountTitle('codex', provider, index, providers), provider, index, providers, color, {
       accountRow: true,
       accountTitle: true,
       allowSystemSwitch: true,
@@ -3464,7 +3560,7 @@ function renderClaudeAccountGroup(label, providers, color) {
   const accountList = document.createElement('div');
   accountList.className = 'limit-account-list';
   providers.forEach((provider, index) => {
-    accountList.append(renderLimitProviderRow('claude', limitAccountTitle('claude', provider, index, providers), provider, color, {
+    accountList.append(renderLimitConnectionRow('claude', limitAccountTitle('claude', provider, index, providers), provider, index, providers, color, {
       accountRow: true,
       accountTitle: true,
       showIcon: false
@@ -3489,7 +3585,7 @@ function renderMimoAccountGroup(label, providers, color) {
   const accountList = document.createElement('div');
   accountList.className = 'limit-account-list';
   providers.forEach((provider, index) => {
-    accountList.append(renderLimitProviderRow('mimo', limitAccountTitle('mimo', provider, index, providers), provider, color, {
+    accountList.append(renderLimitConnectionRow('mimo', limitAccountTitle('mimo', provider, index, providers), provider, index, providers, color, {
       accountRow: true,
       accountTitle: true,
       showIcon: false
@@ -3550,7 +3646,7 @@ function renderOpenCodeAccountGroup(label, providers, color) {
       && provider?.accountLabel
       && provider.accountLabel !== 'Go'
       && provider.accountLabel !== 'Zen';
-    accountList.append(renderLimitProviderRow('opencode', limitAccountTitle('opencode', provider, index, providers), provider, color, {
+    accountList.append(renderLimitConnectionRow('opencode', limitAccountTitle('opencode', provider, index, providers), provider, index, providers, color, {
       accountRow: true,
       showIcon: false,
       ...(legacyProfileLabel ? { planText: '' } : {})
@@ -3586,10 +3682,12 @@ function renderNamedApiAccountGroup(providerId, label, providers, color, options
   const accountList = document.createElement('div');
   accountList.className = 'limit-account-list';
   providers.forEach((provider, index) => {
-    accountList.append(renderLimitProviderRow(
+    accountList.append(renderLimitConnectionRow(
       providerId,
       limitAccountTitle(providerId, provider, index, providers),
       provider,
+      index,
+      providers,
       color,
       {
         accountRow: true,
@@ -3736,7 +3834,8 @@ function renderLimits() {
       : id === 'thirdparty'
         ? { planText: thirdPartyPlanText(provider) }
         : undefined;
-    nodes.push(renderLimitProviderRow(id, label, provider, color, rowOptions));
+    const connectionList = Array.isArray(visibleProviders) ? visibleProviders : [provider];
+    nodes.push(renderLimitConnectionRow(id, label, provider, 0, connectionList, color, rowOptions));
   }
   els.limitsPanel.replaceChildren(...nodes);
 }
@@ -8022,11 +8121,7 @@ function renderAccountConnectionDirectory() {
       toggleHint.className = 'account-connection-entry-toggle-hint';
       toggleHint.textContent = t(detailOpen ? 'settings.accounts.connections.hideDetails' : 'settings.accounts.connections.showDetails');
       titleToggle.append(title, toggleHint);
-      titleToggle.addEventListener('click', () => {
-        if (detailOpen) state.accountConnectionDetailsOpen.delete(connectionKey);
-        else state.accountConnectionDetailsOpen.add(connectionKey);
-        renderAccountConnectionDirectory();
-      });
+      titleToggle.addEventListener('click', () => toggleAccountConnectionDetails(connectionKey));
       card.append(titleToggle);
 
       const meta = document.createElement('div');
@@ -8084,45 +8179,7 @@ function renderAccountConnectionDirectory() {
       viewQuota.textContent = t('settings.accounts.connections.viewQuota');
       viewQuota.addEventListener('click', () => focusLimitProviderSettings(providerId));
       actions.append(viewQuota);
-      const sourceBucket = limitProviderSummaryApi.sourceBucket(connection);
-      if (sourceBucket !== 'potluck') {
-        const refresh = document.createElement('button');
-        refresh.type = 'button';
-        const refreshBusy = state.accountConnectionRefreshBusy.has(connectionKey);
-        refresh.disabled = refreshBusy;
-        refresh.textContent = t(refreshBusy ? 'settings.accounts.connections.refreshing' : 'settings.accounts.connections.refresh');
-        refresh.addEventListener('click', async (event) => {
-          event.preventDefault();
-          event.stopPropagation();
-          if (state.accountConnectionRefreshBusy.has(connectionKey)) return;
-          state.accountConnectionRefreshBusy.add(connectionKey);
-          renderAccountConnectionDirectory();
-          try {
-            await refreshStats({
-              force: true,
-              feedback: true,
-              limitScope: accountConnectionRefreshScope(providerId, connection)
-            });
-          } finally {
-            state.accountConnectionRefreshBusy.delete(connectionKey);
-            renderAccountConnectionDirectory();
-          }
-        });
-        actions.append(refresh);
-      }
-      if (sourceBucket === 'potluck') {
-        const manage = document.createElement('button');
-        manage.type = 'button';
-        manage.textContent = t('settings.limits.manageInPotluck');
-        manage.addEventListener('click', () => window.tokenMonitor.potluckGateway?.openWeb?.());
-        actions.append(manage);
-      } else if (providerAccountSettingsEl(providerId)) {
-        const edit = document.createElement('button');
-        edit.type = 'button';
-        edit.textContent = t('settings.limits.editInAccounts');
-        edit.addEventListener('click', () => focusProviderAccountSettings(providerId));
-        actions.append(edit);
-      }
+      appendLimitConnectionRefreshActions(actions, providerId, connection, index);
       card.append(actions);
       connectionList.append(card);
     });
@@ -8634,8 +8691,12 @@ function appendQuotaForecastPanels(card, row, archive) {
   if (grid.childElementCount > 0) card.append(grid);
 }
 
+function providerAccountSettingsGroupId(providerId) {
+  return providerId === 'opencode' ? 'opencodeCookieGroup' : `${providerId}AccountGroup`;
+}
+
 function providerAccountSettingsEl(providerId) {
-  return document.getElementById(`${providerId}AccountGroup`);
+  return document.getElementById(providerAccountSettingsGroupId(providerId));
 }
 
 function focusProviderAccountSettings(providerId) {
@@ -8675,12 +8736,7 @@ function appendLimitProviderConnectionCard(details, row, index, rows, providerId
   const titleHint = document.createElement('span');
   titleHint.textContent = t(detailOpen ? 'settings.accounts.connections.hideDetails' : 'settings.accounts.connections.showDetails');
   title.append(titleText, titleHint);
-  title.addEventListener('click', () => {
-    if (detailOpen) state.accountConnectionDetailsOpen.delete(connectionKey);
-    else state.accountConnectionDetailsOpen.add(connectionKey);
-    renderLimitProviderCheckboxes();
-    renderAccountConnectionDirectory();
-  });
+  title.addEventListener('click', () => toggleAccountConnectionDetails(connectionKey));
   card.append(title);
   const source = document.createElement('div');
   source.className = 'limit-provider-connection-meta';
@@ -8706,54 +8762,11 @@ function appendLimitProviderConnectionCard(details, row, index, rows, providerId
     card.append(line);
   }
   appendQuotaForecastPanels(card, row, state.quotaArchive || emptyQuotaArchive());
-  appendAccountConnectionDetails(card, providerId, row, connectionKey, 'limits');
   const actions = document.createElement('div');
   actions.className = 'limit-provider-connection-actions';
-  const refresh = document.createElement('button');
-  refresh.type = 'button';
-  const refreshBusy = state.accountConnectionRefreshBusy.has(connectionKey);
-  refresh.disabled = refreshBusy;
-  refresh.textContent = t(refreshBusy ? 'settings.accounts.connections.refreshing' : 'settings.accounts.connections.refresh');
-  refresh.addEventListener('click', async (event) => {
-    event.preventDefault();
-    event.stopPropagation();
-    if (state.accountConnectionRefreshBusy.has(connectionKey)) return;
-    state.accountConnectionRefreshBusy.add(connectionKey);
-    renderLimitProviderCheckboxes();
-    try {
-      await refreshStats({
-        force: true,
-        feedback: true,
-        limitScope: accountConnectionRefreshScope(providerId, row)
-      });
-    } finally {
-      state.accountConnectionRefreshBusy.delete(connectionKey);
-      renderLimitProviderCheckboxes();
-    }
-  });
-  actions.append(refresh);
-  if (limitProviderSummaryApi.sourceBucket(row) === 'potluck') {
-    const manage = document.createElement('button');
-    manage.type = 'button';
-    manage.textContent = t('settings.limits.manageInPotluck');
-    manage.addEventListener('click', (event) => {
-      event.preventDefault();
-      event.stopPropagation();
-      window.tokenMonitor.potluckGateway?.openWeb?.();
-    });
-    actions.append(manage);
-  } else if (providerAccountSettingsEl(providerId)) {
-    const edit = document.createElement('button');
-    edit.type = 'button';
-    edit.textContent = t('settings.limits.editInAccounts');
-    edit.addEventListener('click', (event) => {
-      event.preventDefault();
-      event.stopPropagation();
-      focusProviderAccountSettings(providerId);
-    });
-    actions.append(edit);
-  }
+  appendLimitConnectionRefreshActions(actions, providerId, row, index);
   card.append(actions);
+  appendAccountConnectionDetails(card, providerId, row, connectionKey, 'limits');
   details.append(card);
 }
 
