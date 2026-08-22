@@ -1,0 +1,45 @@
+{
+  "monitor": {
+    "schemaVersion": 1,
+    "generatedAt": "2026-08-22T00:00:00.000Z",
+    "health": {
+      "providers": 2,
+      "connections": 3,
+      "healthyConnections": 2,
+      "staleConnections": 1,
+      "unauthorizedConnections": 0,
+      "rateLimitedConnections": 0,
+      "unavailableConnections": 0
+    },
+    "events": [
+      {
+        "schemaVersion": 1,
+        "id": "evt-routing-1",
+        "type": "routing_attempt",
+        "occurredAt": "2026-08-22T00:00:00.000Z",
+        "requestId": "req-1",
+        "profile": "code",
+        "status": "success",
+        "selectedProvider": "anthropic",
+        "selectedModel": "claude-sonnet",
+        "fallbackCount": 1,
+        "candidates": [
+          { "provider": "openai", "model": "gpt-5", "status": "skipped", "reasonCode": "quota_exhausted" },
+          { "provider": "anthropic", "model": "claude-sonnet", "status": "success", "httpStatus": 200, "latencyMs": 42 }
+        ]
+      }
+    ],
+    "capabilities": [
+      {
+        "provider": "anthropic",
+        "streaming": true,
+        "tools": true,
+        "vision": true,
+        "reasoning": true,
+        "quota": true,
+        "authTypes": ["oauth"],
+        "transports": ["anthropic-messages"]
+      }
+    ]
+  }
+}

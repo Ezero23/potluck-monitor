@@ -8,6 +8,7 @@ const { historyPreview, historyRevision } = require('../shared/history');
 const { publicLimits } = require('../shared/limits');
 const { applyExternalLimitSnapshot } = require('../shared/externalLimitSnapshot');
 const { stripForbidden } = require('../shared/quotaForecast');
+const { normalizeMonitorEnvelope } = require('../shared/monitorEvents');
 const { isAuthorized, readJsonBody, sendJson, sendText } = require('../shared/http');
 const { loadDotEnv, parseArgs, projectRoot, readJson, writeJsonAtomic } = require('../shared/config');
 
@@ -156,6 +157,11 @@ function createHub({
     const deviceId = String(payload.deviceId || payload.id);
     const existing = store.devices[deviceId];
     const incoming = { ...payload, receivedAt: new Date().toISOString() };
+    if (Object.prototype.hasOwnProperty.call(incoming, 'monitor')) {
+      const monitor = normalizeMonitorEnvelope(incoming.monitor);
+      if (monitor) incoming.monitor = monitor;
+      else delete incoming.monitor;
+    }
     const incomingLimits = incoming.limits;
     const providerRows = Array.isArray(incomingLimits?.providers) ? incomingLimits.providers : [];
     const sourceInstanceId = String(

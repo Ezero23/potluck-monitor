@@ -5,6 +5,7 @@ const { aggregateLimits, normalizeLimitsSummary } = require('./limits');
 const { coerceHistory, mergeHistories } = require('./history');
 const { canonicalProjectKey, deterministicProjectLabel } = require('./projectKey');
 const { normalizeSyncUploadIntervalMs, staleAfterMsForSyncUpload } = require('./syncUploadInterval');
+const { normalizeMonitorEnvelope, mergeMonitorEnvelopes } = require('./monitorEvents');
 const TOKEN_KEYS = ['totalTokens', 'total_tokens', 'totalTokenCount', 'total_token_count', 'tokens', 'tokenCount', 'token_count'];
 // Additive components for a token total. `reasoning` is deliberately excluded: OpenAI/Codex report
 // reasoning_output_tokens WITHIN output_tokens (tokscale's `output` already includes it and exposes
@@ -660,6 +661,10 @@ function normalizeDeviceRecord(record) {
     periods: {},
     limits: normalizeLimitsSummary(record.limits)
   };
+  if (hasOwn(record, 'monitor')) {
+    const monitor = normalizeMonitorEnvelope(record.monitor);
+    if (monitor) normalized.monitor = monitor;
+  }
   if (hasOwn(record, 'osName')) normalized.osName = normalizeDeviceOsName(record.osName);
   if (hasOwn(record, 'osVersion')) normalized.osVersion = normalizeDeviceOsVersion(record.osVersion);
   if (hasOwn(record, 'trackedClients')) normalized.trackedClients = normalizeTrackedClients(record.trackedClients);
@@ -850,6 +855,7 @@ function mergeDeviceRecord(existing, incoming) {
   const hasIncomingLimits = incoming && typeof incoming === 'object' && Object.prototype.hasOwnProperty.call(incoming, 'limits');
   const hasIncomingHistory = incoming && typeof incoming === 'object' && Object.prototype.hasOwnProperty.call(incoming, 'history');
   const hasIncomingTrackedClients = hasOwn(incoming, 'trackedClients');
+  const hasIncomingMonitor = hasOwn(incoming, 'monitor');
   const normalizedIncoming = normalizeDeviceRecord(incoming || {});
   if (!hasExisting) return normalizedIncoming;
 
@@ -874,6 +880,13 @@ function mergeDeviceRecord(existing, incoming) {
   }
   if (!hasIncomingLimits) normalizedIncoming.limits = normalizedExisting.limits;
   else normalizedIncoming.limits = mergeDeviceLimits(normalizedExisting, normalizedIncoming);
+  if (!hasIncomingMonitor && hasOwn(normalizedExisting, 'monitor')) {
+    normalizedIncoming.monitor = normalizedExisting.monitor;
+  } else if (hasIncomingMonitor) {
+    const monitor = mergeMonitorEnvelopes(normalizedExisting.monitor, normalizedIncoming.monitor);
+    if (monitor) normalizedIncoming.monitor = monitor;
+    else if (hasOwn(normalizedExisting, 'monitor')) normalizedIncoming.monitor = normalizedExisting.monitor;
+  }
   if (!hasIncomingHistory && hasOwn(normalizedExisting, 'history')) normalizedIncoming.history = normalizedExisting.history;
   // Tunnel/password are gateway-published metadata, not per-tick usage: keep the
   // last known values when a partial push omits them so the widget card doesn't
@@ -1180,7 +1193,8 @@ function aggregateDevices(devices, staleAfterMs, nowMs = Date.now()) {
       ...(hasOwn(normalized, 'syncUploadIntervalMs') ? { syncUploadIntervalMs: normalized.syncUploadIntervalMs } : {}),
       ...(hasOwn(normalized, 'periodWindows') ? { periodWindows: normalized.periodWindows } : {}),
       periods: normalized.periods,
-      limits: normalized.limits
+      limits: normalized.limits,
+      ...(hasOwn(normalized, 'monitor') ? { monitor: normalized.monitor } : {})
     });
     if (
       normalized.allTimeProjectsOmitted === true
