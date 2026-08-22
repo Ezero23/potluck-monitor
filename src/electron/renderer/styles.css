@@ -5919,6 +5919,21 @@ html.is-windows .limit-live-badge {
   padding: 2px 7px;
   font-size: 10px;
 }
+.account-connection-credential-slot {
+  margin-top: 4px;
+}
+.account-connection-credential-slot:empty {
+  display: none;
+}
+.account-connection-credential-inline {
+  margin: 0;
+  border: 1px solid rgba(var(--line-rgb), 0.14);
+  border-radius: 5px;
+  background: rgba(var(--overlay-rgb), 0.25);
+}
+.account-connection-credential-inline > .settings-group-header {
+  border-radius: 5px 5px 0 0;
+}
 .account-connection-detail-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

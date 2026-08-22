@@ -1562,11 +1562,45 @@ test('Connection detail panels surface Monitor credential status and management'
 
   assert.match(app, /function appendAccountConnectionCredentialPanel\(/);
   assert.match(app, /function accountConnectionCredentialStatusKey\(/);
-  assert.match(app, /appendAccountConnectionCredentialPanel\(panel, providerId, row\)/);
+  assert.match(app, /appendAccountConnectionCredentialPanel\(panel, providerId, row, connectionKey, surface\)/);
   assert.match(app, /limitProviderSummaryApi\.sourceBucket\(row\) !== 'monitor'/);
   assert.match(app, /settings\.accounts\.connections\.credentials\.manage/);
   assert.match(styles, /\.account-connection-credential-panel/);
   assert.match(i18n, /'settings\.accounts\.connections\.credentials\.title'/);
+});
+
+test('Accounts Connection details mount Monitor credential forms inline', () => {
+  const app = readRendererFile('app.js');
+  const styles = readRendererFile('styles.css');
+  const i18n = readRendererFile('i18n.js');
+
+  assert.match(app, /state\.inlineCredentialMount/);
+  assert.match(app, /function mountInlineCredentialForm\(/);
+  assert.match(app, /function restoreInlineCredentialForms\(/);
+  assert.match(app, /function syncInlineCredentialForms\(/);
+  assert.match(app, /function isCredentialFormMountedInline\(/);
+  assert.match(app, /function accountsCredentialSlot\(/);
+  assert.match(app, /account-connection-credential-slot/);
+  assert.match(app, /if \(surface === 'accounts'\)/);
+  assert.match(app, /restoreInlineCredentialForms\(\)/);
+  assert.match(app, /syncInlineCredentialForms\(\)/);
+  assert.match(app, /settings\.accounts\.connections\.credentials\.editing/);
+  assert.match(app, /isCredentialFormMountedInline\(providerId\)/);
+  assert.match(app, /group\.classList\.remove\('hidden'\)/);
+  assert.match(styles, /\.account-connection-credential-slot/);
+  assert.match(styles, /\.account-connection-credential-inline/);
+  assert.match(i18n, /'settings\.accounts\.connections\.credentials\.editing'/);
+});
+
+test('Home and Limits credential actions deep-link into the Accounts Connection form', () => {
+  const app = readRendererFile('app.js');
+  assert.match(app, /function focusAccountConnectionCredentials\(/);
+  assert.match(app, /function firstMonitorConnectionKey\(/);
+  assert.match(app, /focusAccountConnectionCredentials\(providerId, connectionKey\)/);
+  assert.match(app, /focusProviderAccountSettings\(providerId\) \{\n {2}return focusAccountConnectionCredentials\(providerId\);/);
+  assert.match(app, /openSettingsPanel\(\)/);
+  assert.match(app, /state\.accountProviderGroupsCollapsed\.delete\(providerId\)/);
+  assert.match(app, /renderAccountCredentialsLegacy\(\)/);
 });
 
 test('Limits, Accounts, and Home surfaces use distinct detail ids while sharing Connection state', () => {

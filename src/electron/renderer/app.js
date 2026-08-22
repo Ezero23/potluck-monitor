@@ -279,9 +279,11 @@ state.limitProviderDetailsOpen = new Set();
 state.accountProviderGroupsCollapsed = new Set();
 state.accountConnectionDetailsOpen = new Set();
 state.accountConnectionRefreshBusy = new Set();
+state.inlineCredentialMount = '';
 state.limitsDataHealthOpen = false;
 state.quotaArchive = { version: 1, series: {}, annotations: {} };
 const defaultAppearance = { glassOpacity: 68, glassBlur: 32, zoomFactor: 1, systemGlass: true, windowsBackdrop: 'acrylic', reduceMotion: 'system', showLiveDot: true, showToolIcons: true, titleIconOnly: true, showCompactTotalTokens: false, settingsInTitlebar: false };
+const inlineCredentialAnchors = new Map();
 let preferenceDrag = null;
 let viewSwitcherLongPressTimer = null;
 let viewSwitcherLongPressTriggered = false;
@@ -3374,11 +3376,17 @@ function refreshAccountConnectionSurfaces() {
   if (state.breakdown === 'limits') renderLimits();
   renderLimitProviderCheckboxes();
   renderAccountConnectionDirectory();
+  renderAccountCredentialsLegacy();
 }
 
 function toggleAccountConnectionDetails(connectionKey) {
-  if (state.accountConnectionDetailsOpen.has(connectionKey)) {
+  const wasOpen = state.accountConnectionDetailsOpen.has(connectionKey);
+  if (wasOpen) {
     state.accountConnectionDetailsOpen.delete(connectionKey);
+    if (state.inlineCredentialMount === connectionKey) {
+      state.inlineCredentialMount = '';
+      restoreInlineCredentialForms();
+    }
   } else {
     state.accountConnectionDetailsOpen.add(connectionKey);
   }
@@ -3443,7 +3451,7 @@ function appendLimitConnectionRefreshActions(actions, providerId, connection, in
     edit.addEventListener('click', (event) => {
       event.preventDefault();
       event.stopPropagation();
-      focusProviderAccountSettings(providerId);
+      focusAccountConnectionCredentials(providerId, connectionKey);
     });
     actions.append(edit);
   }
@@ -7923,6 +7931,96 @@ function accountConnectionRowKey(providerId, row, index) {
   return `${providerId}:${identity}`;
 }
 
+function providerIdFromConnectionKey(connectionKey) {
+  const idx = String(connectionKey || '').indexOf(':');
+  if (idx <= 0) return '';
+  return connectionKey.slice(0, idx);
+}
+
+function legacyCredentialGroupsContainer() {
+  return document.getElementById('accountCredentialsLegacyGroups');
+}
+
+function isCredentialFormMountedInline(providerId) {
+  const group = providerAccountSettingsEl(providerId);
+  const legacy = legacyCredentialGroupsContainer();
+  return Boolean(group && legacy && !legacy.contains(group));
+}
+
+function ensureInlineCredentialAnchor(providerId) {
+  if (inlineCredentialAnchors.has(providerId)) return inlineCredentialAnchors.get(providerId);
+  const legacy = legacyCredentialGroupsContainer();
+  const group = providerAccountSettingsEl(providerId);
+  if (!legacy || !group) return null;
+  const anchor = document.createComment(`inline-credential-anchor:${providerId}`);
+  if (legacy.contains(group)) legacy.insertBefore(anchor, group);
+  else legacy.appendChild(anchor);
+  inlineCredentialAnchors.set(providerId, anchor);
+  return anchor;
+}
+
+function restoreInlineCredentialForms() {
+  const legacy = legacyCredentialGroupsContainer();
+  if (!legacy) return;
+  for (const [providerId, anchor] of inlineCredentialAnchors) {
+    const group = providerAccountSettingsEl(providerId);
+    if (!group || legacy.contains(group)) continue;
+    if (anchor.isConnected && anchor.parentNode === legacy) legacy.insertBefore(group, anchor.nextSibling);
+    else legacy.appendChild(group);
+    group.classList.remove('account-connection-credential-inline');
+  }
+}
+
+function accountsCredentialSlot(connectionKey) {
+  const list = els.accountConnectionList;
+  if (!list) return null;
+  return Array.from(list.querySelectorAll('.account-connection-credential-slot'))
+    .find((el) => el.dataset.connectionKey === connectionKey) || null;
+}
+
+function firstMonitorConnectionKey(providerId) {
+  const rows = providerConnectionRows(providerId);
+  for (let index = 0; index < rows.length; index += 1) {
+    if (limitProviderSummaryApi.sourceBucket(rows[index]) === 'monitor') {
+      return accountConnectionRowKey(providerId, rows[index], index);
+    }
+  }
+  return '';
+}
+
+function mountInlineCredentialForm(connectionKey, providerId) {
+  const group = providerAccountSettingsEl(providerId);
+  const slot = accountsCredentialSlot(connectionKey);
+  if (!group || !slot) return false;
+  ensureInlineCredentialAnchor(providerId);
+  state.inlineCredentialMount = connectionKey;
+  expandProviderAccountSettings(providerId);
+  group.classList.remove('hidden');
+  group.classList.add('account-connection-credential-inline');
+  slot.replaceChildren(group);
+  renderAccountCredentialsLegacy();
+  return true;
+}
+
+function syncInlineCredentialForms() {
+  const connectionKey = state.inlineCredentialMount;
+  if (!connectionKey) return;
+  if (!state.accountConnectionDetailsOpen.has(connectionKey)) {
+    state.inlineCredentialMount = '';
+    restoreInlineCredentialForms();
+    renderAccountCredentialsLegacy();
+    return;
+  }
+  const providerId = providerIdFromConnectionKey(connectionKey);
+  if (!providerId) {
+    state.inlineCredentialMount = '';
+    restoreInlineCredentialForms();
+    renderAccountCredentialsLegacy();
+    return;
+  }
+  mountInlineCredentialForm(connectionKey, providerId);
+}
+
 function accountConnectionReference(row) {
   const identity = String(row?.connectionKey || row?.accountKey || row?.upstreamAccountKey || '').trim();
   if (!identity) return '';
@@ -8033,7 +8131,7 @@ function appendAccountConnectionDetails(card, providerId, row, connectionKey, su
   }
   panel.append(windows);
 
-  appendAccountConnectionCredentialPanel(panel, providerId, row);
+  appendAccountConnectionCredentialPanel(panel, providerId, row, connectionKey, surface);
 
   const error = row?.error;
   const errorText = String(error?.safeDetail || error?.code || error?.category || '').trim();
@@ -8066,9 +8164,10 @@ function accountConnectionCredentialStatusKey(providerId, row) {
   return 'settings.accounts.connections.credentials.configured';
 }
 
-function appendAccountConnectionCredentialPanel(panel, providerId, row) {
+function appendAccountConnectionCredentialPanel(panel, providerId, row, connectionKey = '', surface = 'accounts') {
   if (limitProviderSummaryApi.sourceBucket(row) !== 'monitor') return;
   if (!providerAccountSettingsEl(providerId)) return;
+  if (connectionKey) panel.dataset.connectionKey = connectionKey;
   const section = document.createElement('div');
   section.className = 'account-connection-credential-panel';
   const heading = document.createElement('strong');
@@ -8081,14 +8180,30 @@ function appendAccountConnectionCredentialPanel(panel, providerId, row) {
   actions.className = 'account-connection-credential-actions';
   const manage = document.createElement('button');
   manage.type = 'button';
-  manage.textContent = t('settings.accounts.connections.credentials.manage');
+  const inlineActive = surface === 'accounts' && state.inlineCredentialMount === connectionKey;
+  manage.textContent = t(inlineActive
+    ? 'settings.accounts.connections.credentials.editing'
+    : 'settings.accounts.connections.credentials.manage');
   manage.addEventListener('click', (event) => {
     event.preventDefault();
     event.stopPropagation();
-    focusProviderAccountSettings(providerId);
+    if (surface === 'accounts' && connectionKey) {
+      state.accountConnectionDetailsOpen.add(connectionKey);
+      state.inlineCredentialMount = connectionKey;
+      expandProviderAccountSettings(providerId);
+      refreshAccountConnectionSurfaces();
+      return;
+    }
+    focusAccountConnectionCredentials(providerId, connectionKey);
   });
   actions.append(manage);
   section.append(heading, status, actions);
+  if (surface === 'accounts') {
+    const slot = document.createElement('div');
+    slot.className = 'account-connection-credential-slot';
+    if (connectionKey) slot.dataset.connectionKey = connectionKey;
+    section.append(slot);
+  }
   panel.append(section);
 }
 
@@ -8208,6 +8323,10 @@ function renderAccountCredentialsLegacy() {
   for (const providerId of ACCOUNT_CREDENTIAL_PROVIDER_IDS) {
     const group = providerAccountSettingsEl(providerId);
     if (!group) continue;
+    if (isCredentialFormMountedInline(providerId)) {
+      group.classList.remove('hidden');
+      continue;
+    }
     const visible = shouldShowAccountCredentialsGroup(providerId);
     group.classList.toggle('hidden', !visible);
     if (visible) {
@@ -8246,6 +8365,7 @@ function renderAccountCredentialsLegacy() {
 function renderAccountConnectionDirectory() {
   const list = els.accountConnectionList;
   if (!list) return;
+  restoreInlineCredentialForms();
   const rows = Array.isArray(state.stats?.limits?.providers) ? state.stats.limits.providers : [];
   const collected = limitProviderSummaryApi.connectionsByProvider(rows);
   const configuredOrder = limitProviderOrderApi.orderedLimitProviders(LIMIT_PROVIDERS, state.settings?.limitProviderOrder);
@@ -8401,6 +8521,7 @@ function renderAccountConnectionDirectory() {
       })
       : t('settings.accounts.connections.empty');
   }
+  syncInlineCredentialForms();
 }
 
 function renderLimitProviderCheckboxes() {
@@ -8894,14 +9015,38 @@ function providerAccountSettingsEl(providerId) {
   return document.getElementById(providerAccountSettingsGroupId(providerId));
 }
 
-function focusProviderAccountSettings(providerId) {
+function focusAccountConnectionCredentials(providerId, connectionKey = '') {
   const group = providerAccountSettingsEl(providerId);
   if (!group) return false;
+  const resolvedKey = String(connectionKey || firstMonitorConnectionKey(providerId) || '').trim();
+  openSettingsPanel();
+  setSettingsSectionExpanded('accounts', true);
+  state.accountProviderGroupsCollapsed.delete(providerId);
+  if (resolvedKey) {
+    state.accountConnectionDetailsOpen.add(resolvedKey);
+    state.inlineCredentialMount = resolvedKey;
+    state.accountCredentialsLegacyExpanded = false;
+    refreshAccountConnectionSurfaces();
+    requestAnimationFrame(() => {
+      accountsCredentialSlot(resolvedKey)?.closest('.account-connection-entry')?.scrollIntoView({ block: 'nearest' });
+    });
+    return true;
+  }
+  if (state.inlineCredentialMount) {
+    state.inlineCredentialMount = '';
+    restoreInlineCredentialForms();
+  }
   state.accountCredentialsFocusProvider = providerId;
   state.accountCredentialsLegacyExpanded = true;
-  setSettingsSectionExpanded('accounts', true);
   renderAccountCredentialsLegacy();
+  requestAnimationFrame(() => {
+    providerAccountSettingsEl(providerId)?.scrollIntoView({ block: 'nearest' });
+  });
   return true;
+}
+
+function focusProviderAccountSettings(providerId) {
+  return focusAccountConnectionCredentials(providerId);
 }
 
 function focusLimitProviderSettings(providerId) {
