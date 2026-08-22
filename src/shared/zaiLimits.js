@@ -216,6 +216,7 @@ function parseZaiUsage(quotaBody, subscriptionBody = null) {
   const limits = Array.isArray(quotaBody?.data?.limits) ? quotaBody.data.limits : [];
   const windows = [];
   const tokenLimits = [];
+  const creditLimits = [];
   let timeLimit = null;
 
   for (const limit of limits) {
@@ -223,9 +224,18 @@ function parseZaiUsage(quotaBody, subscriptionBody = null) {
     const type = String(limit.type || limit.limit_type || '').trim().toUpperCase();
     if (type === 'TOKENS_LIMIT' && zaiUsedPercent(limit) !== null) {
       tokenLimits.push(limit);
+    } else if (type === 'CREDIT_LIMIT' && zaiUsedPercent(limit) !== null) {
+      creditLimits.push(limit);
     } else if (type === 'TIME_LIMIT' && zaiUsedPercent(limit) !== null) {
       timeLimit = limit;
     }
+  }
+
+  // bigmodel.cn (GLM Coding Plan) reports quotas as CREDIT_LIMIT instead of
+  // TOKENS_LIMIT. Treat the credit windows exactly like token windows so the
+  // session/weekly meters render correctly.
+  if (!tokenLimits.length && creditLimits.length) {
+    tokenLimits.push(...creditLimits);
   }
 
   tokenLimits.sort((a, b) => {
@@ -271,7 +281,11 @@ async function fetchJson(url, key, deps = {}) {
   return runWithProbeDeadline(async ({ signal }) => {
     const response = await (deps.fetch || fetch)(url, {
       headers: {
-        Authorization: `Bearer ${key}`,
+        // The official GLM Coding Plan usage client sends the API token as the
+        // complete Authorization value. This endpoint does not use the Bearer
+        // form required by the OpenAI-compatible model endpoint.
+        Authorization: key,
+        'Accept-Language': 'en-US,en',
         Accept: 'application/json'
       },
       signal
@@ -311,10 +325,15 @@ async function fetchZaiLimits(options = {}, deps = {}) {
       subscription = await fetchJson(zaiSubscriptionUrl(region), key, deps);
     } catch (_) {}
     const usage = parseZaiUsage(quota, subscription);
+    // Opaque account fingerprint as a synthetic email: Potluck Web's GLM usage
+    // handler returns the exact same value for the same API key, so the hub can
+    // merge this local row and the web row of the same account into one.
+    const fingerprintEmail = `glm-${hashKey('zai', key).replace(/^sha256:/, '')}@glm-account.local`;
     return normalizeLimitProvider({
       provider: 'zai',
       accountKey: hashKey('zai', key),
       accountLabel: usage.plan,
+      accountEmail: fingerprintEmail,
       source: 'api',
       status: usage.windows.length ? 'ok' : 'unavailable',
       updatedAt,

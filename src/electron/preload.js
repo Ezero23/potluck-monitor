@@ -26,7 +26,6 @@ const bridge = {
     close: () => ipcRenderer.send('dashboard:close')
   },
   getHubInfo: () => ipcRenderer.invoke('hub:getInfo'),
-  getPotluckConnections: () => ipcRenderer.invoke('potluck:getConnections'),
   potluckGateway: {
     getState: () => ipcRenderer.invoke('potluck:gatewayGetState'),
     openWeb: () => ipcRenderer.invoke('potluck:gatewayOpenWeb'),
@@ -118,7 +117,8 @@ const bridge = {
     saveCookie: (cookie) => ipcRenderer.invoke('claude:saveCookie', cookie)
   },
   ollama: {
-    validateCookie: (cookie) => ipcRenderer.invoke('ollama:validateCookie', cookie)
+    validateCookie: (cookie) => ipcRenderer.invoke('ollama:validateCookie', cookie),
+    validateApiKey: (apiKey) => ipcRenderer.invoke('ollama:validateApiKey', apiKey)
   },
   opencode: {
     saveCookie: (cookie) => ipcRenderer.invoke('opencode:saveCookie', cookie),

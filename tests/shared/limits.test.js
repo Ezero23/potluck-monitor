@@ -148,6 +148,163 @@ test('aggregateLimits preserves distinct Codex accounts by hashed account key', 
   );
 });
 
+test('aggregateLimits preserves distinct Potluck Kimi and GLM accounts even when one needs attention', () => {
+  const provider = (name, accountKey, status, updatedAt) => ({
+    provider: name,
+    accountKey,
+    accountName: accountKey,
+    status,
+    source: 'oauth',
+    sourceDetail: 'web',
+    updatedAt,
+    windows: []
+  });
+  const aggregate = aggregateLimits([{
+    deviceId: 'potluck',
+    limits: {
+      updatedAt: '2026-08-01T10:04:00.000Z',
+      providers: [
+        provider('kimi', 'kimi-a', 'ok', '2026-08-01T10:00:00.000Z'),
+        provider('kimi', 'kimi-b', 'unauthorized', '2026-08-01T10:01:00.000Z'),
+        provider('zai', 'glm-a', 'ok', '2026-08-01T10:02:00.000Z'),
+        provider('zai', 'glm-b', 'unavailable', '2026-08-01T10:03:00.000Z')
+      ]
+    }
+  }], 0, Date.parse('2026-08-01T10:05:00.000Z'));
+
+  assert.deepEqual(
+    new Set(aggregate.providers.filter((item) => item.provider === 'kimi').map((item) => item.accountKey)),
+    new Set(['kimi-a', 'kimi-b'])
+  );
+  assert.deepEqual(
+    new Set(aggregate.providers.filter((item) => item.provider === 'zai').map((item) => item.accountKey)),
+    new Set(['glm-a', 'glm-b'])
+  );
+});
+
+test('aggregateLimits keeps a local Ollama account with windows alongside a synced one', () => {
+  // Two same-status Ollama accounts from different devices used to collapse to
+  // one row; the later updatedAt (the synced, windowless entry) won and the
+  // local usage meters disappeared from Home.
+  const aggregate = aggregateLimits([
+    {
+      deviceId: 'mac-mini-local',
+      limits: {
+        updatedAt: '2026-08-05T14:04:56.000Z',
+        providers: [{
+          provider: 'ollama',
+          accountKey: 'sha256:local',
+          accountEmail: 'local@example.com',
+          status: 'ok',
+          source: 'api',
+          updatedAt: '2026-08-05T14:04:56.000Z',
+          windows: [{ kind: 'session', usedPercent: 5.7, showMeter: true }]
+        }]
+      }
+    },
+    {
+      deviceId: 'potluck',
+      limits: {
+        updatedAt: '2026-08-05T14:05:03.000Z',
+        providers: [{
+          provider: 'ollama',
+          accountKey: 'estherzhu',
+          accountName: 'estherzhu',
+          status: 'ok',
+          source: 'web',
+          updatedAt: '2026-08-05T14:05:03.000Z',
+          windows: []
+        }]
+      }
+    }
+  ], 0, Date.parse('2026-08-05T14:06:00.000Z'));
+
+  const ollama = aggregate.providers.filter((item) => item.provider === 'ollama');
+  assert.deepEqual(new Set(ollama.map((item) => item.accountKey)), new Set(['sha256:local', 'estherzhu']));
+  const local = ollama.find((item) => item.accountKey === 'sha256:local');
+  assert.equal(local.windows.length, 1);
+  assert.equal(local.windows[0].usedPercent, 5.7);
+});
+
+test('aggregateLimits merges same-account rows across Potluck Web and local sources', () => {
+  const aggregate = aggregateLimits([
+    {
+      deviceId: 'mac-mini-local',
+      limits: {
+        updatedAt: '2026-08-21T06:00:00.000Z',
+        providers: [{
+          provider: 'ollama',
+          accountKey: 'sha256:local',
+          accountEmail: 'estherzhu1023@gmail.com',
+          status: 'ok',
+          quotaStatus: 'fresh',
+          source: 'api',
+          updatedAt: '2026-08-21T06:00:00.000Z',
+          windows: [
+            { kind: 'session', usedPercent: 0, resetsAt: '2026-08-23T00:00:00.000Z', showMeter: true },
+            { kind: 'weekly', usedPercent: 100, resetsAt: '2026-08-23T00:00:00.000Z', showMeter: true }
+          ]
+        }]
+      }
+    },
+    {
+      deviceId: 'potluck',
+      limits: {
+        updatedAt: '2026-08-21T06:01:00.000Z',
+        providers: [{
+          provider: 'ollama',
+          accountKey: 'conn-uuid-1',
+          accountName: 'estherzhu',
+          accountEmail: 'estherzhu1023@gmail.com',
+          planLabel: 'Pro',
+          managedBy: 'potluck',
+          status: 'ok',
+          quotaStatus: 'fresh',
+          source: 'api',
+          updatedAt: '2026-08-21T06:01:00.000Z',
+          windows: [
+            { kind: 'session', label: 'Session', usedPercent: 0 },
+            { kind: 'weekly', label: 'Weekly', usedPercent: 100 }
+          ]
+        }]
+      }
+    }
+  ], 0, Date.parse('2026-08-21T06:02:00.000Z'));
+
+  const ollama = aggregate.providers.filter((item) => item.provider === 'ollama');
+  assert.equal(ollama.length, 1);
+  // The local row's windows win because they carry reset times; the Potluck
+  // row's plan label fills in.
+  assert.deepEqual(ollama[0].windows.map((window) => [window.kind, window.usedPercent, Boolean(window.resetsAt)]), [
+    ['session', 0, true],
+    ['weekly', 100, true]
+  ]);
+  assert.equal(ollama[0].planLabel, 'Pro');
+  assert.equal(ollama[0].accountEmail, 'estherzhu1023@gmail.com');
+});
+
+test('aggregateLimits does not merge same-email rows from a single source', () => {
+  const row = (accountKey) => ({
+    provider: 'ollama',
+    accountKey,
+    accountEmail: 'shared@example.com',
+    managedBy: 'potluck',
+    status: 'ok',
+    updatedAt: '2026-08-21T06:01:00.000Z',
+    windows: [{ kind: 'session', usedPercent: 10 }]
+  });
+  const aggregate = aggregateLimits([{
+    deviceId: 'potluck',
+    limits: {
+      updatedAt: '2026-08-21T06:01:00.000Z',
+      providers: [row('conn-a'), row('conn-b')]
+    }
+  }], 0, Date.parse('2026-08-21T06:02:00.000Z'));
+
+  const ollama = aggregate.providers.filter((item) => item.provider === 'ollama');
+  assert.equal(ollama.length, 2);
+});
+
 test('aggregateLimits preserves same-email Codex workspaces by hashed account key', () => {
   const aggregate = aggregateLimits([{
     deviceId: 'macbook',
@@ -1377,9 +1534,14 @@ test('hub collapse policy stays account-scoped only for configured multi-account
     }
   ], 0, Date.parse('2026-08-19T12:02:00.000Z'));
 
+  // glm aliases to zai, and zai is account-scoped: distinct accountKeys from
+  // different devices must survive aggregation instead of fresher-wins merging.
   const zaiRows = aggregate.providers.filter((provider) => provider.provider === 'zai');
-  assert.equal(zaiRows.length, 1);
-  assert.equal(zaiRows[0].accountKey, 'sha256:zai-b');
+  assert.equal(zaiRows.length, 2);
+  assert.deepEqual(
+    new Set(zaiRows.map((provider) => provider.accountKey)),
+    new Set(['sha256:glm-a', 'sha256:zai-b'])
+  );
 });
 
 test('worker vendored provider registry stays in lockstep with src', () => {

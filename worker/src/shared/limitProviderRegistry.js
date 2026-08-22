@@ -22,7 +22,11 @@ const COLLAPSE_BY_ACCOUNT = new Set([
   'opencode',
   'openrouter',
   'thirdparty',
-  'mimo'
+  'mimo',
+  'kimi',
+  'zai',
+  'zaiteam',
+  'ollama'
 ]);
 
 // Providers the Monitor collector actually probes. Ingest still accepts the

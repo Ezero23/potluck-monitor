@@ -103,7 +103,7 @@ test('Home device rows keep only the local badge and mute stale devices without 
   const match = rendererSource.match(/function renderHomeDeviceModule\(\) \{([\s\S]*?)\n\}\n\nfunction dailyWithHeatIntensity/);
   assert.ok(match, 'renderHomeDeviceModule exists');
   assert.match(match[1], /home-device-badge/);
-  assert.match(match[1], /badge\.textContent = 'you'/);
+  assert.match(match[1], /badge\.textContent = t\('home\.device\.you'\)/);
   assert.match(match[1], /if \(row\.isLocal\)/);
   assert.match(match[1], /item\.classList\.add\('is-stale'\)/);
   assert.match(match[1], /item\.append\(mark, label, value\)/);
@@ -194,6 +194,56 @@ test('homeLimitAccountsForProviders includes Grok billing and DeepSeek balance r
   assert.deepEqual(rows[1].windows.map((window) => [window.kind, window.metric, window.label, window.remainingPercent, window.remaining, window.currency, window.value]), [
     ['billing', 'credits', 'Balance', 100, 4.61, 'CNY', '']
   ]);
+});
+
+test('homeLimitAccountsForProviders keeps only the pinned account for multi-account providers', () => {
+  const providers = [
+    {
+      provider: 'ollama',
+      connectionKey: 'conn-web',
+      windows: [{ kind: 'session', label: 'Session', usedPercent: 0 }]
+    },
+    {
+      provider: 'ollama',
+      accountEmail: 'estherzhu1023@gmail.com',
+      windows: [{ kind: 'session', label: 'Session', usedPercent: 0, resetsAt: '2026-08-23T00:00:00.000Z' }]
+    },
+    {
+      provider: 'kimi',
+      connectionKey: 'conn-kimi',
+      windows: [{ kind: 'session', label: 'Session', usedPercent: 91 }]
+    }
+  ];
+  const pinKey = (provider, index, providerId) => `${providerId}:${provider.connectionKey || provider.accountEmail || index}`;
+  const base = {
+    providers,
+    providerOptions: [{ id: 'ollama', label: 'Ollama' }, { id: 'kimi', label: 'Kimi' }],
+    enabledProviderIds: ['ollama', 'kimi'],
+    limit: 10
+  };
+
+  // No pin: every account shows.
+  const unpinned = homeLimitAccountsForProviders({ ...base, sort: 'configured' });
+  assert.deepEqual(unpinned.map((row) => row.key), ['ollama:0', 'ollama:1', 'kimi:0']);
+
+  // Pin one Ollama source: the duplicate drops, single-account Kimi is untouched.
+  const pinned = homeLimitAccountsForProviders({
+    ...base,
+    sort: 'configured',
+    pinnedAccountKeys: ['ollama:estherzhu1023@gmail.com'],
+    pinKey
+  });
+  assert.deepEqual(pinned.map((row) => row.key), ['ollama:0', 'kimi:0']);
+  assert.equal(pinned[0].windows[0].resetsAt, '2026-08-23T00:00:00.000Z');
+
+  // A pin naming a key that no longer exists must not hide the provider.
+  const stalePinned = homeLimitAccountsForProviders({
+    ...base,
+    sort: 'configured',
+    pinnedAccountKeys: ['ollama:gone'],
+    pinKey
+  });
+  assert.deepEqual(stalePinned.map((row) => row.key), ['ollama:0', 'ollama:1', 'kimi:0']);
 });
 
 test('homeLimitAccountsForProviders includes MiMo Token Plan status and balance', () => {

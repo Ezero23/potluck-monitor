@@ -109,9 +109,9 @@ test('third-party Limits presentation uses compact scope labels and a details to
   assert.match(app, /settings\.thirdparty\.requests/);
   assert.match(app, /if \(allTimeSpend === null && entries\.length === 0\) return null/);
   assert.match(app, /if \(allTimeSpend !== null\)/);
-  assert.match(app, /label\.textContent = allTimeSpend === null \? 'Details' : 'Spend'/);
+  assert.match(app, /label\.textContent = allTimeSpend === null \? t\('spend\.details'\) : t\('spend\.label'\)/);
   assert.match(balanceDisplay, /return symbol \? `\$\{symbol\}\$\{number\.toFixed\(2\)\}` : `\$\{code\} \$\{number\.toFixed\(2\)\}`/);
-  assert.match(app, /`All time \$\{formatMoney\(allTimeSpend, currency\)\}`/);
+  assert.match(app, /t\('spend\.allTimeValue', \{ value: formatMoney\(allTimeSpend, currency\) \}\)/);
   assert.match(app, /function renderNamedApiAccountGroup[\s\S]*?planText: options\.groupPlanText/);
   assert.match(app, /groupPlanText: t\('settings\.openrouter\.nAccounts', \{ count: providers\.length \}\)/);
   assert.match(app, /groupPlanText: t\('settings\.thirdparty\.nAccounts', \{ count: providers\.length \}\)/);

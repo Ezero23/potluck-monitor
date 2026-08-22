@@ -227,17 +227,17 @@ test('Home limit provider settings stay compact and list only enabled providers'
   const homeLimitRows = functionBody(app, 'homeLimitRows', 'homeLimitWindowLabel');
   const renderHomeLimitProviderList = functionBody(app, 'renderHomeLimitProviderList', 'renderHomeSettingsList');
   const resetHomeLimitProviderOrder = functionBody(app, 'resetHomeLimitProviderOrder', 'showAllHomeLimitProviders');
-  assert.match(homeLimitRows, /const hasConfiguredOrder = Boolean\(state\.settings\?\.homeLimitProviderOrder\)/);
-  assert.doesNotMatch(homeLimitRows, /normalizeLimitProviderOrder\(state\.settings\?\.limitProviderOrder, LIMIT_PROVIDERS\)\.join\(','\) !== DEFAULT_LIMIT_PROVIDER_ORDER/);
-  assert.match(homeLimitRows, /sort: hasConfiguredOrder \? 'configured' : 'remaining'/);
+  assert.match(homeLimitRows, /orderedLimitProviders\(LIMIT_PROVIDERS, state\.settings\?\.limitProviderOrder\)/);
+  assert.doesNotMatch(homeLimitRows, /state\?\.homeLimitProviderOrder/);
+  assert.match(homeLimitRows, /sort: 'configured'/);
   assert.match(homeLimitRows, /limitAccountTitle\(id, provider, index, providerEntries\)/);
-  assert.match(homeLimitRows, /showHomeLimitProviderNames === true \|\| state\.settings\?\.showToolIcons === false/);
+  assert.doesNotMatch(homeLimitRows, /showHomeLimitProviderNames/);
   assert.match(homeLimitRows, /`\$\{providerTitle\} · \$\{accountTitle\}`/);
   assert.match(renderHomeLimitProviderList, /enabledLimitProviderSet\(\)/);
   assert.match(renderHomeLimitProviderList, /orderedLimitProviders\(LIMIT_PROVIDERS, homeLimitProviderOrderValue\(\)\)/);
-  assert.match(renderHomeLimitProviderList, /const hasCustomOrder = Boolean\(state\.settings\?\.homeLimitProviderOrder\);/);
+  assert.match(renderHomeLimitProviderList, /const hasCustomOrder = Boolean\(state\.settings\?\.limitProviderOrder\);/);
   assert.match(renderHomeLimitProviderList, /\.filter\(\(\{ id \}\) => enabled\.has\(id\)\)/);
-  assert.match(resetHomeLimitProviderOrder, /saveSettings\(\{ homeLimitProviderOrder: '' \}\)/);
+  assert.match(resetHomeLimitProviderOrder, /saveSettings\(\{ limitProviderOrder: '', homeLimitProviderOrder: '' \}\)/);
   assert.match(i18n, /Default is least remaining first/);
   assert.match(i18n, /默认按剩余额度最少优先/);
   assert.doesNotMatch(renderHomeLimitProviderList, /limitProviderSettingsTags/);
@@ -327,7 +327,8 @@ test('Potluck gateway settings migrate legacy defaults to the canonical port', (
   assert.doesNotMatch(renderer, /potluckPort[^\n]*20129|gatewayState\.port \|\| 20129/);
   assert.match(renderer, /gatewayState\.port \|\| 21023/);
   assert.match(renderer, /state\.settings\.potluckPort \|\| 21023/);
-  assert.match(renderer, /tunnel\.tunnelUrl \|\| tunnel\.publicUrl/);
+  assert.match(renderer, /tunnel\.publicUrl \|\| tunnel\.tunnelUrl/);
+  assert.doesNotMatch(renderer, /tunnel\.tunnelUrl \|\| tunnel\.publicUrl/);
 });
 
 test('Home-launched secondary views expose an accessible return action', () => {

@@ -37,7 +37,7 @@ const { customPricingPath } = require('../shared/tokscaleConfig');
 const { applyCustomPricing, normalizeCustomPricingSetting } = require('../shared/tokscaleCustomPricing');
 const { createHub } = require('../hub/server');
 const { claudeWebCookie, deepseekToken, fetchClaudeLimits, normalizeClaudeWebCookieInput, normalizeLimitsRefreshMs, parseBoolean, parseLimitProviders, runCodexLogin, minimaxToken, copilotToken, zaiToken, zaiRegion, zaiTeamToken, volcengineCredentials, qoderCookie, kimiToken, kimiWebToken, ollamaSessionCookie } = require('../shared/limitCollector');
-const { fetchOllamaLimits, rememberOllamaValidation } = require('../shared/ollamaLimits');
+const { fetchOllamaLimits, ollamaApiKey, rememberOllamaValidation } = require('../shared/ollamaLimits');
 const { copilotLoginErrorMessage, isAllowedVerificationUrl, runCopilotDeviceFlowLogin } = require('../shared/copilotDeviceFlow');
 const {
   codexAuthIdentity,
@@ -59,6 +59,7 @@ const {
   readCodexAuthMaterial,
   writeCodexAuthFile
 } = require('../shared/codexSystemSwitch');
+const { refreshCodexAuthFile } = require('../shared/codexTokenRefresh');
 const {
   normalizeClientDisplayOrder,
   normalizeHiddenClients,
@@ -253,8 +254,8 @@ if (process.platform === 'win32') app.setAppUserModelId('com.javis.tokenmonitor'
 const gotLock = app.requestSingleInstanceLock();
 if (!gotLock) app.exit(0);
 
-const HOME_LIMIT_ACCOUNT_COUNT_DEFAULT = 3;
-const HOME_LIMIT_ACCOUNT_COUNT_MAX = 12;
+const HOME_LIMIT_ACCOUNT_COUNT_DEFAULT = 20;
+const HOME_LIMIT_ACCOUNT_COUNT_MAX = 50;
 const POTLUCK_DEFAULT_PORT = 21023;
 const POTLUCK_LEGACY_PORTS = new Set([20129, 20131]);
 
@@ -324,7 +325,6 @@ function defaultSettings() {
     homeModuleOrder: defaultHomeModulePreferences().homeModuleOrder,
     hiddenHomeModules: defaultHomeModulePreferences().hiddenHomeModules,
     showHomeLimitBars: false,
-    showHomeLimitProviderNames: false,
     projectsEnabled: parseBoolean(process.env.TOKEN_MONITOR_PROJECTS_ENABLED, false),
     historyEnabled: true,
     historyIntervalMs: normalizeHistoryIntervalMs(process.env.TOKEN_MONITOR_HISTORY_INTERVAL_MS),
@@ -348,6 +348,7 @@ function defaultSettings() {
     homeLimitProviderOrder: '',
     hiddenHomeLimitProviders: '',
     homeLimitAccountCount: HOME_LIMIT_ACCOUNT_COUNT_DEFAULT,
+    pinnedHomeLimitAccounts: '',
     limitsRefreshMs: normalizeLimitsRefreshMs(process.env.TOKEN_MONITOR_LIMITS_REFRESH_MS),
     showLimitSource: parseBoolean(process.env.TOKEN_MONITOR_SHOW_LIMIT_SOURCE, false),
     maskLimitAccountEmails: false,
@@ -386,7 +387,10 @@ function defaultSettings() {
     qoderSite: 'global',
     kimiApiKey: '',
     kimiWebAccessToken: '',
+    kimiAccountLabel: '',
     ollamaCookie: '',
+    ollamaApiKey: '',
+    ollamaAccountLabel: '',
     codexManagedAccounts: [],
     mimoManagedAccounts: [],
     appUpdate: {
@@ -594,6 +598,14 @@ function normalizeOllamaCookie(value) {
 
 function currentOllamaCookie() {
   return settings?.ollamaCookie || ollamaSessionCookie(process.env);
+}
+
+function normalizeOllamaApiKey(value) {
+  return ollamaApiKey({}, { ollamaApiKey: String(value || '') });
+}
+
+function currentOllamaApiKey() {
+  return settings?.ollamaApiKey || ollamaApiKey(process.env);
 }
 
 function normalizeKimiApiKey(value) {
@@ -1917,13 +1929,15 @@ function readSettings() {
       merged.hiddenHomeModules = normalizeHiddenHomeModules(saved.hiddenHomeModules, DEFAULT_HOME_MODULE_LIST);
     }
     merged.showHomeLimitBars = parseBoolean(merged.showHomeLimitBars, false);
-    merged.showHomeLimitProviderNames = parseBoolean(merged.showHomeLimitProviderNames, false);
     merged.automaticAppUpdates = parseBoolean(merged.automaticAppUpdates, false);
     if (saved.homeLimitProviderOrder !== undefined) {
       merged.homeLimitProviderOrder = migrateHomeLimitProviderOrder(saved.homeLimitProviderOrder);
     }
     if (saved.hiddenHomeLimitProviders !== undefined) {
       merged.hiddenHomeLimitProviders = normalizeHiddenLimitProviders(saved.hiddenHomeLimitProviders);
+    }
+    if (saved.pinnedHomeLimitAccounts !== undefined) {
+      merged.pinnedHomeLimitAccounts = String(saved.pinnedHomeLimitAccounts || '').slice(0, 8000);
     }
     merged.homeLimitAccountCount = normalizeHomeLimitAccountCount(merged.homeLimitAccountCount);
     if (saved.historyEnabled !== undefined) {
@@ -3049,6 +3063,11 @@ function settingsForRenderer() {
     : ollamaSessionCookie(process.env)
       ? 'env'
       : '';
+  const ollamaApiKeySource = settings?.ollamaApiKey
+    ? 'settings'
+    : ollamaApiKey(process.env)
+      ? 'env'
+      : '';
   const kimiApiKeySource = settings?.kimiApiKey
     ? 'settings'
     : kimiToken(process.env)
@@ -3075,6 +3094,7 @@ function settingsForRenderer() {
     claudeWebCookie: settings?.claudeWebCookie ? 'set' : '',
     qoderCookie: settings?.qoderCookie ? 'set' : '',
     ollamaCookie: settings?.ollamaCookie ? 'set' : '',
+    ollamaApiKey: settings?.ollamaApiKey ? 'set' : '',
     // Never ship OpenCode session cookies to the renderer; the UI only needs to
     // know whether a cookie is configured, not its value.
     opencodeCookie: settings?.opencodeCookie ? 'set' : '',
@@ -3109,6 +3129,10 @@ function settingsForRenderer() {
     qoderCookieSource,
     ollamaCookieConfigured: Boolean(currentOllamaCookie()),
     ollamaCookieSource,
+    ollamaApiKeyConfigured: Boolean(currentOllamaApiKey()),
+    ollamaApiKeySource,
+    ollamaCredentialConfigured: Boolean(currentOllamaApiKey() || currentOllamaCookie()),
+    ollamaCredentialSource: ollamaApiKeySource || ollamaCookieSource,
     kimiApiKeyConfigured: Boolean(currentKimiApiKey()),
     kimiApiKeySource,
     kimiWebAccessTokenConfigured: Boolean(currentKimiWebAccessToken()),
@@ -3878,6 +3902,31 @@ function startAppUpdateBackgroundChecks() {
   appUpdateBackgroundTimer.unref?.();
 }
 
+let codexAuthRefreshTimer = null;
+
+async function runCodexAuthBackgroundRefresh() {
+  const authPaths = [liveCodexAuthPath()];
+  for (const account of codexManagedAccountsForCollector()) {
+    authPaths.push(account.authPath || path.join(account.homePath, 'auth.json'));
+  }
+  const results = await Promise.allSettled(
+    [...new Set(authPaths)].map((authPath) => refreshCodexAuthFile(authPath))
+  );
+  for (const result of results) {
+    if (result.status === 'rejected') {
+      console.warn('[codex-auth-refresh]', result.reason?.message || result.reason);
+    }
+  }
+}
+
+function startCodexAuthBackgroundRefresh() {
+  if (codexAuthRefreshTimer) return;
+  const initialTimer = setTimeout(() => { runCodexAuthBackgroundRefresh().catch(() => {}); }, 10 * 1000);
+  initialTimer.unref?.();
+  codexAuthRefreshTimer = setInterval(() => { runCodexAuthBackgroundRefresh().catch(() => {}); }, 5 * 60 * 1000);
+  codexAuthRefreshTimer.unref?.();
+}
+
 function dismissAppUpdateVersion(version) {
   if (typeof version !== 'string' || !version) return deriveAppUpdateState();
   settings.appUpdate = {
@@ -4460,6 +4509,7 @@ app.whenReady().then(() => {
     if (patch.kimiApiKey !== undefined) normalizedPatch.kimiApiKey = normalizeKimiApiKey(patch.kimiApiKey);
     if (patch.kimiWebAccessToken !== undefined) normalizedPatch.kimiWebAccessToken = normalizeKimiWebAccessToken(patch.kimiWebAccessToken);
     if (patch.ollamaCookie !== undefined) normalizedPatch.ollamaCookie = normalizeOllamaCookie(patch.ollamaCookie);
+    if (patch.ollamaApiKey !== undefined) normalizedPatch.ollamaApiKey = normalizeOllamaApiKey(patch.ollamaApiKey);
     if (patch.collectionMode !== undefined) normalizedPatch.collectionMode = normalizeCollectionMode(patch.collectionMode, settings.collectionMode);
     if (patch.collectionIntervalMs !== undefined) normalizedPatch.collectionIntervalMs = normalizeCollectionIntervalMs(patch.collectionIntervalMs, settings.collectionIntervalMs);
     if (patch.syncUploadIntervalMs !== undefined) normalizedPatch.syncUploadIntervalMs = normalizeSyncUploadIntervalMs(patch.syncUploadIntervalMs, settings.syncUploadIntervalMs);
@@ -4502,9 +4552,9 @@ app.whenReady().then(() => {
       homeModuleOrder: patch.homeModuleOrder !== undefined ? normalizeHomeModuleOrder(patch.homeModuleOrder, DEFAULT_HOME_MODULE_LIST).join(',') : normalizeHomeModuleOrder(settings.homeModuleOrder, DEFAULT_HOME_MODULE_LIST).join(','),
       hiddenHomeModules: patch.hiddenHomeModules !== undefined ? normalizeHiddenHomeModules(patch.hiddenHomeModules, DEFAULT_HOME_MODULE_LIST) : normalizeHiddenHomeModules(settings.hiddenHomeModules, DEFAULT_HOME_MODULE_LIST),
       showHomeLimitBars: parseBoolean(patch.showHomeLimitBars ?? settings.showHomeLimitBars, false),
-      showHomeLimitProviderNames: parseBoolean(patch.showHomeLimitProviderNames ?? settings.showHomeLimitProviderNames, false),
       homeLimitProviderOrder: patch.homeLimitProviderOrder !== undefined ? migrateHomeLimitProviderOrder(patch.homeLimitProviderOrder) : (settings.homeLimitProviderOrder || ''),
       hiddenHomeLimitProviders: patch.hiddenHomeLimitProviders !== undefined ? normalizeHiddenLimitProviders(patch.hiddenHomeLimitProviders) : normalizeHiddenLimitProviders(settings.hiddenHomeLimitProviders),
+      pinnedHomeLimitAccounts: patch.pinnedHomeLimitAccounts !== undefined ? String(patch.pinnedHomeLimitAccounts || '').slice(0, 8000) : (settings.pinnedHomeLimitAccounts || ''),
       homeLimitAccountCount: normalizeHomeLimitAccountCount(patch.homeLimitAccountCount ?? settings.homeLimitAccountCount),
       historyEnabled: parseBoolean(patch.historyEnabled ?? settings.historyEnabled, false),
       projectsEnabled: parseBoolean(patch.projectsEnabled ?? settings.projectsEnabled, true),
@@ -4555,6 +4605,7 @@ app.whenReady().then(() => {
       qoderCookie: patch.qoderCookie !== undefined ? normalizeQoderCookie(patch.qoderCookie) : (settings.qoderCookie || ''),
       qoderSite: patch.qoderSite !== undefined ? normalizeQoderSite(patch.qoderSite) : normalizeQoderSite(settings.qoderSite || 'global'),
       ollamaCookie: patch.ollamaCookie !== undefined ? normalizeOllamaCookie(patch.ollamaCookie) : (settings.ollamaCookie || ''),
+      ollamaApiKey: patch.ollamaApiKey !== undefined ? normalizeOllamaApiKey(patch.ollamaApiKey) : (settings.ollamaApiKey || ''),
       customModelPricing: patch.customModelPricing !== undefined
         ? normalizeCustomPricingSetting(patch.customModelPricing)
         : normalizeCustomPricingSetting(settings.customModelPricing)
@@ -4774,20 +4825,6 @@ app.whenReady().then(() => {
     providerIds: Array.isArray(options?.providerIds) ? options.providerIds : null
   }));
   ipcMain.handle('hub:getInfo', () => getHubInfo());
-  // Potluck gateway pushes its usage as a hub device with deviceId 'potluck';
-  // surface its limits.providers as the renderer's connection list. Local mode
-  // has no potluck device, so it resolves to an empty list there too.
-  ipcMain.handle('potluck:getConnections', async () => {
-    try {
-      const stats = await fetchStats();
-      const devices = Array.isArray(stats?.devices) ? stats.devices : [];
-      const potluck = devices.find((device) => device && device.deviceId === 'potluck');
-      const providers = Array.isArray(potluck?.limits?.providers) ? potluck.limits.providers : [];
-      return { ok: true, result: providers };
-    } catch (error) {
-      return { ok: false, error: error.message, result: [] };
-    }
-  });
   // Potluck gateway supervisor: state for the settings UI, plus actions that
   // need main-process privileges (openExternal, spawning, settings writes).
   ipcMain.handle('potluck:gatewayGetState', () => potluckSupervisor.getState(settings));
@@ -4945,6 +4982,13 @@ app.whenReady().then(() => {
     if (!cookie) return { ok: false, status: 'notConfigured' };
     const provider = await fetchOllamaLimits({ ollamaCookie: cookie }, { bypassValidationCache: true });
     rememberOllamaValidation(cookie, provider);
+    return { ok: provider.status === 'ok', status: provider.status };
+  });
+  ipcMain.handle('ollama:validateApiKey', async (_event, raw) => {
+    const apiKey = normalizeOllamaApiKey(raw);
+    if (!apiKey) return { ok: false, status: 'notConfigured' };
+    const provider = await fetchOllamaLimits({ ollamaApiKey: apiKey }, { bypassValidationCache: true });
+    rememberOllamaValidation(apiKey, provider);
     return { ok: provider.status === 'ok', status: provider.status };
   });
   ipcMain.handle('opencode:saveCookie', async (_event, raw) => {
@@ -5547,6 +5591,7 @@ app.whenReady().then(() => {
   app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
   maybeRunBackgroundUpdateCheck();
   startAppUpdateBackgroundChecks();
+  startCodexAuthBackgroundRefresh();
   // Resolve the codesign probe early so a later download picks the right
   // (native vs. custom) update path without waiting on codesign first.
   void probeMacAppSigning();
@@ -5554,7 +5599,7 @@ app.whenReady().then(() => {
 
 app.on('second-instance', focusExistingWindow);
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
-app.on('before-quit', () => { quitRequested = true; if (rateRefreshTimer) clearInterval(rateRefreshTimer); if (appUpdateBackgroundTimer) clearInterval(appUpdateBackgroundTimer); unregisterWindowToggleShortcut(); potluckSupervisor.onAppQuit(settings); stopAll(); });
+app.on('before-quit', () => { quitRequested = true; if (rateRefreshTimer) clearInterval(rateRefreshTimer); if (appUpdateBackgroundTimer) clearInterval(appUpdateBackgroundTimer); if (codexAuthRefreshTimer) clearInterval(codexAuthRefreshTimer); unregisterWindowToggleShortcut(); potluckSupervisor.onAppQuit(settings); stopAll(); });
 for (const signal of ['SIGINT', 'SIGTERM', 'SIGHUP']) {
   process.once(signal, requestAppQuit);
 }

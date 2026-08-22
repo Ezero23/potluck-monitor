@@ -6,8 +6,10 @@ const test = require('node:test');
 const {
   normalizeOllamaCookieHeader,
   ollamaSessionCookie,
+  ollamaApiKey,
   rememberOllamaValidation,
   parseOllamaUsageHtml,
+  parseOllamaUsageJson,
   fetchOllamaLimits
 } = require('../../src/shared/ollamaLimits');
 const { hashKey } = require('../../src/shared/hashKey');
@@ -223,4 +225,120 @@ test('classifies signed-out HTML, auth failures, throttling, and network errors'
     env: {}, fetch: async () => { throw new TypeError('network down'); }
   });
   assert.equal(failed.status, 'unavailable');
+});
+
+function jsonResponse(status, body) {
+  return {
+    ok: status >= 200 && status < 300,
+    status,
+    json: async () => body,
+    text: async () => JSON.stringify(body)
+  };
+}
+
+const USAGE_JSON = { limits: { session: { usage: 0.145 }, weekly: { usage: 0.103 } } };
+
+test('ollamaApiKey prefers settings and supports env aliases', () => {
+  assert.equal(ollamaApiKey({ OLLAMA_API_KEY: 'env-key' }, { ollamaApiKey: 'settings-key' }), 'settings-key');
+  assert.equal(ollamaApiKey({ TOKEN_MONITOR_OLLAMA_API_KEY: 'legacy-env' }), 'legacy-env');
+  assert.equal(ollamaApiKey({}), '');
+  assert.equal(ollamaApiKey({}, { ollamaApiKey: '  "quoted-key"  ' }), 'quoted-key');
+});
+
+test('parses usage ratios into session and weekly windows', () => {
+  const parsed = parseOllamaUsageJson(USAGE_JSON);
+  assert.equal(parsed.session.usedPercent, 14.5);
+  assert.equal(parsed.session.windowMinutes, 300);
+  assert.equal(parsed.session.resetsAt, null);
+  assert.equal(parsed.weekly.usedPercent, 10.3);
+  assert.equal(parsed.weekly.windowMinutes, 10080);
+  assert.deepEqual(parseOllamaUsageJson({}).windows, []);
+  assert.deepEqual(parseOllamaUsageJson({ limits: { session: { usage: 'x' } } }).windows, []);
+});
+
+test('fetches usage with an API key and labels the account from /api/me', async () => {
+  const requests = [];
+  const provider = await fetchOllamaLimits({ ollamaApiKey: 'api-key' }, {
+    env: {},
+    now: () => Date.parse('2026-08-05T00:00:00Z'),
+    fetch: async (url, init) => {
+      requests.push({ url: String(url), init });
+      return String(url).endsWith('/api/me')
+        ? jsonResponse(200, { Plan: 'pro' })
+        : jsonResponse(200, USAGE_JSON);
+    }
+  });
+  assert.equal(provider.status, 'ok');
+  assert.equal(provider.source, 'api');
+  assert.equal(provider.accountLabel, 'Pro');
+  assert.equal(provider.accountKey, hashKey('ollama', 'api-key'));
+  assert.deepEqual(provider.windows.map((window) => [window.kind, window.usedPercent]), [
+    ['session', 14.5],
+    ['weekly', 10.3]
+  ]);
+  assert.equal(requests[0].url, 'https://ollama.com/api/usage');
+  assert.equal(requests[0].init.headers.Authorization, 'Bearer api-key');
+  assert.equal(requests[1].url, 'https://ollama.com/api/me');
+  assert.equal(requests[1].init.method, 'POST');
+});
+
+test('API key path prefers the key over a configured cookie', async () => {
+  const seen = [];
+  const provider = await fetchOllamaLimits({ ollamaApiKey: 'api-key', ollamaCookie: 'wos-session=current' }, {
+    env: {},
+    fetch: async (url, init) => {
+      seen.push({ url: String(url), headers: init.headers });
+      return jsonResponse(200, String(url).endsWith('/api/me') ? {} : USAGE_JSON);
+    }
+  });
+  assert.equal(provider.status, 'ok');
+  assert.equal(seen[0].url, 'https://ollama.com/api/usage');
+  assert.equal(seen[0].headers.Cookie, undefined);
+});
+
+test('a failing /api/me still yields quota windows', async () => {
+  const provider = await fetchOllamaLimits({ ollamaApiKey: 'api-key' }, {
+    env: {},
+    fetch: async (url) => String(url).endsWith('/api/me')
+      ? jsonResponse(500, {})
+      : jsonResponse(200, USAGE_JSON)
+  });
+  assert.equal(provider.status, 'ok');
+  assert.equal(provider.accountLabel, '');
+  assert.equal(provider.windows.length, 2);
+});
+
+test('API key auth failures, throttling, and non-JSON bodies are classified', async () => {
+  const cases = [
+    [jsonResponse(401, {}), 'unauthorized'],
+    [jsonResponse(403, {}), 'unauthorized'],
+    [jsonResponse(429, {}), 'sourceRateLimited'],
+    [jsonResponse(500, {}), 'unavailable'],
+    [{ ok: true, status: 200, json: async () => { throw new SyntaxError('nope'); } }, 'unavailable']
+  ];
+  for (const [result, expected] of cases) {
+    const provider = await fetchOllamaLimits({ ollamaApiKey: 'api-key' }, { env: {}, fetch: async () => result });
+    assert.equal(provider.status, expected);
+    assert.equal(provider.source, 'api');
+  }
+});
+
+test('a usage response without limits still counts as connected', async () => {
+  const provider = await fetchOllamaLimits({ ollamaApiKey: 'api-key' }, {
+    env: {},
+    fetch: async (url) => jsonResponse(200, String(url).endsWith('/api/me') ? { Plan: 'free' } : {})
+  });
+  assert.equal(provider.status, 'ok');
+  assert.equal(provider.accountLabel, 'Free');
+  assert.deepEqual(provider.windows, []);
+});
+
+test('fetchOllamaLimits attaches ollamaAccountLabel as accountName', async () => {
+  const provider = await fetchOllamaLimits({ ollamaApiKey: 'api-key', ollamaAccountLabel: 'Work Pro' }, {
+    env: {},
+    fetch: async (url) => jsonResponse(200, String(url).endsWith('/api/me') ? { Plan: 'pro' } : USAGE_JSON)
+  });
+  assert.equal(provider.status, 'ok');
+  assert.equal(provider.accountName, 'Work Pro');
+  assert.equal(provider.accountLabel, 'Pro');
 });

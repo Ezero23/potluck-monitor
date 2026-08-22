@@ -97,6 +97,11 @@ const LIMIT_PROVIDERS = [
 const POTLUCK_UNIQUE_ACCOUNT_PROVIDERS = [
   'gemini-cli', 'qoder-cn', 'kimchi', 'opencode-go', 'brave-search', 'tavily', 'nvidia'
 ];
+const ACCOUNT_CREDENTIAL_PROVIDER_IDS = [
+  'claude', 'codex', 'cursor', 'opencode', 'openrouter', 'deepseek', 'minimax',
+  'zai', 'zaiteam', 'volcengine', 'qoder', 'ollama', 'kimi', 'mimo', 'copilot', 'thirdparty',
+  ...POTLUCK_UNIQUE_ACCOUNT_PROVIDERS
+];
 const TRAY_ICON_VARIANTS = [
   { id: 'claude-brand', label: 'Claude', after: 'claude' },
   { id: 'chatgpt', label: 'ChatGPT', after: 'codex' }
@@ -257,7 +262,7 @@ function normalizeInitialViewValue(value, allowed, fallback) {
   return allowed.has(raw) ? raw : fallback;
 }
 
-const state = { period: normalizeInitialViewValue(initialViewState.period, viewPeriodValues, 'today'), appUpdate: null, breakdown: normalizeInitialViewValue(initialViewState.breakdown, viewBreakdownValues, 'home'), pricingAuditByModel: null, pricingAuditSignature: '', pricingAuditBusy: false, viewSwitcherOpen: false, viewSwitcherHasOpened: false, limitDetailTooltipHasOpened: false, limitDetailTooltipActive: false, limitDetailTooltipRenderPending: false, settings: null, stats: null, homeHistory: null, homeHistoryBusy: false, homeHistoryRequested: false, homeHistorySignature: '', homeHistoryRetries: 0, homeHistoryRetryTimer: null, homeActivityScrollLeft: null, homeActivityFollowEnd: true, homeActivityResizeObserver: null, serviceStatus: null, serviceStatusBusy: false, serviceProvidersExpanded: false, trendSettingsExpanded: false, trendsActivating: false, homeSettingsExpanded: false, homeLimitSettingsExpanded: false, serviceStatusTicker: null, refreshTimer: null, refreshBusy: false, refreshFeedbackTimer: null, currentTotal: 0, rowSignature: '', streamConnected: false, streamFailure: null, mode: 'idle', appInfo: null, tokscaleStatus: null, tokscaleCheck: null, tokscaleBusy: false, hubInfo: null, cursorAccount: { status: null, error: '' }, cursorAccountExpanded: false, codexAccountExpanded: false, codexAccountError: '', codexSignInBusy: false, codexSignInFlowId: '', codexLoginUrl: '', codexLoginStatus: '', codexLoginOutput: '', codexWorkspaceChoices: [], codexWorkspaceId: '', codexActiveAccount: null, codexPendingActiveAccount: null, codexPendingActiveAccountUntil: 0, codexPendingActiveAccountTimer: null, codexSystemSwitchingAccountId: '', codexSystemSwitchErrorAccountId: '', codexSystemSwitchError: '', codexSwitchPopoverHasOpened: false, codexSwitchPopoverActive: false, codexSwitchPopoverRenderPending: false, customPricingExpanded: false, claudeAccountExpanded: false, claudePendingCheckSince: 0, opencodeProfileCount: 0, opencodeCookieExpanded: false, openrouterProfileCount: 0, openrouterAccountExpanded: false, thirdPartyProfileCount: 0, thirdPartyAccountExpanded: false, deepseekAccountExpanded: false, deepseekPendingCheckSince: 0, minimaxAccountExpanded: false, minimaxPendingCheckSince: 0, zaiAccountExpanded: false, zaiPendingCheckSince: 0, zaiteamAccountExpanded: false, zaiteamPendingCheckSince: 0, volcengineAccountExpanded: false, volcenginePendingCheckSince: 0, qoderAccountExpanded: false, qoderPendingCheckSince: 0, kimiAccountExpanded: false, kimiPendingCheckSince: 0, ollamaAccountExpanded: false, ollamaPendingCheckSince: 0, mimoAccountExpanded: false, mimoAccountError: '', copilotAccountExpanded: false, copilotManualExpanded: false, copilotPendingCheckSince: 0, copilotSignInBusy: false, copilotSignInCancelable: false, copilotSignInFlowId: '', copilotAuthorizeMessage: '', copilotLoginStatus: '', copilotErrorMessage: '', floatingBubble: initialFloatingBubble, suppressInitialNumberAnimation: window.__TOKEN_MONITOR_SUPPRESS_INITIAL_NUMBER_ANIMATION__ === true, openSession: null, detailSort: 'time', recordingWindowShortcut: false, windowShortcutInvalid: false };
+const state = { period: normalizeInitialViewValue(initialViewState.period, viewPeriodValues, 'today'), appUpdate: null, breakdown: normalizeInitialViewValue(initialViewState.breakdown, viewBreakdownValues, 'home'), pricingAuditByModel: null, pricingAuditSignature: '', pricingAuditBusy: false, viewSwitcherOpen: false, viewSwitcherHasOpened: false, limitDetailTooltipHasOpened: false, limitDetailTooltipActive: false, limitDetailTooltipRenderPending: false, settings: null, stats: null, homeHistory: null, homeHistoryBusy: false, homeHistoryRequested: false, homeHistorySignature: '', homeHistoryRetries: 0, homeHistoryRetryTimer: null, homeActivityScrollLeft: null, homeActivityFollowEnd: true, homeActivityResizeObserver: null, serviceStatus: null, serviceStatusBusy: false, serviceProvidersExpanded: false, trendSettingsExpanded: false, trendsActivating: false, homeSettingsExpanded: false, homeLimitSettingsExpanded: false, serviceStatusTicker: null, refreshTimer: null, refreshBusy: false, refreshFeedbackTimer: null, currentTotal: 0, rowSignature: '', streamConnected: false, streamFailure: null, mode: 'idle', appInfo: null, tokscaleStatus: null, tokscaleCheck: null, tokscaleBusy: false, hubInfo: null, cursorAccount: { status: null, error: '' }, cursorAccountExpanded: false, codexAccountExpanded: false, codexAccountError: '', codexSignInBusy: false, codexSignInFlowId: '', codexLoginUrl: '', codexLoginStatus: '', codexLoginOutput: '', codexWorkspaceChoices: [], codexWorkspaceId: '', codexActiveAccount: null, codexPendingActiveAccount: null, codexPendingActiveAccountUntil: 0, codexPendingActiveAccountTimer: null, codexSystemSwitchingAccountId: '', codexSystemSwitchErrorAccountId: '', codexSystemSwitchError: '', codexSwitchPopoverHasOpened: false, codexSwitchPopoverActive: false, codexSwitchPopoverRenderPending: false, customPricingExpanded: false, claudeAccountExpanded: false, claudePendingCheckSince: 0, opencodeProfileCount: 0, opencodeCookieExpanded: false, openrouterProfileCount: 0, openrouterAccountExpanded: false, thirdPartyProfileCount: 0, thirdPartyAccountExpanded: false, deepseekAccountExpanded: false, deepseekPendingCheckSince: 0, minimaxAccountExpanded: false, minimaxPendingCheckSince: 0, zaiAccountExpanded: false, zaiPendingCheckSince: 0, zaiteamAccountExpanded: false, zaiteamPendingCheckSince: 0, volcengineAccountExpanded: false, volcenginePendingCheckSince: 0, qoderAccountExpanded: false, qoderPendingCheckSince: 0, kimiAccountExpanded: false, kimiPendingCheckSince: 0, ollamaAccountExpanded: false, ollamaPendingCheckSince: 0, mimoAccountExpanded: false, mimoAccountError: '', copilotAccountExpanded: false, copilotManualExpanded: false, copilotPendingCheckSince: 0, copilotSignInBusy: false, copilotSignInCancelable: false, copilotSignInFlowId: '', copilotAuthorizeMessage: '', copilotLoginStatus: '', copilotErrorMessage: '', accountCredentialsLegacyExpanded: null, accountCredentialsFocusProvider: '', floatingBubble: initialFloatingBubble, suppressInitialNumberAnimation: window.__TOKEN_MONITOR_SUPPRESS_INITIAL_NUMBER_ANIMATION__ === true, openSession: null, detailSort: 'time', recordingWindowShortcut: false, windowShortcutInvalid: false };
 state.homeHistoryLoadedSignature = '';
 state.homeHistoryRetrySignature = '';
 state.homeReturnVisible = false;
@@ -268,8 +273,6 @@ state.animateChartsOnRender = true;
 let directBreakdownOverride = null;
 state.projectSettingsExpanded = false;
 state.homeActivitySettingsExpanded = false;
-state.potluckConnections = null;
-state.potluckConnectionsFetched = false;
 state.potluckGateway = null;
 state.settingsSections = Object.fromEntries(SETTINGS_SECTION_IDS.map((id) => [id, false]));
 state.limitProviderDetailsOpen = new Set();
@@ -375,6 +378,8 @@ Object.assign(els, {
   accountsSettingsSummary: document.getElementById('accountsSettingsSummary'),
   accountConnectionsSummary: document.getElementById('accountConnectionsSummary'),
   accountConnectionList: document.getElementById('accountConnectionList'),
+  accountCredentialsLegacyReveal: document.getElementById('accountCredentialsLegacyReveal'),
+  accountCredentialsLegacySummary: document.getElementById('accountCredentialsLegacySummary'),
   limitsSettingsSummary: document.getElementById('limitsSettingsSummary'),
   generalSettingsSummary: document.getElementById('generalSettingsSummary'),
   mainSettingsSummary: document.getElementById('mainSettingsSummary'),
@@ -611,13 +616,18 @@ async function onSettingsSectionReorder(sectionId, targetIndex) {
 }
 
 function orderAccountProviderGroups() {
-  const container = document.getElementById('accountsSettingsDetails');
+  const container = document.getElementById('accountCredentialsLegacyGroups')
+    || document.getElementById('accountsSettingsDetails');
   if (!container) return;
   for (const provider of LIMIT_PROVIDERS) {
     const groupId = provider.id === 'opencode'
       ? 'opencodeCookieGroup'
       : `${provider.id}AccountGroup`;
     const group = document.getElementById(groupId);
+    if (group?.parentElement === container) container.append(group);
+  }
+  for (const providerId of POTLUCK_UNIQUE_ACCOUNT_PROVIDERS) {
+    const group = document.getElementById(`${providerId}AccountGroup`);
     if (group?.parentElement === container) container.append(group);
   }
 }
@@ -704,6 +714,7 @@ function settingsSectionSummary(section) {
 
 function renderSettingsSummaries() {
   renderAccountConnectionDirectory();
+  renderAccountCredentialsLegacy();
   for (const section of SETTINGS_SECTION_IDS) {
     const el = els[`${section}SettingsSummary`];
     if (el) el.textContent = settingsSectionSummary(section);
@@ -844,14 +855,14 @@ function formatActiveDuration(ms) {
 }
 function formatUpdatedAge(value) {
   const date = value ? new Date(value) : null;
-  if (!date || Number.isNaN(date.getTime())) return 'Update unknown';
+  if (!date || Number.isNaN(date.getTime())) return t('status.updated.unknown');
   const diffMs = Math.max(0, Date.now() - date.getTime());
-  if (diffMs < 45_000) return 'Updated just now';
+  if (diffMs < 45_000) return t('status.updated.justNow');
   const minutes = Math.round(diffMs / 60000);
-  if (minutes < 60) return `Updated ${minutes}m ago`;
+  if (minutes < 60) return t('status.updated.minutes', { n: minutes });
   const hours = Math.round(minutes / 60);
-  if (hours < 24) return `Updated ${hours}h ago`;
-  return `Updated ${Math.round(hours / 24)}d ago`;
+  if (hours < 24) return t('status.updated.hours', { n: hours });
+  return t('status.updated.days', { n: Math.round(hours / 24) });
 }
 function versionText(value) {
   return value ? `v${value}` : 'unknown';
@@ -2074,6 +2085,12 @@ function limitStatusLabel(status) {
   return 'Error';
 }
 
+function translatedLimitStatusLabel(status) {
+  if (status === 'notConfigured') return t('limits.status.notSignedIn');
+  const key = LIMIT_CAPABILITY_TAG_KEYS[limitStatusLabel(status)];
+  return key ? t(key) : limitStatusLabel(status);
+}
+
 function syncProvenanceActive() {
   return state.mode === 'sync' || Boolean(String(state.settings?.hubUrl || '').trim());
 }
@@ -2089,7 +2106,7 @@ function limitProviderProvenance(provider) {
 function limitProviderMeta(provider, provenance = null) {
   const sourceDevice = limitProviderPresentationApi.limitProviderMainDeviceLabel(provenance, { showSource: Boolean(state.settings?.showLimitSource) });
   if (provider.stale) {
-    const parts = ['Stale', formatUpdatedAge(provider.updatedAt).replace('Updated ', '')];
+    const parts = [t('settings.limits.status.stale'), formatUpdatedAge(provider.updatedAt)];
     if (sourceDevice) parts.push(sourceDevice);
     return parts.join(' · ');
   }
@@ -2102,14 +2119,14 @@ function limitProviderMeta(provider, provenance = null) {
     if (sourceDevice) parts.push(sourceDevice);
     return `${formatUpdatedAge(provider.updatedAt)}${parts.length ? ` · ${parts.join(' · ')}` : ''}`;
   }
-  return limitStatusLabel(provider.status, false);
+  return translatedLimitStatusLabel(provider.status);
 }
 
 function limitProviderPlan(provider) {
-  if (provider?.status && provider.status !== 'ok' && !provider.stale) return limitStatusLabel(provider.status, false);
+  if (provider?.status && provider.status !== 'ok' && !provider.stale) return translatedLimitStatusLabel(provider.status);
   const label = String(provider?.planLabel || provider?.accountLabel || '').trim();
   if (label) return limitProviderPresentationApi.limitProviderDisplayLabel(label);
-  return provider?.status && provider.status !== 'ok' ? limitStatusLabel(provider.status, false) : '';
+  return provider?.status && provider.status !== 'ok' ? translatedLimitStatusLabel(provider.status) : '';
 }
 
 function configuredLimitProviderOrder() {
@@ -2342,10 +2359,10 @@ function codexResetCreditsNode(resetCredits) {
 
 function openrouterSpendEntries(balance) {
   return [
-    ['Today', optionalFiniteNumber(balance?.todaySpend)],
-    ['Week', optionalFiniteNumber(balance?.weekSpend)],
-    ['Month', optionalFiniteNumber(balance?.monthSpend)],
-    ['All time', optionalFiniteNumber(balance?.allTimeSpend)]
+    [t('spend.today'), optionalFiniteNumber(balance?.todaySpend)],
+    [t('spend.week'), optionalFiniteNumber(balance?.weekSpend)],
+    [t('spend.month'), optionalFiniteNumber(balance?.monthSpend)],
+    [t('spend.allTime'), optionalFiniteNumber(balance?.allTimeSpend)]
   ].filter(([, value]) => value !== null);
 }
 
@@ -2399,7 +2416,7 @@ function openrouterSpendNode(balance) {
   const entries = openrouterSpendEntries(balance);
   if (entries.length === 0) return null;
   const currency = balance?.currency || 'USD';
-  const preferredSummary = entries.filter(([label]) => label === 'Today' || label === 'Month');
+  const preferredSummary = entries.filter(([label]) => label === t('spend.today') || label === t('spend.month'));
   const summaryEntries = preferredSummary.length > 0 ? preferredSummary : entries.slice(0, 2);
   const summaryText = summaryEntries
     .map(([label, value]) => `${label} ${formatMoney(value, currency)}`)
@@ -2410,7 +2427,7 @@ function openrouterSpendNode(balance) {
   const line = document.createElement('div');
   line.className = 'limit-window-text limit-spend-line';
   const label = document.createElement('span');
-  label.textContent = 'Spend';
+  label.textContent = t('spend.label');
   const right = document.createElement('span');
   right.className = 'limit-spend-right';
   const summary = document.createElement('span');
@@ -2429,7 +2446,7 @@ function openrouterSpendNode(balance) {
   item.append(line);
   item.setAttribute(
     'aria-label',
-    ['Spend', ...entries.map(([entryLabel, value]) => `${entryLabel} ${formatMoney(value, currency)}`)].join(', ')
+    [t('spend.label'), ...entries.map(([entryLabel, value]) => `${entryLabel} ${formatMoney(value, currency)}`)].join(', ')
   );
   return item;
 }
@@ -2458,13 +2475,13 @@ function thirdPartySpendNode(provider, quotaWindow) {
   const line = document.createElement('div');
   line.className = 'limit-window-text limit-spend-line';
   const label = document.createElement('span');
-  label.textContent = allTimeSpend === null ? 'Details' : 'Spend';
+  label.textContent = allTimeSpend === null ? t('spend.details') : t('spend.label');
   const right = document.createElement('span');
   right.className = 'limit-spend-right';
   if (allTimeSpend !== null) {
     const summary = document.createElement('span');
     summary.className = 'limit-spend-summary';
-    summary.textContent = `All time ${formatMoney(allTimeSpend, currency)}`;
+    summary.textContent = t('spend.allTimeValue', { value: formatMoney(allTimeSpend, currency) });
     right.append(summary);
   }
   const infoNode = limitDetailInfoNode(entries, 'limit-spend-info-wrap');
@@ -2474,8 +2491,8 @@ function thirdPartySpendNode(provider, quotaWindow) {
   item.setAttribute(
     'aria-label',
     [
-      allTimeSpend === null ? 'Details' : 'Spend',
-      ...(allTimeSpend === null ? [] : [`All time ${formatMoney(allTimeSpend, currency)}`]),
+      allTimeSpend === null ? t('spend.details') : t('spend.label'),
+      ...(allTimeSpend === null ? [] : [t('spend.allTimeValue', { value: formatMoney(allTimeSpend, currency) })]),
       ...entries.map(([entryLabel, value]) => `${entryLabel} ${value}`)
     ].join(', ')
   );
@@ -2944,8 +2961,11 @@ function renderProviderWindows(provider, color) {
   const windows = document.createElement('div');
   windows.className = 'limit-windows';
   if (provider.provider === 'codex') {
-    const session = windowForKind(provider, 'session');
-    const weekly = windowForKind(provider, 'weekly');
+    const allWindows = provider.windows || [];
+    const baseWindows = allWindows.filter((window) => !String(window?.label || '').trim());
+    const labeledWindows = allWindows.filter((window) => String(window?.label || '').trim());
+    const session = baseWindows.find((window) => window.kind === 'session') || null;
+    const weekly = baseWindows.find((window) => window.kind === 'weekly') || null;
     if (session) {
       const sessionNode = limitWindowNode(session.label || 'Session', session, color, 0.95);
       if (!weekly) sessionNode.classList.add('limit-window-wide');
@@ -2955,6 +2975,9 @@ function renderProviderWindows(provider, color) {
       const weeklyNode = limitWindowNode(weekly.label || 'Weekly', weekly, color, 0.68);
       if (!session) weeklyNode.classList.add('limit-window-wide');
       windows.append(weeklyNode);
+    }
+    for (const extra of labeledWindows) {
+      windows.append(limitWindowNode(extra.label, extra, color, 0.68));
     }
     const resetNode = codexResetCreditsNode(provider.resetCredits);
     if (resetNode) windows.append(resetNode);
@@ -3129,7 +3152,7 @@ function renderProviderWindows(provider, color) {
         parts.push(`Month ${formatMoney(balance.monthSpend, currency)}`);
       }
       if (parts.length) {
-        const spendNode = limitWindowNode('Spend', { showMeter: false }, color, 0.6, parts.join(' · '));
+        const spendNode = limitWindowNode(t('spend.label'), { showMeter: false }, color, 0.6, parts.join(' · '));
         spendNode.classList.add('limit-window-wide', 'limit-window-note');
         windows.append(spendNode);
       }
@@ -3347,6 +3370,115 @@ function renderLimitProviderRow(id, label, provider, color, options = {}) {
   return row;
 }
 
+function refreshAccountConnectionSurfaces() {
+  if (state.breakdown === 'limits') renderLimits();
+  renderLimitProviderCheckboxes();
+  renderAccountConnectionDirectory();
+}
+
+function toggleAccountConnectionDetails(connectionKey) {
+  if (state.accountConnectionDetailsOpen.has(connectionKey)) {
+    state.accountConnectionDetailsOpen.delete(connectionKey);
+  } else {
+    state.accountConnectionDetailsOpen.add(connectionKey);
+  }
+  refreshAccountConnectionSurfaces();
+}
+
+function appendLimitConnectionRefreshActions(actions, providerId, connection, index, showPin = false) {
+  const connectionKey = accountConnectionRowKey(providerId, connection, index);
+  const sourceBucket = limitProviderSummaryApi.sourceBucket(connection);
+  if (showPin) {
+    const pinned = pinnedHomeLimitAccountSet().has(connectionKey);
+    const pin = document.createElement('button');
+    pin.type = 'button';
+    pin.className = pinned ? 'limit-connection-pin pinned' : 'limit-connection-pin';
+    pin.textContent = t(pinned ? 'settings.limits.unpinHomeAccount' : 'settings.limits.pinHomeAccount');
+    pin.addEventListener('click', async (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      await onHomeLimitAccountPinToggle(connectionKey);
+    });
+    actions.append(pin);
+  }
+  if (sourceBucket !== 'potluck') {
+    const refresh = document.createElement('button');
+    refresh.type = 'button';
+    const refreshBusy = state.accountConnectionRefreshBusy.has(connectionKey);
+    refresh.disabled = refreshBusy;
+    refresh.textContent = t(refreshBusy ? 'settings.accounts.connections.refreshing' : 'settings.accounts.connections.refresh');
+    refresh.addEventListener('click', async (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      if (state.accountConnectionRefreshBusy.has(connectionKey)) return;
+      state.accountConnectionRefreshBusy.add(connectionKey);
+      refreshAccountConnectionSurfaces();
+      try {
+        await refreshStats({
+          force: true,
+          feedback: true,
+          limitScope: accountConnectionRefreshScope(providerId, connection)
+        });
+      } finally {
+        state.accountConnectionRefreshBusy.delete(connectionKey);
+        refreshAccountConnectionSurfaces();
+      }
+    });
+    actions.append(refresh);
+  }
+  if (sourceBucket === 'potluck') {
+    const manage = document.createElement('button');
+    manage.type = 'button';
+    manage.textContent = t('settings.limits.manageInPotluck');
+    manage.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      window.tokenMonitor.potluckGateway?.openWeb?.();
+    });
+    actions.append(manage);
+  } else if (providerAccountSettingsEl(providerId)) {
+    const edit = document.createElement('button');
+    edit.type = 'button';
+    edit.textContent = t('settings.limits.editInAccounts');
+    edit.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      focusProviderAccountSettings(providerId);
+    });
+    actions.append(edit);
+  }
+}
+
+function appendLimitConnectionActions(container, providerId, connection, index, surface, accountCount = 1) {
+  const connectionKey = accountConnectionRowKey(providerId, connection, index);
+  const detailOpen = state.accountConnectionDetailsOpen.has(connectionKey);
+  const actions = document.createElement('div');
+  actions.className = surface === 'home' ? 'limit-connection-actions' : 'limit-provider-connection-actions';
+  if (surface === 'home') {
+    const details = document.createElement('button');
+    details.type = 'button';
+    details.textContent = t(detailOpen ? 'settings.accounts.connections.hideDetails' : 'settings.accounts.connections.showDetails');
+    details.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      toggleAccountConnectionDetails(connectionKey);
+    });
+    actions.append(details);
+  }
+  appendLimitConnectionRefreshActions(actions, providerId, connection, index, accountCount > 1);
+  container.append(actions);
+  appendAccountConnectionDetails(container, providerId, connection, connectionKey, surface);
+}
+
+function renderLimitConnectionRow(providerId, label, connection, index, connections, color, options = {}) {
+  const wrapper = document.createElement('div');
+  wrapper.className = 'limit-connection-wrap';
+  if (connection?.stale) wrapper.classList.add('stale');
+  wrapper.append(renderLimitProviderRow(providerId, label, connection, color, options));
+  appendLimitConnectionActions(wrapper, providerId, connection, index, 'home', (connections || []).length);
+  return wrapper;
+}
+
 // Every limits surface (the limits panel and the Home cards) resolves account
 // titles here. One table keeps a provider from masking its email on one surface
 // while leaking it on the other, and from rendering two different titles for the
@@ -3373,10 +3505,35 @@ function limitAccountEmailsMasked() {
 }
 
 function limitAccountDefaultTitle(provider, index, providerEntries = [provider]) {
-  return accountIdentityApi.accountTitleLabel(provider, providerEntries, {
-    maskEmail: limitAccountEmailsMasked(),
-    index
-  }) || `Account ${index + 1}`;
+  const peers = providerEntries;
+  const maskEmail = limitAccountEmailsMasked();
+  const label = accountIdentityApi.accountTitleLabel(provider, peers, { maskEmail, index });
+
+  if (peers.length <= 1) return label || `Account ${index + 1}`;
+
+  // When accounts are otherwise identical (same masked email, no name) or the
+  // title is empty, append the source device so the user can tell synced accounts
+  // apart without relying on an opaque fingerprint suffix.
+  const baseFor = (p) => {
+    const name = String(p?.accountName || '').trim();
+    return accountIdentityApi.accountEmailLabel(p, peers, { maskEmail, suffix: name }) || name;
+  };
+  const base = baseFor(provider);
+  const collisions = peers.filter((p) => baseFor(p).toLowerCase() === base.toLowerCase()).length;
+
+  let deviceLabel = '';
+  if (!base || collisions > 1) {
+    const deviceId = String(provider?.sourceDeviceId || '').trim();
+    if (deviceId) {
+      const devices = Array.isArray(state?.stats?.devices) ? state.stats.devices : [];
+      const device = devices.find((d) => String(d?.deviceId || '').trim() === deviceId);
+      deviceLabel = String(device?.hostname || device?.deviceId || '').trim() || deviceId;
+    }
+  }
+
+  if (!deviceLabel) return label || `Account ${index + 1}`;
+  if (!label) return deviceLabel;
+  return label.replace(/\s*·\s*#[a-f0-9]{6,}$/i, '') + ` · ${deviceLabel}`;
 }
 
 function codexAccountTitle(provider, index, providers = [provider]) {
@@ -3404,7 +3561,7 @@ function renderCodexAccountGroup(label, providers, color) {
   const accountList = document.createElement('div');
   accountList.className = 'limit-account-list';
   providers.forEach((provider, index) => {
-    accountList.append(renderLimitProviderRow('codex', limitAccountTitle('codex', provider, index, providers), provider, color, {
+    accountList.append(renderLimitConnectionRow('codex', limitAccountTitle('codex', provider, index, providers), provider, index, providers, color, {
       accountRow: true,
       accountTitle: true,
       allowSystemSwitch: true,
@@ -3427,7 +3584,7 @@ function renderClaudeAccountGroup(label, providers, color) {
   const accountList = document.createElement('div');
   accountList.className = 'limit-account-list';
   providers.forEach((provider, index) => {
-    accountList.append(renderLimitProviderRow('claude', limitAccountTitle('claude', provider, index, providers), provider, color, {
+    accountList.append(renderLimitConnectionRow('claude', limitAccountTitle('claude', provider, index, providers), provider, index, providers, color, {
       accountRow: true,
       accountTitle: true,
       showIcon: false
@@ -3452,7 +3609,31 @@ function renderMimoAccountGroup(label, providers, color) {
   const accountList = document.createElement('div');
   accountList.className = 'limit-account-list';
   providers.forEach((provider, index) => {
-    accountList.append(renderLimitProviderRow('mimo', limitAccountTitle('mimo', provider, index, providers), provider, color, {
+    accountList.append(renderLimitConnectionRow('mimo', limitAccountTitle('mimo', provider, index, providers), provider, index, providers, color, {
+      accountRow: true,
+      accountTitle: true,
+      showIcon: false
+    }));
+  });
+  row.append(head, accountList);
+  return row;
+}
+
+// Generic account group for collapsed providers without special row options
+// (kimi, zai, zaiteam). Without it the limits view renders only the first
+// account and silently drops the rest.
+function renderNamedAccountGroup(id, label, providers, color, countKey) {
+  const row = document.createElement('div');
+  row.className = `limit-row limit-row-group${providers.some((provider) => provider.stale) ? ' stale' : ''}`;
+  const groupProvider = { provider: id, status: 'ok', windows: [] };
+  const head = renderLimitProviderHead(id, label, groupProvider, color, {
+    planText: t(countKey, { count: providers.length }),
+    hideMeta: true
+  });
+  const accountList = document.createElement('div');
+  accountList.className = 'limit-account-list';
+  providers.forEach((provider, index) => {
+    accountList.append(renderLimitProviderRow(id, limitAccountTitle(id, provider, index, providers), provider, color, {
       accountRow: true,
       accountTitle: true,
       showIcon: false
@@ -3489,7 +3670,7 @@ function renderOpenCodeAccountGroup(label, providers, color) {
       && provider?.accountLabel
       && provider.accountLabel !== 'Go'
       && provider.accountLabel !== 'Zen';
-    accountList.append(renderLimitProviderRow('opencode', limitAccountTitle('opencode', provider, index, providers), provider, color, {
+    accountList.append(renderLimitConnectionRow('opencode', limitAccountTitle('opencode', provider, index, providers), provider, index, providers, color, {
       accountRow: true,
       showIcon: false,
       ...(legacyProfileLabel ? { planText: '' } : {})
@@ -3525,10 +3706,12 @@ function renderNamedApiAccountGroup(providerId, label, providers, color, options
   const accountList = document.createElement('div');
   accountList.className = 'limit-account-list';
   providers.forEach((provider, index) => {
-    accountList.append(renderLimitProviderRow(
+    accountList.append(renderLimitConnectionRow(
       providerId,
       limitAccountTitle(providerId, provider, index, providers),
       provider,
+      index,
+      providers,
       color,
       {
         accountRow: true,
@@ -3709,10 +3892,10 @@ function renderLimits() {
   }
   state.limitDetailTooltipRenderPending = false;
   state.codexSwitchPopoverRenderPending = false;
-  fetchPotluckConnections();
   const limitsEnabled = state.settings?.limitsEnabled !== false;
   const enabled = enabledLimitProviderSet();
   const providers = providersByLimitProviderId(state.stats?.limits?.providers || []);
+  fetchPotluckConnections();
   const nodes = [];
   const activitySection = renderPotluckMonitorActivity();
   if (activitySection) nodes.push(activitySection);
@@ -3758,15 +3941,61 @@ function renderLimits() {
       nodes.push(renderMimoAccountGroup(label, visibleProviders, color));
       continue;
     }
+    if ((id === 'kimi' || id === 'zai' || id === 'zaiteam' || id === 'ollama') && Array.isArray(visibleProviders) && visibleProviders.length > 1) {
+      nodes.push(renderNamedAccountGroup(id, label, visibleProviders, color, {
+        kimi: 'settings.kimi.nAccounts',
+        zai: 'settings.zai.nAccounts',
+        zaiteam: 'settings.zaiteam.nAccounts',
+        ollama: 'settings.ollama.nAccounts'
+      }[id]));
+      continue;
+    }
     const provider = Array.isArray(visibleProviders) ? visibleProviders[0] : visibleProviders;
     const rowOptions = id === 'codex'
       ? { accountTitle: true, allowSystemSwitch: true }
       : id === 'thirdparty'
         ? { planText: thirdPartyPlanText(provider) }
         : undefined;
-    nodes.push(renderLimitProviderRow(id, label, provider, color, rowOptions));
+    const connectionList = Array.isArray(visibleProviders) ? visibleProviders : [provider];
+    nodes.push(renderLimitConnectionRow(id, label, provider, 0, connectionList, color, rowOptions));
   }
+  // Inline provider reordering: one drag handle per provider row, wired into the
+  // shared preference-drag system as 'limitProviderLive' (visible rows only; the
+  // commit folds the order back into the full limitProviderOrder setting), plus
+  // a pin-to-top button — dragging a row nine slots up is tedious.
+  nodes.forEach((node, nodeIndex) => {
+    const { id, label } = rows[nodeIndex] || {};
+    if (!id || !node) return;
+    node.dataset.provider = id;
+    const head = node.querySelector('.limit-head');
+    if (!head) return;
+    head.append(createLimitProviderPinTopButton(id, label));
+    head.append(createPreferenceOrderHandle({ kind: 'limitProviderLive', id, label, count: rows.length }));
+  });
   els.limitsPanel.replaceChildren(...nodes);
+}
+
+function onLimitProviderPinToTop(providerId) {
+  const full = limitProviderOrderApi.normalizeLimitProviderOrder(state.settings?.limitProviderOrder, LIMIT_PROVIDERS);
+  const next = limitProviderOrderApi.reorderLimitProvider(full.join(','), LIMIT_PROVIDERS, providerId, 0);
+  if (next === full.join(',')) return Promise.resolve();
+  return saveSettings({ limitProviderOrder: next }).then(() => renderLimits());
+}
+
+function createLimitProviderPinTopButton(id, label) {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'limit-provider-pin-top';
+  const title = t('settings.limits.pinToTop', { name: label });
+  button.title = title;
+  button.setAttribute('aria-label', title);
+  button.textContent = '⬆';
+  button.addEventListener('click', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    void onLimitProviderPinToTop(id);
+  });
+  return button;
 }
 
 function serviceStatusLabel(status) {
@@ -4545,9 +4774,9 @@ function homeModuleShell(kind, title, viewId, meta = '') {
 
 function homeLimitRows() {
   const enabled = enabledLimitProviderSet();
-  const providerOrder = state.settings?.homeLimitProviderOrder || state.settings?.limitProviderOrder;
-  const providerOptions = limitProviderOrderApi.orderedLimitProviders(LIMIT_PROVIDERS, providerOrder);
-  const hasConfiguredOrder = Boolean(state.settings?.homeLimitProviderOrder);
+  // Home follows the same limitProviderOrder as the limits page — one order,
+  // two surfaces. (homeLimitProviderOrder is a legacy forked order; ignored.)
+  const providerOptions = limitProviderOrderApi.orderedLimitProviders(LIMIT_PROVIDERS, state.settings?.limitProviderOrder);
   return homeOverviewApi.homeLimitAccountsForProviders({
     providers: (state.stats?.limits?.providers || []).map((provider) => ({
       ...provider,
@@ -4557,17 +4786,20 @@ function homeLimitRows() {
     enabledProviderIds: Array.from(enabled),
     hiddenProviderIds: Array.from(hiddenHomeLimitProviderSet()),
     colors: clientColors,
-    limit: state.settings?.homeLimitAccountCount ?? 3,
-    sort: hasConfiguredOrder ? 'configured' : 'remaining',
+    limit: state.settings?.homeLimitAccountCount ?? 20,
+    sort: 'configured',
+    pinnedAccountKeys: Array.from(pinnedHomeLimitAccountSet()),
+    pinKey: (provider, index, providerId) => accountConnectionRowKey(providerId, provider, index),
     accountName: (provider, index, providerEntries) => {
       const id = String(provider?.provider || '').trim().toLowerCase();
       const option = providerOptions.find((entry) => entry.id === id);
       const providerTitle = option?.label || id;
       if (providerEntries.length > 1) {
         const accountTitle = limitAccountTitle(id, provider, index, providerEntries);
-        return state.settings?.showHomeLimitProviderNames === true || state.settings?.showToolIcons === false
-          ? `${providerTitle} · ${accountTitle}`
-          : accountTitle;
+        // Multi-account rows always carry the provider name: a 16px mask icon
+        // alone cannot tell Kimi from GLM/Ollama, and an unnamed account
+        // ("Account 2") is meaningless without it.
+        return `${providerTitle} · ${accountTitle}`;
       }
       return providerTitle;
     }
@@ -4577,10 +4809,13 @@ function homeLimitRows() {
 function homeLimitWindowLabel(window, providerId = '', visibleWindows = []) {
   const compactLabel = limitProviderPresentationApi.limitProviderCompactWindowLabel(providerId, window, visibleWindows);
   if (compactLabel) return compactLabel;
-  if (window?.kind === 'billing') {
-    const label = String(window?.label || '').trim();
-    if (label) return label;
+  const explicitLabel = String(window?.label || '').trim();
+  // When several windows share a kind (e.g. Codex main quota vs. its Code
+  // Review bucket), the kind name alone cannot tell them apart.
+  if (explicitLabel && visibleWindows.filter((entry) => entry?.kind === window.kind).length > 1) {
+    return explicitLabel;
   }
+  if (window?.kind === 'billing' && explicitLabel) return explicitLabel;
   const key = {
     session: 'home.limit.session',
     weekly: 'home.limit.weekly',
@@ -4842,7 +5077,7 @@ function renderHomeDeviceModule() {
     if (row.isLocal) {
       const badge = document.createElement('span');
       badge.className = 'home-device-badge';
-      badge.textContent = 'you';
+      badge.textContent = t('home.device.you');
       label.append(badge);
     }
     const value = document.createElement('span');
@@ -4943,7 +5178,7 @@ function homeActivityTooltipEl() {
   const label = document.createElement('span');
   label.className = 'home-activity-tooltip-label';
   label.dataset.homeActivityTooltipLabel = 'true';
-  label.textContent = 'tokens';
+  label.textContent = t('dashboard.heatmap.tokens').toLowerCase();
 
   const date = document.createElement('span');
   date.className = 'home-activity-tooltip-date';
@@ -5055,7 +5290,7 @@ function setupHomeActivityHover(scroller) {
       activeCell = cell;
       activeCell.setAttribute('data-active', 'true');
       tooltip.querySelector('[data-home-activity-tooltip-count]').textContent = formatCompact(Number(cell.dataset.t || 0));
-      tooltip.querySelector('[data-home-activity-tooltip-label]').textContent = 'tokens';
+      tooltip.querySelector('[data-home-activity-tooltip-label]').textContent = t('dashboard.heatmap.tokens').toLowerCase();
       tooltip.querySelector('[data-home-activity-tooltip-date]').textContent = cell.dataset.d || '';
     }
     tooltip.dataset.visible = 'true';
@@ -5250,18 +5485,21 @@ function renderHomeTrendsModule() {
   return module;
 }
 
-// Compact card for the Potluck gateway's tunnel URL + dashboard password,
-// read from the 'potluck' device record in the synced stats (fields are
-// absent on older Potluck versions, in which case the card stays hidden).
+// Compact card for the Potluck gateway's tunnel URL + API key, read from
+// the 'potluck' device record in the synced stats (fields are absent on older
+// Potluck versions, in which case the card stays hidden).
 function renderPotluckGatewayCard() {
   const gatewayState = state.potluckGateway;
   const devices = Array.isArray(state.stats?.devices) ? state.stats.devices : [];
   const potluck = devices.find((device) => device?.deviceId === 'potluck');
   const tunnel = potluck?.tunnel && typeof potluck.tunnel === 'object' ? potluck.tunnel : null;
-  const password = typeof potluck?.dashboardPassword === 'string' && potluck.dashboardPassword ? potluck.dashboardPassword : '';
   const apiKey = potluck?.apiKey && typeof potluck.apiKey === 'object' ? potluck.apiKey : null;
-  if (!gatewayState && !tunnel && !password && !apiKey) return null;
-  const tunnelUrl = tunnel?.enabled ? (tunnel.tunnelUrl || tunnel.publicUrl || '') : '';
+  // The gateway card only shows actionable content: status, tunnel URL, or API key.
+  // Dashboard password is intentionally not rendered here (it belongs in settings).
+  if (!gatewayState && !tunnel && !apiKey) return null;
+  // Match Potluck's Web endpoint page exactly: prefer the stable public
+  // abc-tunnel.us address and fall back to the direct Quick Tunnel URL.
+  const tunnelUrl = tunnel?.enabled ? (tunnel.publicUrl || tunnel.tunnelUrl || '') : '';
   const card = document.createElement('section');
   card.className = 'home-module potluck-gateway-card';
   const head = document.createElement('div');
@@ -5308,7 +5546,7 @@ function renderPotluckGatewayCard() {
   }
   const body = document.createElement('div');
   body.className = 'home-module-body potluck-gateway-body';
-  // Tunnel URL
+  // Tunnel URL with a dedicated copy button.
   if (tunnel) {
     const tunnelRow = document.createElement('div');
     tunnelRow.className = 'potluck-gateway-row';
@@ -5327,6 +5565,16 @@ function renderPotluckGatewayCard() {
       url.textContent = tunnelUrl;
       url.title = tunnelUrl;
       tunnelRow.append(url);
+      const copyUrl = document.createElement('button');
+      copyUrl.type = 'button';
+      copyUrl.className = 'potluck-gateway-copy-url';
+      copyUrl.textContent = t('home.gateway.copyUrl');
+      copyUrl.title = t('home.gateway.copyUrl');
+      copyUrl.addEventListener('click', (event) => {
+        event.stopPropagation();
+        copyToClipboard(tunnelUrl, copyUrl);
+      });
+      tunnelRow.append(copyUrl);
     }
     body.append(tunnelRow);
   }
@@ -5602,9 +5850,9 @@ function streamFailureText(failure) {
 }
 
 function statusTextFor(mode, connected) {
-  if (mode === 'sync') return connected ? 'Live' : 'Offline';
-  if (mode === 'local') return connected ? 'Local' : 'Collecting…';
-  return 'Starting…';
+  if (mode === 'sync') return connected ? t('status.connection.live') : t('status.connection.offline');
+  if (mode === 'local') return connected ? t('status.connection.local') : t('status.connection.collecting');
+  return t('status.connection.starting');
 }
 
 function liveDotTitle(mode, connected) {
@@ -5613,8 +5861,8 @@ function liveDotTitle(mode, connected) {
     const reason = streamFailureText(state.streamFailure);
     return reason ? `${t('status.hubStreamOffline')}: ${reason}` : t('status.hubStreamOffline');
   }
-  if (mode === 'local') return connected ? 'Local collector running' : 'Local collector starting…';
-  return 'Idle';
+  if (mode === 'local') return connected ? t('status.connection.localRunning') : t('status.connection.localStarting');
+  return t('status.connection.idle');
 }
 
 function setLiveDot(connected) {
@@ -6847,8 +7095,24 @@ function hiddenHomeLimitProviderSet() {
   return new Set(hidden);
 }
 
+// Comma-joined account row keys (providerId:identity, same shape as
+// accountConnectionRowKey) the user pinned for the home limits module.
+function pinnedHomeLimitAccountSet() {
+  const raw = String(state.settings?.pinnedHomeLimitAccounts || '');
+  return new Set(raw.split(',').map((key) => key.trim()).filter(Boolean));
+}
+
+async function onHomeLimitAccountPinToggle(pinKey) {
+  const pinned = pinnedHomeLimitAccountSet();
+  if (pinned.has(pinKey)) pinned.delete(pinKey);
+  else pinned.add(pinKey);
+  await saveSettings({ pinnedHomeLimitAccounts: Array.from(pinned).join(',') });
+}
+
 function homeLimitProviderOrderValue() {
-  return state.settings?.homeLimitProviderOrder || state.settings?.limitProviderOrder;
+  // Home and the limits page share one order now; homeLimitProviderOrder is
+  // only kept for reading old settings before this unification.
+  return state.settings?.limitProviderOrder;
 }
 
 function viewLabel(view) {
@@ -6895,6 +7159,7 @@ function preferenceListForKind(kind) {
   if (kind === 'homeModule') return document.getElementById('homeSettingsList');
   if (kind === 'homeLimitProvider') return document.getElementById('homeLimitProviderList');
   if (kind === 'homeLive') return els.homePanel;
+  if (kind === 'limitProviderLive') return els.limitsPanel;
   if (kind === 'settingsSection') return els.settingsPanel;
   if (kind === 'viewLive') return els.viewSwitcher?.querySelector('#viewSwitcherMenu');
   return els.limitProviderCheckboxes;
@@ -6928,7 +7193,9 @@ function preferenceRows(kind) {
                 ? '.settings-collapsible-group[data-settings-section]'
                 : kind === 'viewLive'
                   ? '.view-switcher-menu-item[data-view]'
-                  : '.limit-provider-row[data-provider]';
+                  : kind === 'limitProviderLive'
+                    ? ':scope > [data-provider]'
+                    : '.limit-provider-row[data-provider]';
   return Array.from(list?.querySelectorAll(selector) || []);
 }
 
@@ -7235,7 +7502,7 @@ function renderHomeLimitProviderList() {
   const providers = limitProviderOrderApi
     .orderedLimitProviders(LIMIT_PROVIDERS, homeLimitProviderOrderValue())
     .filter(({ id }) => enabled.has(id));
-  const hasCustomOrder = Boolean(state.settings?.homeLimitProviderOrder);
+  const hasCustomOrder = Boolean(state.settings?.limitProviderOrder);
   const statusLabel = document.createElement('label');
   statusLabel.className = 'checkbox-label home-limit-status-setting';
   const statusInput = document.createElement('input');
@@ -7245,33 +7512,6 @@ function renderHomeLimitProviderList() {
   statusText.textContent = t('settings.home.showLimitBars');
   statusInput.addEventListener('change', () => void saveSettings({ showHomeLimitBars: statusInput.checked }));
   statusLabel.append(statusInput, statusText);
-  const providerNamesLabel = document.createElement('label');
-  providerNamesLabel.className = 'checkbox-label home-limit-status-setting';
-  const providerNamesInput = document.createElement('input');
-  providerNamesInput.type = 'checkbox';
-  const providerNamesRequired = state.settings?.showToolIcons === false;
-  providerNamesInput.checked = providerNamesRequired || state.settings?.showHomeLimitProviderNames === true;
-  providerNamesInput.disabled = providerNamesRequired;
-  const providerNamesText = document.createElement('span');
-  providerNamesText.textContent = t('settings.home.showLimitProviderNames');
-  const providerNamesCopy = document.createElement('span');
-  providerNamesCopy.className = 'home-limit-provider-names-copy';
-  providerNamesCopy.append(providerNamesText);
-  if (providerNamesRequired) {
-    const requiredReason = t('settings.home.providerNamesRequiredWithoutIcons');
-    const requiredReasonText = document.createElement('span');
-    requiredReasonText.id = 'homeLimitProviderNamesReason';
-    requiredReasonText.className = 'home-limit-provider-names-reason';
-    requiredReasonText.textContent = requiredReason;
-    providerNamesCopy.append(requiredReasonText);
-    providerNamesLabel.title = requiredReason;
-    providerNamesInput.setAttribute('aria-describedby', requiredReasonText.id);
-  }
-  providerNamesInput.addEventListener('change', async () => {
-    await saveSettings({ showHomeLimitProviderNames: providerNamesInput.checked });
-    renderHomeIfVisible();
-  });
-  providerNamesLabel.append(providerNamesInput, providerNamesCopy);
   const countLabel = document.createElement('label');
   countLabel.className = 'settings-item home-limit-account-count-setting';
   const countText = document.createElement('span');
@@ -7283,10 +7523,10 @@ function renderHomeLimitProviderList() {
   const countInput = document.createElement('input');
   countInput.type = 'number';
   countInput.min = '1';
-  countInput.max = '12';
+  countInput.max = '50';
   countInput.step = '1';
   countInput.inputMode = 'numeric';
-  countInput.value = String(state.settings?.homeLimitAccountCount ?? 3);
+  countInput.value = String(state.settings?.homeLimitAccountCount ?? 20);
   countInput.addEventListener('change', async () => {
     await saveSettings({ homeLimitAccountCount: Number(countInput.value) });
     renderHomeIfVisible();
@@ -7320,7 +7560,7 @@ function renderHomeLimitProviderList() {
   showAll.addEventListener('click', () => void showAllHomeLimitProviders());
   headerActions.append(reset, showAll);
   header.append(note, headerActions);
-  wrap.append(statusLabel, providerNamesLabel, countLabel, header);
+  wrap.append(statusLabel, countLabel, header);
   for (const { id, label, settingsLabel } of providers) {
     const isHidden = hidden.has(id);
     const row = document.createElement('div');
@@ -7968,6 +8208,8 @@ function appendAccountConnectionDetails(card, providerId, row, connectionKey, su
   }
   panel.append(windows);
 
+  appendAccountConnectionCredentialPanel(panel, providerId, row);
+
   const error = row?.error;
   const errorText = String(error?.safeDetail || error?.code || error?.category || '').trim();
   if (errorText || error?.retryAt) {
@@ -7981,6 +8223,199 @@ function appendAccountConnectionDetails(card, providerId, row, connectionKey, su
   }
   card.append(panel);
   return detailId;
+}
+
+function providerAccountSettingsGroupId(providerId) {
+  return providerId === 'opencode' ? 'opencodeCookieGroup' : `${providerId}AccountGroup`;
+}
+
+function accountConnectionCredentialStatusKey(providerId, row) {
+  if (!monitorLocalCredentialsConfigured(providerId)) {
+    return 'settings.accounts.connections.credentials.notConfigured';
+  }
+  const status = String(row?.connectionStatus || row?.status || '').trim();
+  if (status === 'unauthorized') return 'settings.accounts.connections.credentials.invalid';
+  if (status === 'error' || status === 'unavailable' || status === 'rateLimited') {
+    return 'settings.accounts.connections.credentials.needsAttention';
+  }
+  return 'settings.accounts.connections.credentials.configured';
+}
+
+function appendAccountConnectionCredentialPanel(panel, providerId, row) {
+  if (limitProviderSummaryApi.sourceBucket(row) !== 'monitor') return;
+  if (!providerAccountSettingsEl(providerId)) return;
+  const section = document.createElement('div');
+  section.className = 'account-connection-credential-panel';
+  const heading = document.createElement('strong');
+  heading.className = 'account-connection-credential-title';
+  heading.textContent = t('settings.accounts.connections.credentials.title');
+  const status = document.createElement('div');
+  status.className = 'account-connection-credential-status';
+  status.textContent = t(accountConnectionCredentialStatusKey(providerId, row));
+  const actions = document.createElement('div');
+  actions.className = 'account-connection-credential-actions';
+  const manage = document.createElement('button');
+  manage.type = 'button';
+  manage.textContent = t('settings.accounts.connections.credentials.manage');
+  manage.addEventListener('click', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    focusProviderAccountSettings(providerId);
+  });
+  actions.append(manage);
+  section.append(heading, status, actions);
+  panel.append(section);
+}
+
+function monitorLocalCredentialsConfigured(providerId) {
+  if (!state.settings) return false;
+  switch (providerId) {
+    case 'claude':
+      return Boolean(state.settings.claudeWebCookieConfigured);
+    case 'codex':
+      return (state.settings.codexManagedAccounts || []).length > 0;
+    case 'cursor':
+      return Boolean(state.cursorAccount.status?.loggedIn) && !state.cursorAccount.status?.expired;
+    case 'opencode':
+      return (state.opencodeProfileCount || 0) > 0;
+    case 'openrouter':
+      return (state.openrouterProfileCount || 0) > 0;
+    case 'thirdparty':
+      return (state.thirdPartyProfileCount || 0) > 0;
+    case 'deepseek':
+      return Boolean(state.settings.deepseekApiKeyConfigured);
+    case 'minimax':
+      return Boolean(state.settings.minimaxApiKeyConfigured);
+    case 'mimo':
+      return (state.settings.mimoManagedAccounts || []).length > 0;
+    case 'copilot':
+      return Boolean(state.settings.copilotApiTokenConfigured);
+    default: {
+      const config = externalLimitAccountConfig[providerId];
+      if (config) return Boolean(state.settings[config.configuredKey]);
+      if (POTLUCK_UNIQUE_ACCOUNT_PROVIDERS.includes(providerId)) {
+        return potluckProviderStatus(providerId)?.status === 'ok';
+      }
+      return false;
+    }
+  }
+}
+
+function providerConnectionRows(providerId) {
+  return (state.stats?.limits?.providers || []).filter((row) => row.provider === providerId);
+}
+
+function shouldShowAccountCredentialsGroup(providerId) {
+  if (!providerAccountSettingsEl(providerId)) return false;
+  if (state.accountCredentialsFocusProvider === providerId) return true;
+  if (POTLUCK_UNIQUE_ACCOUNT_PROVIDERS.includes(providerId)) {
+    return potluckProviderStatus(providerId)?.status === 'ok';
+  }
+  const enabled = enabledLimitProviderSet();
+  if (!enabled.has(providerId)) return false;
+  const connections = providerConnectionRows(providerId);
+  const configured = monitorLocalCredentialsConfigured(providerId);
+  const hasMonitorConnection = connections.some(
+    (row) => limitProviderSummaryApi.sourceBucket(row) === 'monitor'
+  );
+  if (configured || hasMonitorConnection) return true;
+  if (connections.length === 0) return true;
+  const potluckOnly = connections.length > 0
+    && connections.every((row) => limitProviderSummaryApi.sourceBucket(row) === 'potluck');
+  return !potluckOnly;
+}
+
+function accountCredentialsLegacyExpandedValue(connectionCount) {
+  if (state.accountCredentialsLegacyExpanded !== null) {
+    return Boolean(state.accountCredentialsLegacyExpanded);
+  }
+  return connectionCount === 0;
+}
+
+function setAccountCredentialsLegacyExpanded(expanded, explicit = true) {
+  if (explicit) state.accountCredentialsLegacyExpanded = Boolean(expanded);
+  const details = document.getElementById('accountCredentialsLegacyDetails');
+  const toggle = document.getElementById('accountCredentialsLegacyToggle');
+  if (!details || !toggle) return;
+  const connectionCount = Array.isArray(state.stats?.limits?.providers)
+    ? state.stats.limits.providers.length
+    : 0;
+  const next = accountCredentialsLegacyExpandedValue(connectionCount);
+  details.classList.toggle('hidden', !next);
+  toggle.setAttribute('aria-expanded', next ? 'true' : 'false');
+}
+
+function expandProviderAccountSettings(providerId) {
+  if (externalLimitAccountConfig[providerId]) {
+    setExternalAccountExpanded(providerId, true);
+    return;
+  }
+  const expanders = {
+    codex: () => setCodexAccountExpanded(true),
+    cursor: () => setCursorAccountExpanded(true),
+    opencode: () => setOpencodeCookieExpanded(true),
+    openrouter: () => setOpenrouterAccountExpanded(true),
+    thirdparty: () => setThirdPartyAccountExpanded(true),
+    deepseek: () => setDeepseekAccountExpanded(true),
+    minimax: () => setMinimaxAccountExpanded(true),
+    mimo: () => setMimoAccountExpanded(true),
+    copilot: () => setCopilotAccountExpanded(true)
+  };
+  if (expanders[providerId]) {
+    expanders[providerId]();
+    return;
+  }
+  setAccountGroupExpanded(providerId, true);
+}
+
+function renderAccountCredentialsLegacy() {
+  const wrapper = document.getElementById('accountCredentialsLegacy');
+  const summaryEl = els.accountCredentialsLegacySummary;
+  const revealBtn = els.accountCredentialsLegacyReveal;
+  if (!wrapper) return;
+
+  const connectionCount = Array.isArray(state.stats?.limits?.providers)
+    ? state.stats.limits.providers.length
+    : 0;
+  let visibleCount = 0;
+  let configuredCount = 0;
+
+  for (const providerId of ACCOUNT_CREDENTIAL_PROVIDER_IDS) {
+    const group = providerAccountSettingsEl(providerId);
+    if (!group) continue;
+    const visible = shouldShowAccountCredentialsGroup(providerId);
+    group.classList.toggle('hidden', !visible);
+    if (visible) {
+      visibleCount += 1;
+      if (monitorLocalCredentialsConfigured(providerId)) configuredCount += 1;
+    }
+  }
+
+  const expanded = accountCredentialsLegacyExpandedValue(connectionCount);
+  setAccountCredentialsLegacyExpanded(expanded, false);
+  wrapper.classList.toggle('hidden', visibleCount === 0);
+
+  if (summaryEl) {
+    summaryEl.textContent = visibleCount === 0
+      ? t('settings.accounts.credentials.hidden')
+      : t('settings.accounts.credentials.summary', {
+        visible: visibleCount,
+        configured: configuredCount
+      });
+  }
+  if (revealBtn) {
+    const showReveal = connectionCount > 0 && visibleCount > 0 && !expanded;
+    revealBtn.classList.toggle('hidden', !showReveal);
+  }
+
+  if (state.accountCredentialsFocusProvider) {
+    const focusId = state.accountCredentialsFocusProvider;
+    if (shouldShowAccountCredentialsGroup(focusId)) {
+      expandProviderAccountSettings(focusId);
+      providerAccountSettingsEl(focusId)?.scrollIntoView({ block: 'nearest' });
+    }
+    state.accountCredentialsFocusProvider = '';
+  }
 }
 
 function renderAccountConnectionDirectory() {
@@ -8060,11 +8495,7 @@ function renderAccountConnectionDirectory() {
       toggleHint.className = 'account-connection-entry-toggle-hint';
       toggleHint.textContent = t(detailOpen ? 'settings.accounts.connections.hideDetails' : 'settings.accounts.connections.showDetails');
       titleToggle.append(title, toggleHint);
-      titleToggle.addEventListener('click', () => {
-        if (detailOpen) state.accountConnectionDetailsOpen.delete(connectionKey);
-        else state.accountConnectionDetailsOpen.add(connectionKey);
-        renderAccountConnectionDirectory();
-      });
+      titleToggle.addEventListener('click', () => toggleAccountConnectionDetails(connectionKey));
       card.append(titleToggle);
 
       const meta = document.createElement('div');
@@ -8122,45 +8553,7 @@ function renderAccountConnectionDirectory() {
       viewQuota.textContent = t('settings.accounts.connections.viewQuota');
       viewQuota.addEventListener('click', () => focusLimitProviderSettings(providerId));
       actions.append(viewQuota);
-      const sourceBucket = limitProviderSummaryApi.sourceBucket(connection);
-      if (sourceBucket !== 'potluck') {
-        const refresh = document.createElement('button');
-        refresh.type = 'button';
-        const refreshBusy = state.accountConnectionRefreshBusy.has(connectionKey);
-        refresh.disabled = refreshBusy;
-        refresh.textContent = t(refreshBusy ? 'settings.accounts.connections.refreshing' : 'settings.accounts.connections.refresh');
-        refresh.addEventListener('click', async (event) => {
-          event.preventDefault();
-          event.stopPropagation();
-          if (state.accountConnectionRefreshBusy.has(connectionKey)) return;
-          state.accountConnectionRefreshBusy.add(connectionKey);
-          renderAccountConnectionDirectory();
-          try {
-            await refreshStats({
-              force: true,
-              feedback: true,
-              limitScope: accountConnectionRefreshScope(providerId, connection)
-            });
-          } finally {
-            state.accountConnectionRefreshBusy.delete(connectionKey);
-            renderAccountConnectionDirectory();
-          }
-        });
-        actions.append(refresh);
-      }
-      if (sourceBucket === 'potluck') {
-        const manage = document.createElement('button');
-        manage.type = 'button';
-        manage.textContent = t('settings.limits.manageInPotluck');
-        manage.addEventListener('click', () => window.tokenMonitor.potluckGateway?.openWeb?.());
-        actions.append(manage);
-      } else if (providerAccountSettingsEl(providerId)) {
-        const edit = document.createElement('button');
-        edit.type = 'button';
-        edit.textContent = t('settings.limits.editInAccounts');
-        edit.addEventListener('click', () => focusProviderAccountSettings(providerId));
-        actions.append(edit);
-      }
+      appendLimitConnectionRefreshActions(actions, providerId, connection, index);
       card.append(actions);
       connectionList.append(card);
     });
@@ -8673,14 +9066,16 @@ function appendQuotaForecastPanels(card, row, archive) {
 }
 
 function providerAccountSettingsEl(providerId) {
-  return document.getElementById(`${providerId}AccountGroup`);
+  return document.getElementById(providerAccountSettingsGroupId(providerId));
 }
 
 function focusProviderAccountSettings(providerId) {
   const group = providerAccountSettingsEl(providerId);
   if (!group) return false;
+  state.accountCredentialsFocusProvider = providerId;
+  state.accountCredentialsLegacyExpanded = true;
   setSettingsSectionExpanded('accounts', true);
-  group.scrollIntoView({ block: 'nearest' });
+  renderAccountCredentialsLegacy();
   return true;
 }
 
@@ -8713,12 +9108,7 @@ function appendLimitProviderConnectionCard(details, row, index, rows, providerId
   const titleHint = document.createElement('span');
   titleHint.textContent = t(detailOpen ? 'settings.accounts.connections.hideDetails' : 'settings.accounts.connections.showDetails');
   title.append(titleText, titleHint);
-  title.addEventListener('click', () => {
-    if (detailOpen) state.accountConnectionDetailsOpen.delete(connectionKey);
-    else state.accountConnectionDetailsOpen.add(connectionKey);
-    renderLimitProviderCheckboxes();
-    renderAccountConnectionDirectory();
-  });
+  title.addEventListener('click', () => toggleAccountConnectionDetails(connectionKey));
   card.append(title);
   const source = document.createElement('div');
   source.className = 'limit-provider-connection-meta';
@@ -8744,54 +9134,11 @@ function appendLimitProviderConnectionCard(details, row, index, rows, providerId
     card.append(line);
   }
   appendQuotaForecastPanels(card, row, state.quotaArchive || emptyQuotaArchive());
-  appendAccountConnectionDetails(card, providerId, row, connectionKey, 'limits');
   const actions = document.createElement('div');
   actions.className = 'limit-provider-connection-actions';
-  const refresh = document.createElement('button');
-  refresh.type = 'button';
-  const refreshBusy = state.accountConnectionRefreshBusy.has(connectionKey);
-  refresh.disabled = refreshBusy;
-  refresh.textContent = t(refreshBusy ? 'settings.accounts.connections.refreshing' : 'settings.accounts.connections.refresh');
-  refresh.addEventListener('click', async (event) => {
-    event.preventDefault();
-    event.stopPropagation();
-    if (state.accountConnectionRefreshBusy.has(connectionKey)) return;
-    state.accountConnectionRefreshBusy.add(connectionKey);
-    renderLimitProviderCheckboxes();
-    try {
-      await refreshStats({
-        force: true,
-        feedback: true,
-        limitScope: accountConnectionRefreshScope(providerId, row)
-      });
-    } finally {
-      state.accountConnectionRefreshBusy.delete(connectionKey);
-      renderLimitProviderCheckboxes();
-    }
-  });
-  actions.append(refresh);
-  if (limitProviderSummaryApi.sourceBucket(row) === 'potluck') {
-    const manage = document.createElement('button');
-    manage.type = 'button';
-    manage.textContent = t('settings.limits.manageInPotluck');
-    manage.addEventListener('click', (event) => {
-      event.preventDefault();
-      event.stopPropagation();
-      window.tokenMonitor.potluckGateway?.openWeb?.();
-    });
-    actions.append(manage);
-  } else if (providerAccountSettingsEl(providerId)) {
-    const edit = document.createElement('button');
-    edit.type = 'button';
-    edit.textContent = t('settings.limits.editInAccounts');
-    edit.addEventListener('click', (event) => {
-      event.preventDefault();
-      event.stopPropagation();
-      focusProviderAccountSettings(providerId);
-    });
-    actions.append(edit);
-  }
+  appendLimitConnectionRefreshActions(actions, providerId, row, index, (rows || []).length > 1);
   card.append(actions);
+  appendAccountConnectionDetails(card, providerId, row, connectionKey, 'limits');
   details.append(card);
 }
 
@@ -9010,21 +9357,21 @@ async function onHomeLimitProviderVisibilityToggle(providerId) {
 }
 
 async function onHomeLimitProviderMove(providerId, direction) {
-  const next = limitProviderOrderApi.moveLimitProvider(homeLimitProviderOrderValue(), LIMIT_PROVIDERS, providerId, direction);
-  await saveSettings({ homeLimitProviderOrder: next });
+  const next = limitProviderOrderApi.moveLimitProvider(state.settings?.limitProviderOrder, LIMIT_PROVIDERS, providerId, direction);
+  await saveSettings({ limitProviderOrder: next });
   renderHomeIfVisible();
 }
 
 async function onHomeLimitProviderReorder(providerId, targetIndex) {
-  const current = limitProviderOrderApi.normalizeLimitProviderOrder(homeLimitProviderOrderValue(), LIMIT_PROVIDERS).join(',');
-  const next = limitProviderOrderApi.reorderLimitProvider(homeLimitProviderOrderValue(), LIMIT_PROVIDERS, providerId, targetIndex);
+  const current = limitProviderOrderApi.normalizeLimitProviderOrder(state.settings?.limitProviderOrder, LIMIT_PROVIDERS).join(',');
+  const next = limitProviderOrderApi.reorderLimitProvider(state.settings?.limitProviderOrder, LIMIT_PROVIDERS, providerId, targetIndex);
   if (next === current) return;
-  await saveSettings({ homeLimitProviderOrder: next });
+  await saveSettings({ limitProviderOrder: next });
   renderHomeIfVisible();
 }
 
 async function resetHomeLimitProviderOrder() {
-  await saveSettings({ homeLimitProviderOrder: '' });
+  await saveSettings({ limitProviderOrder: '', homeLimitProviderOrder: '' });
   renderHomeIfVisible();
 }
 
@@ -9088,8 +9435,8 @@ async function onPreferenceOrderCommit(kind, order, id) {
     return;
   }
   if (kind === 'homeLimitProvider') {
-    const current = limitProviderOrderApi.normalizeLimitProviderOrder(homeLimitProviderOrderValue(), LIMIT_PROVIDERS).join(',');
-    if (value !== current) await saveSettings({ homeLimitProviderOrder: value });
+    const current = limitProviderOrderApi.normalizeLimitProviderOrder(state.settings?.limitProviderOrder, LIMIT_PROVIDERS).join(',');
+    if (value !== current) await saveSettings({ limitProviderOrder: value });
     return;
   }
   if (kind === 'statusProvider') {
@@ -9102,6 +9449,14 @@ async function onPreferenceOrderCommit(kind, order, id) {
     const full = viewDisplayPreferencesApi.normalizeViewDisplayOrder(effectiveViewDisplayOrderValue(), VIEW_DISPLAY_OPTIONS);
     const next = preferenceDragSortApi.mergeVisibleOrderIntoFull(full, order).join(',');
     if (next !== full.join(',')) await saveSettings({ viewDisplayOrder: next });
+    return;
+  }
+  if (kind === 'limitProviderLive') {
+    // The limits page only lists enabled providers; fold the visible drag order
+    // back into the full order so disabled providers keep their positions.
+    const full = limitProviderOrderApi.normalizeLimitProviderOrder(state.settings?.limitProviderOrder, LIMIT_PROVIDERS);
+    const next = preferenceDragSortApi.mergeVisibleOrderIntoFull(full, order).join(',');
+    if (next !== full.join(',')) await saveSettings({ limitProviderOrder: next });
     return;
   }
   if (kind === 'settingsSection') {
@@ -11368,8 +11723,8 @@ const externalLimitAccountConfig = {
     pendingKey: 'kimiPendingCheckSince'
   },
   ollama: {
-    configuredKey: 'ollamaCookieConfigured',
-    sourceKey: 'ollamaCookieSource',
+    configuredKey: 'ollamaCredentialConfigured',
+    sourceKey: 'ollamaCredentialSource',
     pendingKey: 'ollamaPendingCheckSince'
   }
 };
@@ -11386,6 +11741,40 @@ function clearDisabledLimitProviderPendingChecks(enabledProviders) {
 function timestampMs(value) {
   const parsed = Date.parse(value || '');
   return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function potluckProviderStatuses(providerName) {
+  const normalized = String(providerName || '').trim().toLowerCase();
+  const matches = [];
+  for (const device of (state.stats?.devices || [])) {
+    if (String(device?.deviceId || '') !== 'potluck') continue;
+    for (const provider of (device?.limits?.providers || [])) {
+      if (String(provider?.provider || '').trim().toLowerCase() !== normalized) continue;
+      matches.push({ ...provider, sourceDeviceId: 'potluck' });
+    }
+  }
+  if (matches.length === 0) {
+    for (const provider of (state.stats?.limits?.providers || [])) {
+      if (provider?.sourceDeviceId !== 'potluck') continue;
+      if (String(provider?.provider || '').trim().toLowerCase() !== normalized) continue;
+      matches.push(provider);
+    }
+  }
+  const byAccount = new Map();
+  for (const provider of matches) {
+    const key = String(
+      provider.accountKey
+      || provider.accountEmail
+      || provider.accountName
+      || provider.accountLabel
+      || `${provider.provider}:${provider.source}`
+    );
+    const previous = byAccount.get(key);
+    if (!previous || timestampMs(provider.updatedAt) >= timestampMs(previous.updatedAt)) {
+      byAccount.set(key, provider);
+    }
+  }
+  return [...byAccount.values()].sort((a, b) => timestampMs(b.updatedAt) - timestampMs(a.updatedAt));
 }
 
 function potluckProviderStatus(providerName) {
@@ -11440,8 +11829,11 @@ function externalProviderAccountLinked(providerName) {
   if (!config) return false;
   // Locally configured and verified.
   if (Boolean(state.settings?.[config.configuredKey]) && localProviderStatus(providerName)?.status === 'ok') return true;
-  // Or synced from Potluck as an active connection.
-  return potluckProviderStatus(providerName)?.status === 'ok';
+  // A Potluck Web connection remains linked even when its latest health check
+  // fails. Account existence and quota health are separate states.
+  return potluckProviderStatuses(providerName).some((provider) => (
+    provider.status !== 'notConfigured' && provider.status !== 'disabled'
+  ));
 }
 
 function markExternalProviderCheckPending(providerName) {
@@ -11581,7 +11973,7 @@ function kimiPlatformUrl() {
 }
 
 function ollamaPlatformUrl() {
-  return 'https://ollama.com/settings';
+  return 'https://ollama.com/settings/keys';
 }
 
 function ollamaValidationError(provider) {
@@ -11590,6 +11982,41 @@ function ollamaValidationError(provider) {
     return t('settings.ollama.validationRateLimited');
   }
   return t('settings.ollama.validationUnavailable');
+}
+
+function ollamaApiKeyValidationError(provider) {
+  if (provider?.status === 'unauthorized') return t('settings.ollama.validationInvalidApiKey');
+  if (provider?.status === 'rateLimited' || provider?.status === 'sourceRateLimited') {
+    return t('settings.ollama.validationRateLimited');
+  }
+  return t('settings.ollama.validationUnavailableApiKey');
+}
+
+function renderPotluckProviderAccounts(providerName, providers) {
+  const list = document.getElementById(`${providerName}PotluckAccountList`);
+  if (!list) return;
+  list.replaceChildren();
+  for (const provider of providers) {
+    const row = document.createElement('div');
+    row.className = `managed-account-row${provider.status === 'ok' ? '' : ' disabled'}`;
+    const dot = document.createElement('span');
+    dot.className = `potluck-conn-dot${provider.status === 'ok' ? ' active' : ''}`;
+    const main = document.createElement('div');
+    main.className = 'managed-account-main';
+    const identity = document.createElement('div');
+    identity.className = 'managed-account-email';
+    identity.textContent = provider.accountName
+      || provider.accountLabel
+      || provider.accountEmail
+      || provider.accountKey
+      || providerName;
+    const info = document.createElement('span');
+    info.className = 'managed-account-info';
+    info.textContent = translatedLimitStatusLabel(provider.status);
+    main.append(identity);
+    row.append(dot, main, info);
+    list.append(row);
+  }
 }
 
 function renderExternalProviderStatus(providerName) {
@@ -11612,6 +12039,9 @@ function renderExternalProviderStatus(providerName) {
   const enabled = limitProviderEnabled(providerName);
   const pending = enabled && Number(state[config.pendingKey] || 0) > 0;
   const linked = externalProviderAccountLinked(providerName);
+  const potluckAccounts = potluckProviderStatuses(providerName).filter((account) => (
+    account.status !== 'notConfigured' && account.status !== 'disabled'
+  ));
   if (providerName === 'ollama' && wasPending && !pending && linked) {
     setExternalAccountExpanded('ollama', false);
   }
@@ -11624,13 +12054,18 @@ function renderExternalProviderStatus(providerName) {
     if (siteInput) siteInput.value = state.settings?.qoderSite === 'cn' ? 'cn' : 'global';
     updateQoderUsagePageHint();
   }
-  const potluckLinked = !configured && linked && provider?.sourceDeviceId === 'potluck';
+  const labelInput = document.getElementById(`${providerName}AccountLabelInput`);
+  if (labelInput) labelInput.value = state.settings?.[`${providerName}AccountLabel`] || '';
+  const potluckLinked = potluckAccounts.length > 0;
+  renderPotluckProviderAccounts(providerName, potluckAccounts);
   setCursorStatusText(
     statusEl,
     pending
       ? t('settings.common.checking')
       : potluckLinked
-        ? t('settings.common.linkedFromPotluck')
+        ? (potluckAccounts.length > 1
+            ? t('settings.codex.nAccounts', { count: potluckAccounts.length })
+            : t('settings.common.linkedFromPotluck'))
         : apiKeyAccountStatusText(providerName, provider, configured, source, enabled)
   );
   manualPanel.classList.toggle('hidden', linked);
@@ -11649,7 +12084,6 @@ function renderPotluckUniqueAccountGroups() {
     if (!group || !statusEl) continue;
     const provider = potluckProviderStatus(providerId);
     const linked = provider?.status === 'ok';
-    group.classList.toggle('hidden', !linked);
     statusEl.textContent = linked
       ? t('settings.common.linkedFromPotluck')
       : t('settings.common.statusNotSet');
@@ -11660,6 +12094,7 @@ function renderPotluckUniqueAccountGroups() {
         || '—';
     }
   }
+  renderAccountCredentialsLegacy();
 }
 
 function setMinimaxAccountExpanded(expanded) {
@@ -13301,7 +13736,7 @@ function setupCursorAccountUI() {
       window.tokenMonitor.openExternal(ollamaPlatformUrl());
     });
     document.getElementById('ollamaLogoutButton').addEventListener('click', async () => {
-      await saveSettings({ ollamaCookie: '' });
+      await saveSettings({ ollamaCookie: '', ollamaApiKey: '' });
       clearExternalProviderCheckPending('ollama');
       clearExternalProviderPendingStatus('ollama');
       renderExternalProviderStatus('ollama');
@@ -13339,6 +13774,47 @@ function setupCursorAccountUI() {
           clearExternalProviderCheckPending('ollama');
           renderExternalProviderStatus('ollama');
           errorEl.textContent = t('settings.ollama.validationInvalid');
+          errorEl.classList.remove('hidden');
+          return;
+        }
+        input.value = '';
+        renderExternalProviderStatus('ollama');
+      } catch (err) {
+        clearExternalProviderCheckPending('ollama');
+        renderExternalProviderStatus('ollama');
+        errorEl.textContent = t('settings.ollama.saveFailed', { message: err.message });
+        errorEl.classList.remove('hidden');
+      }
+    });
+    document.getElementById('ollamaApiKeySubmit').addEventListener('click', async () => {
+      const input = document.getElementById('ollamaApiKeyInput');
+      const errorEl = document.getElementById('ollamaErrorMessage');
+      errorEl.classList.add('hidden');
+      if (!String(input.value || '').trim()) {
+        errorEl.textContent = t('settings.ollama.statusNotSet');
+        errorEl.classList.remove('hidden');
+        return;
+      }
+      try {
+        markExternalProviderCheckPending('ollama');
+        renderExternalProviderStatus('ollama');
+        const validation = await window.tokenMonitor.ollama.validateApiKey(input.value);
+        if (!validation?.ok) {
+          clearExternalProviderCheckPending('ollama');
+          renderExternalProviderStatus('ollama');
+          errorEl.textContent = ollamaApiKeyValidationError(validation);
+          errorEl.classList.remove('hidden');
+          return;
+        }
+        await saveSettings({
+          ollamaApiKey: input.value,
+          limitProviders: limitProviderSelectionIncluding('ollama'),
+          limitsEnabled: true
+        });
+        if (!state.settings?.ollamaApiKeyConfigured) {
+          clearExternalProviderCheckPending('ollama');
+          renderExternalProviderStatus('ollama');
+          errorEl.textContent = t('settings.ollama.validationInvalidApiKey');
           errorEl.classList.remove('hidden');
           return;
         }
@@ -13421,6 +13897,28 @@ function setupCursorAccountUI() {
         errorEl.textContent = t('settings.kimi.saveFailed', { message: err.message });
         errorEl.classList.remove('hidden');
       }
+    });
+
+    const kimiLabelInput = document.getElementById('kimiAccountLabelInput');
+    const kimiLabelSaveBtn = document.getElementById('kimiAccountLabelSave');
+    if (kimiLabelInput && kimiLabelSaveBtn) {
+      kimiLabelInput.value = state.settings?.kimiAccountLabel || '';
+      kimiLabelSaveBtn.addEventListener('click', async () => {
+        const next = String(kimiLabelInput.value || '').trim().slice(0, 64);
+        await saveSettings({ kimiAccountLabel: next });
+        await refreshStats({ force: true });
+      });
+    }
+  }
+
+  const ollamaLabelInput = document.getElementById('ollamaAccountLabelInput');
+  const ollamaLabelSaveBtn = document.getElementById('ollamaAccountLabelSave');
+  if (ollamaLabelInput && ollamaLabelSaveBtn) {
+    ollamaLabelInput.value = state.settings?.ollamaAccountLabel || '';
+    ollamaLabelSaveBtn.addEventListener('click', async () => {
+      const next = String(ollamaLabelInput.value || '').trim().slice(0, 64);
+      await saveSettings({ ollamaAccountLabel: next });
+      await refreshStats({ force: true });
     });
   }
 
@@ -13646,6 +14144,23 @@ function setupCursorAccountUI() {
   renderPotluckUniqueAccountGroups();
 }
 
+function setupAccountCredentialsLegacyUI() {
+  const toggle = document.getElementById('accountCredentialsLegacyToggle');
+  toggle?.addEventListener('click', () => {
+    const connectionCount = Array.isArray(state.stats?.limits?.providers)
+      ? state.stats.limits.providers.length
+      : 0;
+    state.accountCredentialsLegacyExpanded = !accountCredentialsLegacyExpandedValue(connectionCount);
+    renderAccountCredentialsLegacy();
+  });
+  els.accountCredentialsLegacyReveal?.addEventListener('click', () => {
+    state.accountCredentialsLegacyExpanded = true;
+    setSettingsSectionExpanded('accounts', true);
+    renderAccountCredentialsLegacy();
+    document.getElementById('accountCredentialsLegacy')?.scrollIntoView({ block: 'nearest' });
+  });
+}
+
 function initSettingsAnimationWrappers() {
   const selectors = [
     '.settings-section-details',
@@ -13697,6 +14212,9 @@ setupSettingsSections();
 try {
 setupCursorAccountUI();
 } catch (error) { console.error('[boot:setupCursorAccountUI]', error); }
+try {
+setupAccountCredentialsLegacyUI();
+} catch (error) { console.error('[boot:setupAccountCredentialsLegacyUI]', error); }
 try {
 setupCustomPricingUI();
 } catch (error) { console.error('[boot:setupCustomPricingUI]', error); }

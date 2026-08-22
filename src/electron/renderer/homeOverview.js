@@ -222,16 +222,26 @@
     colors = {},
     limit = 3,
     sort = 'remaining',
-    accountName
+    accountName,
+    pinnedAccountKeys = [],
+    pinKey
   } = {}) {
     const enabled = new Set((enabledProviderIds || []).map((id) => String(id || '').trim().toLowerCase()).filter(Boolean));
     const hidden = new Set((hiddenProviderIds || []).map((id) => String(id || '').trim().toLowerCase()).filter(Boolean));
+    const pinned = new Set((pinnedAccountKeys || []).map((key) => String(key || '').trim()).filter(Boolean));
     const byId = providerEntriesById(providers);
     const accounts = [];
     for (const { id: rawId, label } of providerOptions || []) {
       const id = String(rawId || '').trim().toLowerCase();
       if (!id || hidden.has(id) || (enabled.size > 0 && !enabled.has(id))) continue;
-      const providerEntries = byId.get(id) || [];
+      let providerEntries = byId.get(id) || [];
+      // Multi-account providers: when the user pinned one account for the home
+      // page, only that account shows — duplicate sources of the same account
+      // (e.g. Potluck Web + local collector) stop competing for the slot.
+      if (providerEntries.length > 1 && pinned.size > 0 && typeof pinKey === 'function') {
+        const pinnedEntries = providerEntries.filter((provider, index) => pinned.has(pinKey(provider, index, id)));
+        if (pinnedEntries.length > 0) providerEntries = pinnedEntries;
+      }
       providerEntries.forEach((provider, index) => {
         accounts.push({
           key: `${id}:${index}`,

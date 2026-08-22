@@ -12,15 +12,15 @@
       <header class="titlebar">
         <div>
           <div class="app-title"><span class="app-title-text">Potluck Monitor</span><span class="app-title-mark" aria-hidden="true">Σ</span><span id="liveDot" class="live-dot" title="Stream offline"></span><span class="app-title-measure" aria-hidden="true">Potluck Monitor</span></div>
-          <div id="status" class="status">Starting</div>
+          <div id="status" class="status" data-i18n="status.connection.starting">Starting</div>
         </div>
         <div class="title-controls">
           <nav class="tabs" aria-label="Period tabs">
             <span class="tab-indicator" aria-hidden="true"></span>
-            <button class="tab active" data-period="today">DAY</button>
-            <button class="tab" data-period="week">WEEK</button>
-            <button class="tab" data-period="month">MONTH</button>
-            <button class="tab" data-period="allTime">TOTAL</button>
+            <button class="tab active" data-period="today" data-i18n="home.period.day">DAY</button>
+            <button class="tab" data-period="week" data-i18n="home.period.week">WEEK</button>
+            <button class="tab" data-period="month" data-i18n="home.period.month">MONTH</button>
+            <button class="tab" data-period="allTime" data-i18n="home.period.total">TOTAL</button>
           </nav>
           <div class="actions-hotspot" title="Window controls"></div>
           <div class="window-actions">
@@ -147,7 +147,7 @@
                   <span id="currencyRateStatus" class="settings-note settings-item-desc currency-rate-status"></span>
                 </div>
                 <div id="currencyRateManualField" class="currency-rate-manual-field hidden">
-                  <span class="currency-rate-prefix">1 USD =</span>
+                  <span class="currency-rate-prefix" data-i18n="settings.currency.ratePrefix">1 USD =</span>
                   <input id="currencyRateOverrideInput" type="number" step="0.0001" min="0" />
                 </div>
               </div>
@@ -468,11 +468,11 @@
             <div class="settings-subgroup settings-limits-globals">
               <label class="settings-item"><span class="settings-item-text"><span class="settings-item-title" data-i18n="settings.limits.refresh">Local limits refresh</span></span>
                 <select id="limitsRefreshInput">
-                  <option value="60000">1 min</option>
-                  <option value="120000">2 min</option>
-                  <option value="300000">5 min</option>
-                  <option value="900000">15 min</option>
-                  <option value="1800000">30 min</option>
+                  <option value="60000" data-i18n="settings.limits.interval.1m">1 min</option>
+                  <option value="120000" data-i18n="settings.limits.interval.2m">2 min</option>
+                  <option value="300000" data-i18n="settings.limits.interval.5m">5 min</option>
+                  <option value="900000" data-i18n="settings.limits.interval.15m">15 min</option>
+                  <option value="1800000" data-i18n="settings.limits.interval.30m">30 min</option>
                 </select>
                 <span class="settings-note settings-item-desc" data-i18n="settings.limits.refreshNote">Applies to Monitor-local quota sources. Potluck-managed accounts refresh in Potluck Web.</span>
               </label>
@@ -515,7 +515,21 @@
               </div>
               <p class="settings-note account-connections-description" data-i18n="settings.accounts.connections.description">Every Connection appears here with its owner, source, quota status, and management entry. Credentials stay with their owner.</p>
               <div id="accountConnectionList" class="account-connection-list"></div>
+              <div class="account-connections-actions">
+                <button id="accountCredentialsLegacyReveal" type="button" class="account-credentials-reveal hidden" data-i18n="settings.accounts.credentials.reveal">Show Monitor-local credential forms</button>
+              </div>
             </div>
+            <div id="accountCredentialsLegacy" class="settings-subgroup account-credentials-legacy">
+              <button id="accountCredentialsLegacyToggle" class="settings-group-header cursor-settings-toggle" type="button" aria-expanded="false" aria-controls="accountCredentialsLegacyDetails">
+                <span data-i18n="settings.accounts.credentials.title">Monitor-local credentials</span>
+                <span class="cursor-settings-summary">
+                  <span id="accountCredentialsLegacySummary" class="settings-section-summary"></span>
+                  <span class="cursor-disclosure-icon" aria-hidden="true"></span>
+                </span>
+              </button>
+              <div id="accountCredentialsLegacyDetails" class="cursor-settings-details hidden">
+                <p class="settings-note account-credentials-description" data-i18n="settings.accounts.credentials.description">Use these forms only when a Connection is owned by Monitor on this device. Potluck-managed accounts stay in Potluck Web.</p>
+                <div id="accountCredentialsLegacyGroups" class="account-credentials-groups">
             <div id="claudeAccountGroup" class="settings-group cursor-account-group">
               <button id="claudeSettingsToggle" class="settings-group-header cursor-settings-toggle" type="button" aria-expanded="false" aria-controls="claudeSettingsDetails">
                 <span data-i18n="settings.claude.title">Claude Account</span>
@@ -750,6 +764,7 @@
                 </span>
               </button>
               <div id="zaiSettingsDetails" class="cursor-settings-details hidden">
+                <div id="zaiPotluckAccountList" class="managed-account-list"></div>
                 <div class="settings-actions">
                   <button id="zaiOpenBrowser" data-i18n="settings.zai.openBrowser">Open GLM Coding Plan</button>
                   <button id="zaiLogoutButton" class="hidden" data-i18n="settings.zai.clearApiKey">Clear key</button>
@@ -896,19 +911,37 @@
               <div id="ollamaSettingsDetails" class="cursor-settings-details hidden">
                 <div class="settings-actions">
                   <button id="ollamaOpenBrowser" data-i18n="settings.ollama.openBrowser">Open Ollama settings</button>
-                  <button id="ollamaLogoutButton" class="hidden" data-i18n="settings.ollama.clearCookie">Clear cookie</button>
+                  <button id="ollamaLogoutButton" class="hidden" data-i18n="settings.ollama.clearCredentials">Clear credentials</button>
                   <button id="ollamaRefreshButton" data-i18n="settings.common.refresh">Refresh</button>
                 </div>
                 <div id="ollamaManualPanel">
                   <p class="settings-note">
-                    <strong>1.</strong> <span data-i18n="settings.ollama.step1">Open Ollama settings in your browser (button above) and sign in.</span><br>
-                    <strong>2.</strong> <span data-i18n="settings.ollama.step2">Open DevTools (F12 or Cmd+Opt+I) -> Network, reload the page, then select the settings document request.</span><br>
-                    <strong>3.</strong> <span data-i18n="settings.ollama.step3">In Headers -> Request Headers, copy the full Cookie value.</span><br>
-                    <strong>4.</strong> <span data-i18n="settings.ollama.step4">Paste it below and click Save cookie.</span>
+                    <strong>1.</strong> <span data-i18n="settings.ollama.apiKeyStep1">Open the Ollama API keys page in your browser (button above) and create a key.</span><br>
+                    <strong>2.</strong> <span data-i18n="settings.ollama.apiKeyStep2">Paste it below and click Save key.</span>
                   </p>
-                  <textarea id="ollamaCookieInput" rows="3" spellcheck="false" placeholder="wos-session=..." data-i18n-placeholder="settings.ollama.cookiePlaceholder"></textarea>
+                  <input id="ollamaApiKeyInput" type="password" autocomplete="off" spellcheck="false" placeholder="Ollama API key" data-i18n-placeholder="settings.ollama.apiKeyPlaceholder">
                   <div class="settings-actions">
-                    <button id="ollamaCookieSubmit" data-i18n="settings.ollama.saveCookie">Save cookie</button>
+                    <button id="ollamaApiKeySubmit" data-i18n="settings.ollama.saveApiKey">Save key</button>
+                  </div>
+                  <details class="ollama-cookie-fallback">
+                    <summary data-i18n="settings.ollama.cookieFallback">Advanced: use a browser cookie instead</summary>
+                    <p class="settings-note">
+                      <strong>1.</strong> <span data-i18n="settings.ollama.step1">Open Ollama settings in your browser (button above) and sign in.</span><br>
+                      <strong>2.</strong> <span data-i18n="settings.ollama.step2">Open DevTools (F12 or Cmd+Opt+I) -> Network, reload the page, then select the settings document request.</span><br>
+                      <strong>3.</strong> <span data-i18n="settings.ollama.step3">In Headers -> Request Headers, copy the full Cookie value.</span><br>
+                      <strong>4.</strong> <span data-i18n="settings.ollama.step4">Paste it below and click Save cookie.</span>
+                    </p>
+                    <textarea id="ollamaCookieInput" rows="3" spellcheck="false" placeholder="wos-session=..." data-i18n-placeholder="settings.ollama.cookiePlaceholder"></textarea>
+                    <div class="settings-actions">
+                      <button id="ollamaCookieSubmit" data-i18n="settings.ollama.saveCookie">Save cookie</button>
+                    </div>
+                  </details>
+                  <div class="settings-row account-label-row">
+                    <label for="ollamaAccountLabelInput">
+                      <span data-i18n="settings.ollama.accountLabel">Display name (optional)</span>
+                      <input id="ollamaAccountLabelInput" type="text" spellcheck="false" autocomplete="off" placeholder="Ollama Pro" data-i18n-placeholder="settings.ollama.accountLabelPlaceholder" />
+                    </label>
+                    <button id="ollamaAccountLabelSave" data-i18n="settings.ollama.saveAccountLabel">Save name</button>
                   </div>
                 </div>
                 <div id="ollamaErrorMessage" class="settings-note error hidden"></div>
@@ -923,6 +956,7 @@
                 </span>
               </button>
               <div id="kimiSettingsDetails" class="cursor-settings-details hidden">
+                <div id="kimiPotluckAccountList" class="managed-account-list"></div>
                 <div class="settings-actions">
                   <button id="kimiOpenBrowser" data-i18n="settings.kimi.openBrowser">Open Kimi Code Console</button>
                   <button id="kimiLogoutButton" class="hidden" data-i18n="settings.kimi.clearApiKey">Clear key</button>
@@ -953,6 +987,13 @@
                       </div>
                     </div>
                   </details>
+                  <div class="settings-row account-label-row">
+                    <label for="kimiAccountLabelInput">
+                      <span data-i18n="settings.kimi.accountLabel">Display name (optional)</span>
+                      <input id="kimiAccountLabelInput" type="text" spellcheck="false" autocomplete="off" placeholder="Kimi personal" data-i18n-placeholder="settings.kimi.accountLabelPlaceholder" />
+                    </label>
+                    <button id="kimiAccountLabelSave" data-i18n="settings.kimi.saveAccountLabel">Save name</button>
+                  </div>
                 </div>
                 <div id="kimiErrorMessage" class="settings-note error hidden"></div>
               </div>
@@ -1256,6 +1297,9 @@
                 </div>
               </div>
             </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -1340,7 +1384,7 @@
       </section>
 
       <section class="total-panel">
-        <div class="label-row"><span>TOTAL TOKENS</span></div>
+        <div class="label-row"><span data-i18n="home.totalTokens">TOTAL TOKENS</span></div>
         <div class="total-number-row"><div id="totalTokens" class="total-number">0</div><div id="totalTokensCompact" class="total-compact hidden" aria-hidden="true"></div></div>
         <div id="cost" class="cost">$0.00</div>
       </section>

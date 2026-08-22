@@ -600,13 +600,30 @@ test('Claude limits render as one provider group with account subrows', () => {
 
 test('every multi-account Limits group uses its provider-localized account count', () => {
   const app = readRendererFile('app.js');
-  for (const provider of ['claude', 'codex', 'mimo', 'opencode', 'openrouter', 'thirdparty']) {
+  for (const provider of ['claude', 'codex', 'mimo', 'opencode', 'openrouter', 'thirdparty', 'kimi', 'zai', 'zaiteam', 'ollama']) {
     assert.match(
       app,
       new RegExp(`settings\\.${provider}\\.nAccounts`)
     );
   }
   assert.doesNotMatch(app, /settings\.limits\.nAccounts|accountCountText/);
+});
+
+test('Kimi, GLM, GLM Team, and Ollama limits render every account as a group subrow', () => {
+  const app = readRendererFile('app.js');
+  const renderLimits = functionBody(app, 'renderLimits', 'serviceStatusLabel');
+  const renderGroup = functionBody(app, 'renderNamedAccountGroup', 'opencodeAccountTitle');
+
+  assert.match(renderLimits, /id === 'kimi' \|\| id === 'zai' \|\| id === 'zaiteam' \|\| id === 'ollama'/);
+  assert.match(renderLimits, /renderNamedAccountGroup\(id, label, visibleProviders, color,/);
+  assert.match(renderLimits, /kimi: 'settings\.kimi\.nAccounts'/);
+  assert.match(renderLimits, /zai: 'settings\.zai\.nAccounts'/);
+  assert.match(renderLimits, /zaiteam: 'settings\.zaiteam\.nAccounts'/);
+  assert.match(renderLimits, /ollama: 'settings\.ollama\.nAccounts'/);
+  assert.match(renderGroup, /planText: t\(countKey, \{ count: providers\.length \}\)/);
+  assert.match(renderGroup, /limitAccountTitle\(id, provider, index, providers\)/);
+  assert.match(renderGroup, /accountRow: true/);
+  assert.match(renderGroup, /showIcon: false/);
 });
 
 test('tray primary-limit modes use the shared provider-aware resolver', () => {
@@ -892,11 +909,13 @@ test('Home uses explicit billing labels so Copilot Premium and Chat stay distinc
   const homeModule = functionBody(app, 'renderHomeLimitModule', 'renderHomeModelModule');
   const valueFormatter = functionBody(app, 'formatHomeLimitWindowValue', 'mimoTokenPlanWindowFromBalance');
 
-  assert.match(homeLabel, /if \(window\?\.kind === 'billing'\) \{/);
+  assert.match(homeLabel, /if \(window\?\.kind === 'billing' && explicitLabel\) return explicitLabel;/);
   assert.match(homeLabel, /limitProviderCompactWindowLabel\(providerId, window, visibleWindows\)/);
   assert.match(homeRows, /limitProviderCompactWindows\(provider, provider\.windows\)/);
-  assert.match(homeLabel, /const label = String\(window\?\.label \|\| ''\)\.trim\(\);/);
-  assert.match(homeLabel, /if \(label\) return label;/);
+  assert.match(homeLabel, /const explicitLabel = String\(window\?\.label \|\| ''\)\.trim\(\);/);
+  // Same-kind windows (Codex main quota vs. its Code Review bucket) fall back
+  // to the explicit label so the rows stay distinguishable.
+  assert.match(homeLabel, /visibleWindows\.filter\(\(entry\) => entry\?\.kind === window\.kind\)\.length > 1/);
   assert.match(homeLabel, /billing: 'home\.limit\.billing'/);
   // Balance windows arrive as real `billing` windows carrying their own label
   // ('Balance' / 'Token quota'), so the label branch above already covers them
@@ -933,7 +952,7 @@ test('DeepSeek main Limits row preserves the intentional month-spend balance met
 
   assert.match(renderProviderWindows, /\{ remainingPercent: creditsMeterPercent\(provider, null\) \},/);
   assert.match(renderProviderWindows, /balanceNode\.classList\.add\('limit-window-wide', 'limit-window-no-reset'\);/);
-  assert.match(renderProviderWindows, /const spendNode = limitWindowNode\('Spend', \{ showMeter: false \}, color, 0\.6,/);
+  assert.match(renderProviderWindows, /const spendNode = limitWindowNode\(t\('spend\.label'\), \{ showMeter: false \}, color, 0\.6,/);
   assert.doesNotMatch(renderProviderWindows, /Month \(since tracking\)/);
   assert.doesNotMatch(renderProviderWindows, /monthSinceTracking \? 'Month \(since tracking\)' : 'Month'/);
   // The month-spend denominator now lives in the shared balance module.
@@ -1004,7 +1023,7 @@ test('main Limits plan text shows failure status before account labels', () => {
   const app = readRendererFile('app.js');
   const planBody = functionBody(app, 'limitProviderPlan', 'configuredLimitProviderOrder');
 
-  assert.match(planBody, /if \(provider\?\.status && provider\.status !== 'ok' && !provider\.stale\) return limitStatusLabel\(provider\.status, false\);/);
+  assert.match(planBody, /if \(provider\?\.status && provider\.status !== 'ok' && !provider\.stale\) return translatedLimitStatusLabel\(provider\.status\);/);
   assert.match(planBody, /const label = String\(provider\?\.planLabel \|\| provider\?\.accountLabel \|\| ''\)\.trim\(\);/);
 });
 
@@ -1480,19 +1499,26 @@ test('Accounts settings expose a unified provider connection and quota directory
   const styles = readRendererFile('styles.css');
   const i18n = readRendererFile('i18n.js');
   const overview = html.indexOf('id="accountConnectionsOverview"');
+  const legacyWrapper = html.indexOf('id="accountCredentialsLegacy"');
   const legacyAccounts = html.indexOf('id="claudeAccountGroup"');
 
   assert.notEqual(overview, -1);
-  assert.ok(overview < legacyAccounts, 'the connection directory should lead the legacy credential groups');
+  assert.notEqual(legacyWrapper, -1);
+  assert.ok(overview < legacyWrapper, 'the connection directory should lead the legacy credential wrapper');
+  assert.ok(legacyWrapper < legacyAccounts, 'legacy credential groups should live inside the wrapper');
   assert.match(html, /id="accountConnectionList"/);
+  assert.match(html, /id="accountCredentialsLegacyGroups"/);
   assert.match(app, /function renderAccountConnectionDirectory\(\)/);
+  assert.match(app, /function renderAccountCredentialsLegacy\(\)/);
+  assert.match(app, /function shouldShowAccountCredentialsGroup\(/);
   assert.match(app, /limitProviderSummaryApi\.connectionsByProvider/);
   assert.match(app, /settings\.accounts\.connections\.viewQuota/);
   assert.match(app, /settings\.limits\.manageInPotluck/);
   assert.match(styles, /\.account-connections-overview/);
+  assert.match(styles, /\.account-credentials-legacy/);
   assert.match(styles, /\.account-connection-entry/);
   assert.match(i18n, /'settings\.accounts\.connections\.title'/);
-  assert.match(i18n, /'settings\.accounts\.connections\.description'/);
+  assert.match(i18n, /'settings\.accounts\.credentials\.title'/);
 });
 
 test('MiMo limits keep credits balance separate from Token Plan and settings show its amount', () => {
@@ -1529,10 +1555,55 @@ test('Connection fusion exposes expandable provider groups and detailed per-conn
   assert.match(i18n, /'settings\.accounts\.connections\.failure'/);
 });
 
-test('Limits and Accounts surfaces use distinct detail ids while sharing Connection state', () => {
+test('Connection detail panels surface Monitor credential status and management', () => {
   const app = readRendererFile('app.js');
+  const styles = readRendererFile('styles.css');
+  const i18n = readRendererFile('i18n.js');
+
+  assert.match(app, /function appendAccountConnectionCredentialPanel\(/);
+  assert.match(app, /function accountConnectionCredentialStatusKey\(/);
+  assert.match(app, /appendAccountConnectionCredentialPanel\(panel, providerId, row\)/);
+  assert.match(app, /limitProviderSummaryApi\.sourceBucket\(row\) !== 'monitor'/);
+  assert.match(app, /settings\.accounts\.connections\.credentials\.manage/);
+  assert.match(styles, /\.account-connection-credential-panel/);
+  assert.match(i18n, /'settings\.accounts\.connections\.credentials\.title'/);
+});
+
+test('Limits, Accounts, and Home surfaces use distinct detail ids while sharing Connection state', () => {
+  const app = readRendererFile('app.js');
+  const styles = readRendererFile('styles.css');
+  assert.match(app, /function refreshAccountConnectionSurfaces\(\)/);
+  assert.match(app, /function toggleAccountConnectionDetails\(/);
+  assert.match(app, /function renderLimitConnectionRow\(/);
   assert.match(app, /appendAccountConnectionDetails\(card, providerId, connection, connectionKey\)/);
   assert.match(app, /appendAccountConnectionDetails\(card, providerId, row, connectionKey, 'limits'\)/);
+  assert.match(app, /appendLimitConnectionActions\(wrapper, providerId, connection, index, 'home', \(connections \|\| \[\]\)\.length\)/);
+  assert.match(app, /\$\{surface\}-connection-detail-/);
   assert.match(app, /limits-connection-detail-/);
   assert.match(app, /surface = 'accounts'/);
+  assert.match(styles, /\.limit-connection-wrap/);
+  assert.match(styles, /\.limit-connection-actions/);
+});
+
+test('Limits page supports inline drag reorder and drops the redundant Potluck id list', () => {
+  const app = readRendererFile('app.js');
+  const styles = readRendererFile('styles.css');
+  assert.match(app, /kind: 'limitProviderLive'/);
+  assert.match(app, /node\.dataset\.provider = id/);
+  assert.match(app, /kind === 'limitProviderLive'[\s\S]*mergeVisibleOrderIntoFull/);
+  assert.doesNotMatch(app, /renderPotluckConnectionsSection/);
+  assert.doesNotMatch(app, /fetchPotluckConnections/);
+  assert.match(styles, /\.limit-head \.preference-order-handle/);
+  assert.doesNotMatch(styles, /\.potluck-connections/);
+});
+
+test('Limits rows expose a pin-to-top button next to the drag handle', () => {
+  const app = readRendererFile('app.js');
+  const styles = readRendererFile('styles.css');
+  const i18n = readRendererFile('i18n.js');
+  assert.match(app, /function createLimitProviderPinTopButton\(/);
+  assert.match(app, /head\.append\(createLimitProviderPinTopButton\(id, label\)\)/);
+  assert.match(app, /function onLimitProviderPinToTop\(/);
+  assert.match(styles, /\.limit-provider-pin-top/);
+  assert.match(i18n, /'settings\.limits\.pinToTop'/);
 });

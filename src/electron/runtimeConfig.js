@@ -39,8 +39,8 @@ const LIMIT_PROVIDER_SETTING_KEYS = Object.freeze({
   zaiteam: ['zaiTeamApiKey', 'zaiTeamOrganizationId', 'zaiTeamProjectId'],
   volcengine: ['volcengineAccessKeyId', 'volcengineSecretAccessKey', 'volcengineRegion'],
   qoder: ['qoderCookie', 'qoderSite'],
-  kimi: ['kimiApiKey', 'kimiWebAccessToken'],
-  ollama: ['ollamaCookie'],
+  kimi: ['kimiApiKey', 'kimiWebAccessToken', 'kimiAccountLabel'],
+  ollama: ['ollamaCookie', 'ollamaApiKey', 'ollamaAccountLabel'],
   codex: ['codexManagedAccounts'],
   mimo: ['mimoManagedAccounts'],
   thirdparty: ['thirdPartyProfiles']
@@ -107,7 +107,10 @@ function limitsConfigFromSettings(settings = {}, context = {}) {
     qoderSite: settings.qoderSite || 'global',
     kimiApiKey: settings.kimiApiKey || '',
     kimiWebAccessToken: settings.kimiWebAccessToken || '',
+    kimiAccountLabel: settings.kimiAccountLabel || '',
     ollamaCookie: settings.ollamaCookie || '',
+    ollamaApiKey: settings.ollamaApiKey || '',
+    ollamaAccountLabel: settings.ollamaAccountLabel || '',
     codexManagedAccounts: context.codexManagedAccounts ?? settings.codexManagedAccounts ?? [],
     mimoManagedAccounts: context.mimoManagedAccounts ?? settings.mimoManagedAccounts ?? [],
     thirdPartyProfiles: settings.thirdPartyProfiles || {}

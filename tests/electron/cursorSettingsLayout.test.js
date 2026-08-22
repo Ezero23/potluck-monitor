@@ -486,10 +486,10 @@ test('Codex system account switching is exposed from limits account rows', () =>
   assert.doesNotMatch(refreshBody, /collectLimitsOnce/);
   const renderLimits = functionBody(app, 'renderLimits', 'serviceStatusLabel');
   assert.match(renderLimits, /const rowOptions = id === 'codex'\s*\? \{ accountTitle: true, allowSystemSwitch: true \}/s);
-  assert.match(renderLimits, /renderLimitProviderRow\(id, label, provider, color, rowOptions\)/);
+  assert.match(renderLimits, /renderLimitConnectionRow\(id, label, provider, 0, connectionList, color, rowOptions\)/);
   assert.doesNotMatch(
     renderLimits,
-    /renderLimitProviderRow\(id, label, provider, color, id === 'codex' \? \{[\s\S]*?showActiveBadge: true/
+    /renderLimitConnectionRow\(id, label, provider, 0, connectionList, color, id === 'codex' \? \{[\s\S]*?allowSystemSwitch: true/
   );
   assert.match(renderLimits, /const holdCodexSwitchPopoverRender = codexSwitchPopoverShouldHoldRender\(\);/);
   assert.match(renderLimits, /holdLimitDetailTooltipRender \|\| holdCodexSwitchPopoverRender/);
@@ -588,8 +588,10 @@ test('Copilot account panel provides GitHub sign-in plus manual token fallback',
 test('Z.ai, Volcengine, Qoder, and Ollama account panels are exposed in settings', () => {
   const html = readRendererFile('index.html');
   assert.match(html, /<div id="zaiAccountGroup"[\s\S]*?<select id="zaiApiRegionInput">[\s\S]*?<input id="zaiApiKeyInput" type="password"[\s\S]*?<button id="zaiApiKeySubmit"[\s\S]*data-i18n="settings\.zai\.saveApiKey">/);
+  assert.match(html, /<div id="zaiPotluckAccountList" class="managed-account-list"><\/div>/);
   assert.match(html, /<div id="volcengineAccountGroup"[\s\S]*?data-i18n="settings\.volcengine\.accessKeyId">API key \/ Access key ID[\s\S]*?<input id="volcengineAccessKeyInput" type="password"[\s\S]*placeholder="ark-\.\.\. or AKLT\.\.\."[\s\S]*?<input id="volcengineSecretAccessKeyInput" type="password"[\s\S]*?<input id="volcengineRegionInput" type="text"[\s\S]*?<button id="volcengineCredentialsSubmit"[\s\S]*data-i18n="settings\.volcengine\.saveCredentials">/);
   assert.match(html, /<div id="qoderAccountGroup"[\s\S]*?<select id="qoderSiteInput">[\s\S]*?<textarea id="qoderCookieInput"[\s\S]*?<button id="qoderCookieSubmit"[\s\S]*data-i18n="settings\.qoder\.saveCookie">/);
+  assert.match(html, /<div id="ollamaAccountGroup"[\s\S]*?<input id="ollamaApiKeyInput" type="password"[\s\S]*?<button id="ollamaApiKeySubmit"[\s\S]*data-i18n="settings\.ollama\.saveApiKey">/);
   assert.match(html, /<div id="ollamaAccountGroup"[\s\S]*?<textarea id="ollamaCookieInput"[\s\S]*?<button id="ollamaCookieSubmit"[\s\S]*data-i18n="settings\.ollama\.saveCookie">/);
   const ollamaDetails = html.match(/<div id="ollamaSettingsDetails"[\s\S]*?<div id="ollamaErrorMessage" class="settings-note error hidden"><\/div>/)?.[0] || '';
   assert.match(ollamaDetails, /<strong>1\.<\/strong> <span data-i18n="settings\.ollama\.step1">/);
@@ -664,6 +666,7 @@ test('Kimi account panel stores web access separately and opens the allowlisted 
   assert.match(html, /settings\.kimi\.step2[\s\S]*Application\/Storage[\s\S]*Cookies[\s\S]*www\.kimi\.com/);
   assert.match(html, /settings\.kimi\.step3[\s\S]*Find kimi-auth and copy its Value/);
   assert.match(html, /<div id="kimiAccountGroup"[\s\S]*?<textarea id="kimiWebAccessTokenInput" rows="3" autocomplete="off"[\s\S]*placeholder="kimi-auth=\.\.\."[\s\S]*?<button id="kimiWebAccessTokenSubmit"[\s\S]*?<details class="kimi-api-fallback">[\s\S]*?<input id="kimiApiKeyInput" type="password"[\s\S]*?<button id="kimiApiKeySubmit"[\s\S]*data-i18n="settings\.kimi\.saveApiKey">/);
+  assert.match(html, /<div id="kimiPotluckAccountList" class="managed-account-list"><\/div>/);
 
   const app = readRendererFile('app.js');
   const setupBody = functionBodyBeforeMarker(app, 'setupCursorAccountUI', '\nsetupCursorAccountUI();');
@@ -673,6 +676,13 @@ test('Kimi account panel stores web access separately and opens the allowlisted 
   assert.match(setupBody, /window\.tokenMonitor\.openExternal\(kimiPlatformUrl\(\)\)/);
   const urlBody = functionBody(app, 'kimiPlatformUrl', 'renderExternalProviderStatus');
   assert.match(urlBody, /return 'https:\/\/www\.kimi\.com\/code\/console';/);
+
+  const linkedBody = functionBody(app, 'externalProviderAccountLinked', 'markExternalProviderCheckPending');
+  assert.match(linkedBody, /potluckProviderStatuses\(providerName\)/);
+  assert.match(linkedBody, /provider\.status !== 'notConfigured' && provider\.status !== 'disabled'/);
+  const renderBody = functionBody(app, 'renderExternalProviderStatus', 'renderPotluckUniqueAccountGroups');
+  assert.match(renderBody, /renderPotluckProviderAccounts\(providerName, potluckAccounts\)/);
+  assert.match(renderBody, /t\('settings\.codex\.nAccounts', \{ count: potluckAccounts\.length \}\)/);
 
   const main = fs.readFileSync(path.join(__dirname, '..', '..', 'src', 'electron', 'main.js'), 'utf8');
   const allowlist = functionBody(main, 'isAllowedExternalUrl', 'revealWindow');
@@ -1248,7 +1258,7 @@ test('Home limits groups multiple MiMo accounts like Codex', () => {
   const renderLimitsBody = functionBody(app, 'renderLimits', 'serviceStatusLabel');
   assert.match(groupBody, /const groupProvider = \{ provider: 'mimo', status: 'ok', windows: \[\] \};/);
   assert.match(groupBody, /planText: t\('settings\.mimo\.nAccounts', \{ count: providers\.length \}\)/);
-  assert.match(groupBody, /renderLimitProviderRow\('mimo', limitAccountTitle\('mimo', provider, index, providers\), provider, color/);
+  assert.match(groupBody, /renderLimitConnectionRow\('mimo', limitAccountTitle\('mimo', provider, index, providers\), provider, index, providers, color/);
   assert.match(renderLimitsBody, /if \(id === 'mimo' && Array\.isArray\(visibleProviders\) && visibleProviders\.length > 1\) \{/);
   assert.match(renderLimitsBody, /nodes\.push\(renderMimoAccountGroup\(label, visibleProviders, color\)\);/);
 });
