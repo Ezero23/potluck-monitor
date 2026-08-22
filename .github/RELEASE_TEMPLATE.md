@@ -10,11 +10,11 @@
 
 ## Download
 
-- **macOS Apple Silicon** — [potluck-monitor-0.2.6-arm64.dmg](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.6/potluck-monitor-0.2.6-arm64.dmg)
-- **macOS Intel** — [potluck-monitor-0.2.6-x64.dmg](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.6/potluck-monitor-0.2.6-x64.dmg)
-- **Windows installer** — [potluck-monitor-Setup-0.2.6.exe](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.6/potluck-monitor-Setup-0.2.6.exe)
-- **Windows portable** — [potluck-monitor-0.2.6.exe](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.6/potluck-monitor-0.2.6.exe)
-- **Linux** — [potluck-monitor-0.2.6.AppImage](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.6/potluck-monitor-0.2.6.AppImage)
+- **macOS Apple Silicon** — [potluck-monitor-0.2.7-arm64.dmg](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.7/potluck-monitor-0.2.7-arm64.dmg)
+- **macOS Intel** — [potluck-monitor-0.2.7-x64.dmg](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.7/potluck-monitor-0.2.7-x64.dmg)
+- **Windows installer** — [potluck-monitor-Setup-0.2.7.exe](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.7/potluck-monitor-Setup-0.2.7.exe)
+- **Windows portable** — [potluck-monitor-0.2.7.exe](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.7/potluck-monitor-0.2.7.exe)
+- **Linux** — [potluck-monitor-0.2.7.AppImage](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.7/potluck-monitor-0.2.7.AppImage)
 
 <details>
 <summary><strong>First launch and other notes</strong></summary>
@@ -28,7 +28,7 @@ xattr -cr "/Applications/Potluck Monitor.app"
 open "/Applications/Potluck Monitor.app"
 ```
 
-If macOS says the app is damaged, that is Gatekeeper quarantine — the command above clears it. Confirm **Settings → App Updates → Installed** shows `v0.2.6`.
+If macOS says the app is damaged, that is Gatekeeper quarantine — the command above clears it. Confirm **Settings → App Updates → Installed** shows `v0.2.7`.
 
 ### tokscale dependency
 
@@ -52,11 +52,11 @@ open-source: https://github.com/junhoyeo/tokscale
 
 ## 下载
 
-- **macOS Apple Silicon** — [potluck-monitor-0.2.6-arm64.dmg](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.6/potluck-monitor-0.2.6-arm64.dmg)
-- **macOS Intel** — [potluck-monitor-0.2.6-x64.dmg](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.6/potluck-monitor-0.2.6-x64.dmg)
-- **Windows 安装包** — [potluck-monitor-Setup-0.2.6.exe](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.6/potluck-monitor-Setup-0.2.6.exe)
-- **Windows 便携版** — [potluck-monitor-0.2.6.exe](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.6/potluck-monitor-0.2.6.exe)
-- **Linux** — [potluck-monitor-0.2.6.AppImage](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.6/potluck-monitor-0.2.6.AppImage)
+- **macOS Apple Silicon** — [potluck-monitor-0.2.7-arm64.dmg](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.7/potluck-monitor-0.2.7-arm64.dmg)
+- **macOS Intel** — [potluck-monitor-0.2.7-x64.dmg](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.7/potluck-monitor-0.2.7-x64.dmg)
+- **Windows 安装包** — [potluck-monitor-Setup-0.2.7.exe](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.7/potluck-monitor-Setup-0.2.7.exe)
+- **Windows 便携版** — [potluck-monitor-0.2.7.exe](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.7/potluck-monitor-0.2.7.exe)
+- **Linux** — [potluck-monitor-0.2.7.AppImage](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.7/potluck-monitor-0.2.7.AppImage)
 
 <details>
 <summary><strong>首次启动与其他说明</strong></summary>
@@ -70,7 +70,7 @@ xattr -cr "/Applications/Potluck Monitor.app"
 open "/Applications/Potluck Monitor.app"
 ```
 
-若提示「已损坏」，那是隔离标记；上面命令会清掉。打开后到 **设置 → App Updates → Installed** 确认是 `v0.2.6`。
+若提示「已损坏」，那是隔离标记；上面命令会清掉。打开后到 **设置 → App Updates → Installed** 确认是 `v0.2.7`。
 
 ### tokscale 依赖
 
