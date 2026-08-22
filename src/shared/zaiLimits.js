@@ -325,10 +325,15 @@ async function fetchZaiLimits(options = {}, deps = {}) {
       subscription = await fetchJson(zaiSubscriptionUrl(region), key, deps);
     } catch (_) {}
     const usage = parseZaiUsage(quota, subscription);
+    // Opaque account fingerprint as a synthetic email: Potluck Web's GLM usage
+    // handler returns the exact same value for the same API key, so the hub can
+    // merge this local row and the web row of the same account into one.
+    const fingerprintEmail = `glm-${hashKey('zai', key).replace(/^sha256:/, '')}@glm-account.local`;
     return normalizeLimitProvider({
       provider: 'zai',
       accountKey: hashKey('zai', key),
       accountLabel: usage.plan,
+      accountEmail: fingerprintEmail,
       source: 'api',
       status: usage.windows.length ? 'ok' : 'unavailable',
       updatedAt,

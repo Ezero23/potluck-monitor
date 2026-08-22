@@ -215,3 +215,19 @@ test('fetchZaiLimits physically aborts a hung request within its configured boun
   assert.equal(provider.status, 'unavailable');
   assert.equal(signal.aborted, true);
 });
+
+test('fetchZaiLimits returns an opaque fingerprint email matching the web GLM handler', async () => {
+  const provider = await fetchZaiLimits({ zaiApiKey: 'fp-key' }, {
+    env: {},
+    fetch: async () => ({ ok: true, json: async () => ({ data: { limits: [
+      { type: 'CREDIT_LIMIT', unit: 5, number: 5, usage: 100, remaining: 20, nextResetTime: 1766036400000 }
+    ] } }) }),
+    zaiFetchTimeoutMs: 1000
+  });
+  assert.match(provider.accountEmail, /^glm-[0-9a-f]{64}@glm-account\.local$/);
+  // Same recipe the web handler uses (sha256 of "zai\0<key>\0"), so the same
+  // API key yields the same fingerprint on both sides and the rows merge.
+  const expected = require('node:crypto').createHash('sha256')
+    .update('zai').update('\0').update('fp-key').update('\0').digest('hex');
+  assert.equal(provider.accountEmail, `glm-${expected}@glm-account.local`);
+});
