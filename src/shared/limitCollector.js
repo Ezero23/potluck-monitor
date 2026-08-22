@@ -54,8 +54,13 @@ const {
   fetchGrokWebGrpcBilling,
   fetchGrokLimits
 } = grokLimits;
+const { CANONICAL_PROVIDER_IDS } = require('./limitProviderRegistry');
 
 const LIMIT_PROVIDER_IDS = ['claude', 'codex', 'opencode', 'cursor', 'antigravity', 'kimi', 'grok', 'copilot', 'mimo', 'zai', 'zaiteam', 'kiro', 'deepseek', 'openrouter', 'minimax', 'volcengine', 'qoder', 'ollama', 'thirdparty'];
+// Ingest also accepts canonical ids the local collector never probes
+// (Potluck / third-party rows such as gemini-cli or nvidia); selections saved
+// with those ids must survive a round-trip instead of being filtered away.
+const KNOWN_LIMIT_PROVIDER_IDS = new Set([...LIMIT_PROVIDER_IDS, ...CANONICAL_PROVIDER_IDS]);
 const DEFAULT_PROVIDER_PHYSICAL_BOUND_MS = 120_000;
 const PROVIDER_CLEANUP_GRACE_MS = 5_000;
 const LIMIT_REFRESH_VALUES = new Set([60_000, 120_000, 300_000, 900_000, 1_800_000]);
@@ -89,13 +94,13 @@ function parseBoolean(value, fallback = true) {
 function parseLimitProviders(value) {
   const isEmpty = value === undefined || value === null || value === ''
     || (Array.isArray(value) && value.length === 0);
-  const source = isEmpty ? LIMIT_PROVIDER_IDS : value;
+  const source = isEmpty ? Array.from(KNOWN_LIMIT_PROVIDER_IDS) : value;
   const raw = Array.isArray(source) ? source : String(source).split(',');
   const seen = new Set();
   const providers = [];
   for (const item of raw) {
     const provider = String(item || '').trim().toLowerCase();
-    if (!LIMIT_PROVIDER_IDS.includes(provider) || seen.has(provider)) continue;
+    if (!KNOWN_LIMIT_PROVIDER_IDS.has(provider) || seen.has(provider)) continue;
     seen.add(provider);
     providers.push(provider);
   }

@@ -1596,3 +1596,14 @@ test('Limits page supports inline drag reorder and drops the redundant Potluck i
   assert.match(styles, /\.limit-head \.preference-order-handle/);
   assert.doesNotMatch(styles, /\.potluck-connections/);
 });
+
+test('Limits rows expose a pin-to-top button next to the drag handle', () => {
+  const app = readRendererFile('app.js');
+  const styles = readRendererFile('styles.css');
+  const i18n = readRendererFile('i18n.js');
+  assert.match(app, /function createLimitProviderPinTopButton\(/);
+  assert.match(app, /head\.append\(createLimitProviderPinTopButton\(id, label\)\)/);
+  assert.match(app, /function onLimitProviderPinToTop\(/);
+  assert.match(styles, /\.limit-provider-pin-top/);
+  assert.match(i18n, /'settings\.limits\.pinToTop'/);
+});

@@ -3814,15 +3814,41 @@ function renderLimits() {
   }
   // Inline provider reordering: one drag handle per provider row, wired into the
   // shared preference-drag system as 'limitProviderLive' (visible rows only; the
-  // commit folds the order back into the full limitProviderOrder setting).
+  // commit folds the order back into the full limitProviderOrder setting), plus
+  // a pin-to-top button — dragging a row nine slots up is tedious.
   nodes.forEach((node, nodeIndex) => {
     const { id, label } = rows[nodeIndex] || {};
     if (!id || !node) return;
     node.dataset.provider = id;
     const head = node.querySelector('.limit-head');
-    head?.append(createPreferenceOrderHandle({ kind: 'limitProviderLive', id, label, count: rows.length }));
+    if (!head) return;
+    head.append(createLimitProviderPinTopButton(id, label));
+    head.append(createPreferenceOrderHandle({ kind: 'limitProviderLive', id, label, count: rows.length }));
   });
   els.limitsPanel.replaceChildren(...nodes);
+}
+
+function onLimitProviderPinToTop(providerId) {
+  const full = limitProviderOrderApi.normalizeLimitProviderOrder(state.settings?.limitProviderOrder, LIMIT_PROVIDERS);
+  const next = limitProviderOrderApi.reorderLimitProvider(full.join(','), LIMIT_PROVIDERS, providerId, 0);
+  if (next === full.join(',')) return Promise.resolve();
+  return saveSettings({ limitProviderOrder: next }).then(() => renderLimits());
+}
+
+function createLimitProviderPinTopButton(id, label) {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'limit-provider-pin-top';
+  const title = t('settings.limits.pinToTop', { name: label });
+  button.title = title;
+  button.setAttribute('aria-label', title);
+  button.textContent = '⬆';
+  button.addEventListener('click', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    void onLimitProviderPinToTop(id);
+  });
+  return button;
 }
 
 function serviceStatusLabel(status) {
@@ -4601,9 +4627,9 @@ function homeModuleShell(kind, title, viewId, meta = '') {
 
 function homeLimitRows() {
   const enabled = enabledLimitProviderSet();
-  const providerOrder = state.settings?.homeLimitProviderOrder || state.settings?.limitProviderOrder;
-  const providerOptions = limitProviderOrderApi.orderedLimitProviders(LIMIT_PROVIDERS, providerOrder);
-  const hasConfiguredOrder = Boolean(state.settings?.homeLimitProviderOrder);
+  // Home follows the same limitProviderOrder as the limits page — one order,
+  // two surfaces. (homeLimitProviderOrder is a legacy forked order; ignored.)
+  const providerOptions = limitProviderOrderApi.orderedLimitProviders(LIMIT_PROVIDERS, state.settings?.limitProviderOrder);
   return homeOverviewApi.homeLimitAccountsForProviders({
     providers: (state.stats?.limits?.providers || []).map((provider) => ({
       ...provider,
@@ -4614,7 +4640,7 @@ function homeLimitRows() {
     hiddenProviderIds: Array.from(hiddenHomeLimitProviderSet()),
     colors: clientColors,
     limit: state.settings?.homeLimitAccountCount ?? 20,
-    sort: hasConfiguredOrder ? 'configured' : 'remaining',
+    sort: 'configured',
     pinnedAccountKeys: Array.from(pinnedHomeLimitAccountSet()),
     pinKey: (provider, index, providerId) => accountConnectionRowKey(providerId, provider, index),
     accountName: (provider, index, providerEntries) => {
@@ -6937,7 +6963,9 @@ async function onHomeLimitAccountPinToggle(pinKey) {
 }
 
 function homeLimitProviderOrderValue() {
-  return state.settings?.homeLimitProviderOrder || state.settings?.limitProviderOrder;
+  // Home and the limits page share one order now; homeLimitProviderOrder is
+  // only kept for reading old settings before this unification.
+  return state.settings?.limitProviderOrder;
 }
 
 function viewLabel(view) {
@@ -7327,7 +7355,7 @@ function renderHomeLimitProviderList() {
   const providers = limitProviderOrderApi
     .orderedLimitProviders(LIMIT_PROVIDERS, homeLimitProviderOrderValue())
     .filter(({ id }) => enabled.has(id));
-  const hasCustomOrder = Boolean(state.settings?.homeLimitProviderOrder);
+  const hasCustomOrder = Boolean(state.settings?.limitProviderOrder);
   const statusLabel = document.createElement('label');
   statusLabel.className = 'checkbox-label home-limit-status-setting';
   const statusInput = document.createElement('input');
@@ -9182,21 +9210,21 @@ async function onHomeLimitProviderVisibilityToggle(providerId) {
 }
 
 async function onHomeLimitProviderMove(providerId, direction) {
-  const next = limitProviderOrderApi.moveLimitProvider(homeLimitProviderOrderValue(), LIMIT_PROVIDERS, providerId, direction);
-  await saveSettings({ homeLimitProviderOrder: next });
+  const next = limitProviderOrderApi.moveLimitProvider(state.settings?.limitProviderOrder, LIMIT_PROVIDERS, providerId, direction);
+  await saveSettings({ limitProviderOrder: next });
   renderHomeIfVisible();
 }
 
 async function onHomeLimitProviderReorder(providerId, targetIndex) {
-  const current = limitProviderOrderApi.normalizeLimitProviderOrder(homeLimitProviderOrderValue(), LIMIT_PROVIDERS).join(',');
-  const next = limitProviderOrderApi.reorderLimitProvider(homeLimitProviderOrderValue(), LIMIT_PROVIDERS, providerId, targetIndex);
+  const current = limitProviderOrderApi.normalizeLimitProviderOrder(state.settings?.limitProviderOrder, LIMIT_PROVIDERS).join(',');
+  const next = limitProviderOrderApi.reorderLimitProvider(state.settings?.limitProviderOrder, LIMIT_PROVIDERS, providerId, targetIndex);
   if (next === current) return;
-  await saveSettings({ homeLimitProviderOrder: next });
+  await saveSettings({ limitProviderOrder: next });
   renderHomeIfVisible();
 }
 
 async function resetHomeLimitProviderOrder() {
-  await saveSettings({ homeLimitProviderOrder: '' });
+  await saveSettings({ limitProviderOrder: '', homeLimitProviderOrder: '' });
   renderHomeIfVisible();
 }
 
@@ -9260,8 +9288,8 @@ async function onPreferenceOrderCommit(kind, order, id) {
     return;
   }
   if (kind === 'homeLimitProvider') {
-    const current = limitProviderOrderApi.normalizeLimitProviderOrder(homeLimitProviderOrderValue(), LIMIT_PROVIDERS).join(',');
-    if (value !== current) await saveSettings({ homeLimitProviderOrder: value });
+    const current = limitProviderOrderApi.normalizeLimitProviderOrder(state.settings?.limitProviderOrder, LIMIT_PROVIDERS).join(',');
+    if (value !== current) await saveSettings({ limitProviderOrder: value });
     return;
   }
   if (kind === 'statusProvider') {

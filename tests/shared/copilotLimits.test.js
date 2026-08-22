@@ -235,3 +235,13 @@ test('fetchCopilotLimits surfaces unauthorized responses', async () => {
   );
   assert.equal(provider.status, 'unauthorized');
 });
+
+test('parseLimitProviders keeps canonical ingest ids that the local collector never probes', () => {
+  // Saved selections may include canonical ids (Potluck / third-party rows)
+  // that are not in the local probe set; filtering them away silently dropped
+  // providers from the limits page.
+  const saved = parseLimitProviders('codex,zai,gemini-cli,nvidia,tavily');
+  assert.deepEqual(saved, ['codex', 'zai', 'gemini-cli', 'nvidia', 'tavily']);
+  assert.ok(parseLimitProviders().includes('gemini-cli'));
+  assert.ok(parseLimitProviders().includes('tavily'));
+});

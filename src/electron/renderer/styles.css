@@ -1982,6 +1982,29 @@ span.settings-note.settings-item-desc {
   width: 18px;
   height: 18px;
 }
+.limit-provider-pin-top {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 11px;
+  line-height: 1;
+  user-select: none;
+}
+.limit-provider-pin-top:hover,
+.limit-provider-pin-top:focus-visible {
+  border-color: var(--line-strong);
+  background: rgba(var(--overlay-rgb), var(--control-alpha));
+  color: var(--text);
+}
 .view-switcher-menu-item .preference-order-handle {
   justify-self: end;
   width: 18px;
