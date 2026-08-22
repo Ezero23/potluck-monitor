@@ -3739,6 +3739,102 @@ function renderThirdPartyAccountGroup(label, providers, color) {
   });
 }
 
+function monitorGatewayDevice() {
+  const devices = Array.isArray(state.stats?.devices) ? state.stats.devices : [];
+  const localId = String(state.settings?.deviceId || '').trim();
+  return devices.find((device) => localId && device.deviceId === localId)
+    || devices.find((device) => device.monitor)
+    || devices[0]
+    || null;
+}
+
+function renderPotluckMonitorActivity() {
+  const device = monitorGatewayDevice();
+  const monitor = device?.monitor;
+  if (!monitor) return null;
+  const section = document.createElement('section');
+  section.className = 'potluck-monitor-activity';
+  const heading = document.createElement('div');
+  heading.className = 'potluck-monitor-activity-heading';
+  heading.textContent = t('settings.routing.title');
+  section.append(heading);
+
+  const health = monitor.health;
+  if (health) {
+    const summary = document.createElement('div');
+    summary.className = 'potluck-monitor-health-summary';
+    const total = Number(health.connections || 0);
+    const healthy = Number(health.healthyConnections || 0);
+    const cells = [
+      t('settings.routing.connections', { healthy, total }),
+      ...(Number(health.staleConnections || 0) > 0 ? [t('settings.routing.stale', { count: health.staleConnections })] : []),
+      ...(Number(health.unauthorizedConnections || 0) > 0 ? [t('settings.routing.unauthorized', { count: health.unauthorizedConnections })] : []),
+      ...(Number(health.rateLimitedConnections || 0) > 0 ? [t('settings.routing.rateLimited', { count: health.rateLimitedConnections })] : [])
+    ];
+    summary.textContent = cells.join(' · ');
+    section.append(summary);
+  }
+
+  const events = Array.isArray(monitor.events) ? monitor.events.slice(-6).reverse() : [];
+  if (events.length === 0) {
+    const empty = document.createElement('div');
+    empty.className = 'settings-note potluck-monitor-activity-empty';
+    empty.textContent = t('settings.routing.empty');
+    section.append(empty);
+  } else {
+    const list = document.createElement('div');
+    list.className = 'potluck-monitor-event-list';
+    for (const event of events) {
+      const item = document.createElement('article');
+      item.className = `potluck-monitor-event potluck-monitor-event-${event.status || 'unknown'}`;
+      const title = document.createElement('div');
+      title.className = 'potluck-monitor-event-title';
+      const status = document.createElement('strong');
+      status.textContent = event.status === 'success' ? t('settings.routing.success') : t('settings.routing.error');
+      const time = document.createElement('span');
+      time.textContent = event.occurredAt ? formatSettingsAge(event.occurredAt) : t('settings.limits.age.unknown');
+      title.append(status, time);
+      item.append(title);
+      if (event.selectedProvider || event.selectedModel) {
+        const selected = document.createElement('div');
+        selected.className = 'potluck-monitor-event-selected';
+        selected.textContent = t('settings.routing.selected', {
+          provider: event.selectedProvider || '?',
+          model: event.selectedModel || '?'
+        });
+        item.append(selected);
+      }
+      const candidates = Array.isArray(event.candidates) ? event.candidates : [];
+      const skipped = candidates.filter((candidate) => candidate.status === 'skipped');
+      if (skipped.length > 0) {
+        const skippedLine = document.createElement('div');
+        skippedLine.className = 'potluck-monitor-event-skipped';
+        skippedLine.textContent = skipped.slice(0, 3).map((candidate) => t('settings.routing.skipped', {
+          provider: candidate.provider || '?',
+          model: candidate.model || '?',
+          reason: candidate.reason || candidate.reasonCode || t('settings.routing.noDetail')
+        })).join(' · ');
+        item.append(skippedLine);
+      }
+      if (Number(event.fallbackCount || 0) > 0) {
+        const fallback = document.createElement('div');
+        fallback.className = 'potluck-monitor-event-meta';
+        fallback.textContent = `fallback ×${event.fallbackCount}`;
+        item.append(fallback);
+      }
+      list.append(item);
+    }
+    section.append(list);
+  }
+  if (monitor.generatedAt) {
+    const age = document.createElement('div');
+    age.className = 'settings-note potluck-monitor-activity-age';
+    age.textContent = t('settings.routing.snapshotAge', { age: formatSettingsAge(monitor.generatedAt) });
+    section.append(age);
+  }
+  return section;
+}
+
 function renderLimits() {
   if (!els.limitsPanel) return;
   const holdLimitDetailTooltipRender = limitDetailTooltipShouldHoldRender();
@@ -3754,6 +3850,8 @@ function renderLimits() {
   const enabled = enabledLimitProviderSet();
   const providers = providersByLimitProviderId(state.stats?.limits?.providers || []);
   const nodes = [];
+  const activitySection = renderPotluckMonitorActivity();
+  if (activitySection) nodes.push(activitySection);
   const rows = limitProviderOrderApi
     .orderedLimitProviders(LIMIT_PROVIDERS, state.settings?.limitProviderOrder)
     .filter(({ id }) => limitsEnabled && enabled.has(id));

@@ -6045,3 +6045,66 @@ html.is-windows .limit-live-badge {
 .account-connection-detail-panel[hidden] {
   display: none;
 }
+
+/* Potluck gateway health and routing explanation surface. */
+.potluck-monitor-activity {
+  margin: 0 0 10px;
+  padding: 10px 12px;
+  border: 1px solid rgba(var(--overlay-rgb), 0.11);
+  border-radius: 10px;
+  background: rgba(var(--overlay-rgb), 0.035);
+}
+.potluck-monitor-activity-heading {
+  color: var(--text);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  margin-bottom: 5px;
+}
+.potluck-monitor-health-summary,
+.potluck-monitor-activity-age,
+.potluck-monitor-event-meta {
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.4;
+}
+.potluck-monitor-event-list {
+  display: grid;
+  gap: 6px;
+  margin-top: 8px;
+}
+.potluck-monitor-event {
+  min-width: 0;
+  padding: 7px 8px;
+  border-left: 2px solid var(--muted);
+  border-radius: 5px;
+  background: rgba(var(--overlay-rgb), 0.035);
+}
+.potluck-monitor-event-success { border-left-color: var(--success); }
+.potluck-monitor-event-error { border-left-color: var(--orange); }
+.potluck-monitor-event-title {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--text);
+  font-size: 10px;
+}
+.potluck-monitor-event-title span { color: var(--muted); font-weight: 400; }
+.potluck-monitor-event-selected,
+.potluck-monitor-event-skipped {
+  overflow: hidden;
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.4;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.potluck-monitor-event-selected { color: var(--text); }
+.potluck-monitor-event-skipped { color: var(--orange); }
+.potluck-monitor-activity-age { margin-top: 7px; }
+@media (max-width: 620px) {
+  .potluck-monitor-activity { padding: 9px 10px; }
+  .potluck-monitor-event-skipped { white-space: normal; }
+}
