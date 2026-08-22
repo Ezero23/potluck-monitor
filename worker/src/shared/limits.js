@@ -908,6 +908,83 @@ function pickBetterProvider(current, candidate) {
   return timestampMs(candidate.updatedAt) >= timestampMs(current.updatedAt) ? candidate : current;
 }
 
+function isExternalManagedRow(row) {
+  return row?.managedBy === 'potluck' || row?.managedBy === 'external';
+}
+
+function windowInfoRank(window) {
+  return (window?.resetsAt ? 4 : 0)
+    + (window?.usedPercent !== null && window?.usedPercent !== undefined ? 2 : 0)
+    + (window?.remainingPercent !== null && window?.remainingPercent !== undefined ? 1 : 0);
+}
+
+function mergeWindowListsByKind(rows) {
+  const byKind = new Map();
+  for (const row of rows) {
+    for (const window of row?.windows || []) {
+      const kind = String(window?.kind || 'billing');
+      const existing = byKind.get(kind);
+      if (!existing || windowInfoRank(window) > windowInfoRank(existing)) byKind.set(kind, window);
+    }
+  }
+  return Array.from(byKind.values());
+}
+
+// The same account can be reported by two sources — Potluck Web (api-key row)
+// and a local probe (cookie row) — with different accountKeys but the same
+// accountEmail. Merge exactly that cross-source case into one row so Home does
+// not show the account twice. Same-email rows from a single source stay
+// separate: Codex personal/team workspaces share an email legitimately.
+function mergeCrossSourceAccountRows(providers) {
+  const result = [];
+  const groups = new Map();
+  for (const row of providers || []) {
+    const email = String(row?.accountEmail || '').trim().toLowerCase();
+    if (!email) {
+      result.push(row);
+      continue;
+    }
+    const key = `${row.provider}:${email}`;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(row);
+  }
+  for (const group of groups.values()) {
+    const hasExternal = group.some(isExternalManagedRow);
+    const hasLocal = group.some((row) => !isExternalManagedRow(row));
+    const workspaces = new Set(group.map((row) => String(row?.workspaceKind || '').trim()).filter(Boolean));
+    if (group.length === 1 || !hasExternal || !hasLocal || workspaces.size > 1) {
+      result.push(...group);
+      continue;
+    }
+    // Display base: the row whose windows carry reset times (usually the local
+    // probe); health fields come from whichever source is in better shape.
+    const base = group.reduce((best, row) => {
+      const scoreDiff = (row?.windows || []).filter((window) => window?.resetsAt).length
+        - (best?.windows || []).filter((window) => window?.resetsAt).length;
+      if (scoreDiff !== 0) return scoreDiff > 0 ? row : best;
+      return pickBetterProvider(best, row);
+    });
+    const best = group.reduce((current, row) => pickBetterProvider(current, row));
+    const merged = {
+      ...base,
+      accountKey: base.accountKey || best.accountKey,
+      accountLabel: base.accountLabel || best.accountLabel,
+      accountName: base.accountName || best.accountName,
+      planLabel: base.planLabel || best.planLabel,
+      status: best.status,
+      connectionStatus: best.connectionStatus,
+      quotaStatus: best.quotaStatus,
+      updatedAt: group.reduce((latest, row) => (String(row?.updatedAt || '') > latest ? String(row.updatedAt) : latest), ''),
+      stale: group.every((row) => row?.stale),
+      windows: mergeWindowListsByKind(group)
+    };
+    if (best.error) merged.error = best.error;
+    else delete merged.error;
+    result.push(merged);
+  }
+  return result;
+}
+
 function aggregateLimits(devices, staleAfterMs = 0, nowMs = Date.now()) {
   const aggregate = { updatedAt: new Date(nowMs).toISOString(), providers: [] };
   const byKey = new Map();
@@ -948,7 +1025,7 @@ function aggregateLimits(devices, staleAfterMs = 0, nowMs = Date.now()) {
     const collapseKey = providerCollapseKey(candidate);
     byProvider.set(collapseKey, pickBetterProvider(byProvider.get(collapseKey), candidate));
   }
-  aggregate.providers = Array.from(byProvider.values())
+  aggregate.providers = mergeCrossSourceAccountRows(Array.from(byProvider.values()))
     .sort((a, b) => {
       const providerSort = a.provider.localeCompare(b.provider);
       if (providerSort !== 0) return providerSort;
