@@ -3739,52 +3739,6 @@ function renderThirdPartyAccountGroup(label, providers, color) {
   });
 }
 
-function fetchPotluckConnections() {
-  if (state.potluckConnectionsFetched) return;
-  state.potluckConnectionsFetched = true;
-  window.tokenMonitor.getPotluckConnections().then(res => {
-    if (res?.ok && Array.isArray(res.result)) {
-      state.potluckConnections = res.result;
-      if (state.breakdown === 'limits') renderLimits();
-    }
-  }).catch(() => {});
-}
-
-function renderPotluckConnectionsSection() {
-  const conns = state.potluckConnections;
-  if (!conns || conns.length === 0) return null;
-  const section = document.createElement('div');
-  section.className = 'potluck-connections';
-  const header = document.createElement('div');
-  header.className = 'potluck-connections-header';
-  header.textContent = 'Potluck Monitor';
-  section.appendChild(header);
-  for (const conn of conns) {
-    const row = document.createElement('div');
-    row.className = 'potluck-conn-row' + (conn.active ? '' : ' inactive');
-    const left = document.createElement('div');
-    left.className = 'potluck-conn-left';
-    const dot = document.createElement('span');
-    dot.className = 'potluck-conn-dot' + (conn.active ? ' active' : '');
-    const name = document.createElement('span');
-    name.className = 'potluck-conn-name';
-    name.textContent = conn.provider;
-    left.append(dot, name);
-    const right = document.createElement('div');
-    right.className = 'potluck-conn-right';
-    const badge = document.createElement('span');
-    badge.className = 'potluck-conn-badge ' + conn.authType;
-    badge.textContent = conn.authType === 'oauth' ? 'OAuth' : 'API Key';
-    const account = document.createElement('span');
-    account.className = 'potluck-conn-account';
-    account.textContent = conn.name || conn.email || '';
-    right.append(badge, account);
-    row.append(left, right);
-    section.appendChild(row);
-  }
-  return section;
-}
-
 function monitorGatewayDevice() {
   const devices = Array.isArray(state.stats?.devices) ? state.stats.devices : [];
   const localId = String(state.settings?.deviceId || '').trim();
@@ -3895,12 +3849,9 @@ function renderLimits() {
   const limitsEnabled = state.settings?.limitsEnabled !== false;
   const enabled = enabledLimitProviderSet();
   const providers = providersByLimitProviderId(state.stats?.limits?.providers || []);
-  fetchPotluckConnections();
   const nodes = [];
   const activitySection = renderPotluckMonitorActivity();
   if (activitySection) nodes.push(activitySection);
-  const potluckSection = renderPotluckConnectionsSection();
-  if (potluckSection) nodes.push(potluckSection);
   const rows = limitProviderOrderApi
     .orderedLimitProviders(LIMIT_PROVIDERS, state.settings?.limitProviderOrder)
     .filter(({ id }) => limitsEnabled && enabled.has(id));
