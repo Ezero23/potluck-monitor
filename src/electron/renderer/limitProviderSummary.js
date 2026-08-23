@@ -152,6 +152,7 @@
       needsAttention: counts.needsAttention,
       stale: counts.stale,
       disabled: counts.disabled,
+      missing: counts.missing,
       sources,
       headline,
       representative: pickRepresentative(rows, headline, id, options.missingStatus)
