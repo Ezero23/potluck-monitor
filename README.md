@@ -102,6 +102,31 @@ Potluck Monitor can also pair with the local [Potluck](https://github.com/Ezero2
 
 The **Reconnect** action calls Potluck's tunnel API and then reads back the real process and reachability state; the UI does not report success from an optimistic button click alone. Quick Tunnel URLs are temporary and may change after a reconnect. These fixes shipped in [v0.1.2](https://github.com/Ezero23/potluck-monitor/releases/tag/v0.1.2).
 
+### Accounts, Connections, credentials, and quota pools
+
+Potluck and Potluck Monitor share Connection and quota results, but they do not duplicate ownership of secrets. These terms describe different layers:
+
+| Term | Meaning |
+|------|---------|
+| Provider | The upstream product or service, such as GLM, Codex, or OpenRouter. |
+| Account | The upstream identity or billing owner. An account can have more than one credential or quota window. |
+| Credential | A secret such as an API key, cookie, or OAuth session that proves access. It stays with the component that owns it. |
+| Connection | One runtime record for a configured or detected account source. Status, plan, source, and quota windows are attached to this record. |
+| Quota pool | The actual shared allowance behind one or more Connections. Account and quota pool are not necessarily one-to-one. |
+
+Credential ownership determines the management entry:
+
+- **Potluck Web-owned Connection** — add, rotate, or delete its credential only in Potluck Web. Monitor receives the Connection's redacted identity, health, and quota result and links back to **Manage in Potluck Web**; the key does not need to be entered again in Monitor.
+- **Monitor-owned Connection** — the credential stays in this device's Monitor storage. Its form opens directly inside that Connection in Settings → Accounts & Connections.
+- **Auto-detected local Connection** — CLI or app login can be observed without Monitor saving a separate API key. Tracking a provider does not create a credential or change Potluck routing.
+
+Multiple keys remain explicit:
+
+- Every active key configured in Potluck Web is published as its own Connection, so two valid GLM keys appear as two rows in Monitor instead of the last row replacing the first.
+- Connections stay separate even when they use the same Provider, account label, or quota-window names.
+- Monitor combines allowances only when Connections carry the same explicit `quotaPoolKey`. It never guesses sharing from matching percentages, reset times, or labels.
+- One Connection may expose several windows (for example 5-hour, weekly, and MCP) without becoming several accounts.
+
 ## Features
 
 ### Tracking usage

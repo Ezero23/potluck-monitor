@@ -102,6 +102,31 @@ Potluck Monitor 还可以与本机的 [Potluck](https://github.com/Ezero23/potlu
 
 点击**重新连接**时，Monitor 会调用 Potluck 的隧道 API，再读取真实进程与可访问状态，不会因为按钮请求已发出就乐观地显示“连接成功”。Quick Tunnel 地址是临时地址，重新连接后可能改变。这套修复已随 [v0.1.2](https://github.com/Ezero23/potluck-monitor/releases/tag/v0.1.2) 发布。
 
+### Provider、账号、Connection、凭据与额度池
+
+Potluck 与 Potluck Monitor 会共享 Connection 和额度结果，但不会重复持有同一份密钥。下面这些概念属于不同层级：
+
+| 概念 | 含义 |
+|------|------|
+| Provider | 上游产品或服务，例如 GLM、Codex、OpenRouter。 |
+| 账号 | 上游身份或账单归属方。一个账号可以有多份凭据，也可以包含多个额度窗口。 |
+| 凭据 | 用来证明访问权限的 API Key、Cookie 或 OAuth 会话；由创建和管理它的组件保存。 |
+| Connection | 一份已配置或自动检测到的账号来源运行记录；连接状态、套餐、来源和额度窗口都挂在这条记录上。 |
+| 额度池 | 一条或多条 Connection 背后真正共享的额度。账号与额度池不一定是一对一关系。 |
+
+凭据由谁持有，就去哪里管理：
+
+- **Potluck Web 管理的 Connection**：只在 Potluck Web 添加、轮换或删除凭据。Monitor 接收脱敏后的账号标识、连接健康和额度结果，并提供**在 Potluck Web 中管理**入口；不需要在 Monitor 再填一遍 Key。
+- **Monitor 本机管理的 Connection**：凭据只保存在这台设备的 Monitor 中；表单会直接展开在 设置 → 账号与连接 的对应 Connection 内。
+- **本机自动检测的 Connection**：Monitor 可以直接观察 CLI 或 App 的登录状态，不必另外保存 API Key。开启 Provider 追踪只控制采集与显示，不会创建凭据，也不会改变 Potluck 的路由。
+
+多 Key 规则保持明确：
+
+- Potluck Web 中每个启用的 Key 都会发布为独立 Connection，因此两个有效 GLM Key 会在 Monitor 中显示为两行，不会出现“后一条覆盖前一条”。
+- 即使 Provider、账号名称或额度窗口名称相同，不同 Connection 仍保持独立。
+- 只有多条 Connection 明确携带相同 `quotaPoolKey` 时，Monitor 才会合并额度；不会根据相同百分比、重置时间或标签猜测它们共享额度。
+- 一条 Connection 可以同时包含 5 小时、每周、MCP 等多个额度窗口，但这不代表多个账号。
+
 ## 功能特性
 
 ### 用量追踪

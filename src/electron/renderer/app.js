@@ -666,25 +666,20 @@ function settingsSectionSummary(section) {
     });
   }
   if (section === 'accounts') {
-    const claudeLinked = externalProviderAccountLinked('claude');
-    const cursorLinked = Boolean(state.cursorAccount.status?.loggedIn) && !state.cursorAccount.status?.expired;
-    const opencodeCount = state.opencodeProfileCount || 0;
-    const openrouterLinked = openrouterAccountLinked();
-    const thirdpartyCount = state.thirdPartyProfileCount || 0;
+    const localCredentialProviders = ACCOUNT_CREDENTIAL_PROVIDER_IDS.filter(
+      (providerId) => !POTLUCK_UNIQUE_ACCOUNT_PROVIDERS.includes(providerId)
+    );
     const deepseekLinked = deepseekAccountLinked();
-    const minimaxLinked = minimaxAccountLinked();
-    const zaiLinked = externalProviderAccountLinked('zai');
-    const zaiteamLinked = externalProviderAccountLinked('zaiteam');
-    const volcengineLinked = externalProviderAccountLinked('volcengine');
-    const qoderLinked = externalProviderAccountLinked('qoder');
-    const kimiLinked = externalProviderAccountLinked('kimi');
-    const ollamaLinked = externalProviderAccountLinked('ollama');
-    const mimoLinked = mimoAccountLinked();
-    const copilotLinked = copilotAccountLinked();
-    const codexLinked = (state.settings?.codexManagedAccounts || []).length > 0;
+    const configured = localCredentialProviders.filter((providerId) => (
+      providerId === 'deepseek' ? deepseekLinked : monitorLocalCredentialsConfigured(providerId)
+    )).length;
+    const connections = Array.isArray(state.stats?.limits?.providers)
+      ? state.stats.limits.providers.length
+      : 0;
     return t('settings.summary.accounts', {
-      linked: (claudeLinked ? 1 : 0) + (codexLinked ? 1 : 0) + (cursorLinked ? 1 : 0) + (opencodeCount > 0 ? 1 : 0) + (openrouterLinked ? 1 : 0) + (thirdpartyCount > 0 ? 1 : 0) + (deepseekLinked ? 1 : 0) + (minimaxLinked ? 1 : 0) + (zaiLinked ? 1 : 0) + (zaiteamLinked ? 1 : 0) + (volcengineLinked ? 1 : 0) + (qoderLinked ? 1 : 0) + (kimiLinked ? 1 : 0) + (ollamaLinked ? 1 : 0) + (mimoLinked ? 1 : 0) + (copilotLinked ? 1 : 0),
-      total: 16
+      configured,
+      total: localCredentialProviders.length,
+      connections
     });
   }
   if (section === 'limits') {
@@ -11615,10 +11610,6 @@ function clearDeepseekProviderStatus() {
   state.stats.limits.providers = state.stats.limits.providers.filter((provider) => provider.provider !== 'deepseek');
 }
 
-function mimoAccountLinked() {
-  return (state.settings?.mimoManagedAccounts || []).length > 0;
-}
-
 function renderMimoStatus() {
   const statusEl = document.getElementById('mimoAccountStatus');
   const listEl = document.getElementById('mimoAccountList');
@@ -11755,11 +11746,6 @@ function copilotProviderStatus() {
 function copilotAccountLinked() {
   const provider = copilotProviderForAccount();
   return Boolean(state.settings?.copilotApiTokenConfigured) && provider?.status === 'ok';
-}
-
-function openrouterAccountLinked() {
-  if ((state.openrouterProfileCount || 0) > 0) return true;
-  return potluckProviderStatus('openrouter')?.status === 'ok';
 }
 
 function copilotProviderForAccount() {

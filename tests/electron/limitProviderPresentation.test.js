@@ -1176,37 +1176,22 @@ test('Copilot env token is documented in env example, not the README overview', 
   assert.doesNotMatch(readmeCn, /COPILOT_API_TOKEN|GITHUB_COPILOT_TOKEN/);
 });
 
-test('Accounts summary counts all managed account groups including Claude Web and Third-party API', () => {
+test('Accounts summary separates local credential providers from total Connections', () => {
   const app = readRendererFile('app.js');
-  const mimoLinkedBody = functionBody(app, 'mimoAccountLinked', 'renderMimoStatus');
+  const i18n = readRendererFile('i18n.js');
   const summaryBody = functionBody(app, 'settingsSectionSummary', 'renderSettingsSummaries');
 
-  assert.match(mimoLinkedBody, /return \(state\.settings\?\.mimoManagedAccounts \|\| \[\]\)\.length > 0;/);
-  assert.match(summaryBody, /const claudeLinked = externalProviderAccountLinked\('claude'\);/);
-  assert.match(summaryBody, /const minimaxLinked = minimaxAccountLinked\(\);/);
-  assert.match(summaryBody, /const zaiLinked = externalProviderAccountLinked\('zai'\);/);
-  assert.match(summaryBody, /const zaiteamLinked = externalProviderAccountLinked\('zaiteam'\);/);
-  assert.match(summaryBody, /const volcengineLinked = externalProviderAccountLinked\('volcengine'\);/);
-  assert.match(summaryBody, /const qoderLinked = externalProviderAccountLinked\('qoder'\);/);
-  assert.match(summaryBody, /const kimiLinked = externalProviderAccountLinked\('kimi'\);/);
-  assert.match(summaryBody, /const ollamaLinked = externalProviderAccountLinked\('ollama'\);/);
-  assert.match(summaryBody, /const openrouterLinked = openrouterAccountLinked\(\);/);
-  assert.match(summaryBody, /const thirdpartyCount = state\.thirdPartyProfileCount \|\| 0;/);
-  assert.match(summaryBody, /const mimoLinked = mimoAccountLinked\(\);/);
-  assert.match(summaryBody, /const copilotLinked = copilotAccountLinked\(\);/);
-  assert.match(summaryBody, /\(minimaxLinked \? 1 : 0\)/);
-  assert.match(summaryBody, /\(claudeLinked \? 1 : 0\)/);
-  assert.match(summaryBody, /\(zaiLinked \? 1 : 0\)/);
-  assert.match(summaryBody, /\(zaiteamLinked \? 1 : 0\)/);
-  assert.match(summaryBody, /\(volcengineLinked \? 1 : 0\)/);
-  assert.match(summaryBody, /\(qoderLinked \? 1 : 0\)/);
-  assert.match(summaryBody, /\(kimiLinked \? 1 : 0\)/);
-  assert.match(summaryBody, /\(ollamaLinked \? 1 : 0\)/);
-  assert.match(summaryBody, /\(openrouterLinked \? 1 : 0\)/);
-  assert.match(summaryBody, /\(thirdpartyCount > 0 \? 1 : 0\)/);
-  assert.match(summaryBody, /\(mimoLinked \? 1 : 0\)/);
-  assert.match(summaryBody, /\(copilotLinked \? 1 : 0\)/);
-  assert.match(summaryBody, /total: 16/);
+  assert.match(summaryBody, /const localCredentialProviders = ACCOUNT_CREDENTIAL_PROVIDER_IDS\.filter/);
+  assert.match(summaryBody, /!POTLUCK_UNIQUE_ACCOUNT_PROVIDERS\.includes\(providerId\)/);
+  assert.match(summaryBody, /const deepseekLinked = deepseekAccountLinked\(\);/);
+  assert.match(summaryBody, /providerId === 'deepseek' \? deepseekLinked : monitorLocalCredentialsConfigured\(providerId\)/);
+  assert.match(summaryBody, /Array\.isArray\(state\.stats\?\.limits\?\.providers\)/);
+  assert.match(summaryBody, /const connections = [\s\S]*?state\.stats\.limits\.providers\.length/);
+  assert.match(summaryBody, /total: localCredentialProviders\.length/);
+  assert.match(summaryBody, /\n {6}connections\n/);
+  assert.doesNotMatch(summaryBody, /linked:/);
+  assert.match(i18n, /'settings\.summary\.accounts': 'Local credentials \{configured\}\/\{total\} · \{connections\} connections'/);
+  assert.match(i18n, /'settings\.summary\.accounts': '本机凭据 \{configured\}\/\{total\} · 总连接 \{connections\}'/);
 });
 
 test('account validation does not use a remote aggregate when the local device lacks the provider', () => {
