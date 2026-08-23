@@ -3,24 +3,18 @@
 ## What's changed
 
 <!-- app-update-notes:en:start -->
-### Changed
-- **One credential owner per Connection:** credentials created in Potluck Web are now managed only in Web, while Monitor-local credentials open directly inside the matching **Settings → Accounts & Connections** entry. The same Key no longer needs to be configured in both places.
-
-### Improved
-- **Multi-key connections:** each enabled Web Key remains a separate Connection in Monitor. Connections share an allowance only when they explicitly carry the same `quotaPoolKey`; matching provider names, account labels, percentages, or reset times never trigger an inferred merge.
-- **Clear account summary:** **Accounts & Connections** now reports `Local credentials configured/supported · total connections` instead of combining both concepts into an ambiguous “linked” count.
-
 ### Fixed
-- **Credential status counts:** missing provider configuration counts now render as zero instead of `NaN`.
+- **Dependency security updates:** the bundled `undici` HTTP stack is updated to 7.29.0 and `js-yaml` to 4.3.1, resolving every known High-severity advisory in production dependencies. These libraries carry provider, Hub, and update-server requests and parse the updater's YAML feed.
+- **CI supply-chain hardening:** CI now fails when `npm audit` reports a High or Critical production-dependency advisory, and pins its GitHub Actions to immutable commit hashes like the release workflow does.
 <!-- app-update-notes:en:end -->
 
 ## Download
 
-- **macOS Apple Silicon** — [potluck-monitor-0.2.8-arm64.dmg](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.8/potluck-monitor-0.2.8-arm64.dmg)
-- **macOS Intel** — [potluck-monitor-0.2.8-x64.dmg](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.8/potluck-monitor-0.2.8-x64.dmg)
-- **Windows installer** — [potluck-monitor-Setup-0.2.8.exe](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.8/potluck-monitor-Setup-0.2.8.exe)
-- **Windows portable** — [potluck-monitor-0.2.8.exe](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.8/potluck-monitor-0.2.8.exe)
-- **Linux** — [potluck-monitor-0.2.8.AppImage](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.8/potluck-monitor-0.2.8.AppImage)
+- **macOS Apple Silicon** — [potluck-monitor-0.2.9-arm64.dmg](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.9/potluck-monitor-0.2.9-arm64.dmg)
+- **macOS Intel** — [potluck-monitor-0.2.9-x64.dmg](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.9/potluck-monitor-0.2.9-x64.dmg)
+- **Windows installer** — [potluck-monitor-Setup-0.2.9.exe](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.9/potluck-monitor-Setup-0.2.9.exe)
+- **Windows portable** — [potluck-monitor-0.2.9.exe](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.9/potluck-monitor-0.2.9.exe)
+- **Linux** — [potluck-monitor-0.2.9.AppImage](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.9/potluck-monitor-0.2.9.AppImage)
 
 <details>
 <summary><strong>First launch and other notes</strong></summary>
@@ -34,7 +28,7 @@ xattr -cr "/Applications/Potluck Monitor.app"
 open "/Applications/Potluck Monitor.app"
 ```
 
-If macOS says the app is damaged, that is Gatekeeper quarantine — the command above clears it. Confirm **Settings → App Updates → Installed** shows `v0.2.8`.
+If macOS says the app is damaged, that is Gatekeeper quarantine — the command above clears it. Confirm **Settings → App Updates → Installed** shows `v0.2.9`.
 
 ### tokscale dependency
 
@@ -51,24 +45,18 @@ open-source: https://github.com/junhoyeo/tokscale
 ## 更新内容
 
 <!-- app-update-notes:zh:start -->
-### 变更
-- **每条 Connection 只有一个凭据管理方：**在 Potluck Web 创建的凭据只需在 Web 管理；Monitor 本机凭据会直接展开在对应的**设置 → 账号与连接**条目内。同一个 Key 不再需要在两边重复配置。
-
-### 改进
-- **多 Key 连接：**Web 中每个已启用的 Key 都会在 Monitor 中保持为独立 Connection。只有多条 Connection 明确携带相同 `quotaPoolKey` 时才共享额度；Provider 名称、账号标签、百分比或重置时间相同都不会触发推测合并。
-- **账号摘要更清楚：**“账号与连接”现在分别显示“本机凭据 已配置/支持 · 总连接”，不再用含义模糊的“已连接”数字混合两个概念。
-
 ### 修复
-- **凭据状态计数：**Provider 配置数量缺失时显示为 0，不再出现 `NaN`。
+- **依赖安全更新：**内置的 `undici` 网络栈升级到 7.29.0、`js-yaml` 固定到 4.3.1，清零生产依赖中全部已知 High 级安全告警。这两个库承载 Provider、Hub 与更新服务的网络请求，并负责解析更新器的 YAML 数据。
+- **CI 供应链加固：**CI 现在会在生产依赖审计出现 High 或 Critical 告警时直接失败，并像发布工作流一样把 GitHub Actions 固定为不可变 commit。
 <!-- app-update-notes:zh:end -->
 
 ## 下载
 
-- **macOS Apple Silicon** — [potluck-monitor-0.2.8-arm64.dmg](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.8/potluck-monitor-0.2.8-arm64.dmg)
-- **macOS Intel** — [potluck-monitor-0.2.8-x64.dmg](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.8/potluck-monitor-0.2.8-x64.dmg)
-- **Windows 安装包** — [potluck-monitor-Setup-0.2.8.exe](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.8/potluck-monitor-Setup-0.2.8.exe)
-- **Windows 便携版** — [potluck-monitor-0.2.8.exe](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.8/potluck-monitor-0.2.8.exe)
-- **Linux** — [potluck-monitor-0.2.8.AppImage](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.8/potluck-monitor-0.2.8.AppImage)
+- **macOS Apple Silicon** — [potluck-monitor-0.2.9-arm64.dmg](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.9/potluck-monitor-0.2.9-arm64.dmg)
+- **macOS Intel** — [potluck-monitor-0.2.9-x64.dmg](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.9/potluck-monitor-0.2.9-x64.dmg)
+- **Windows 安装包** — [potluck-monitor-Setup-0.2.9.exe](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.9/potluck-monitor-Setup-0.2.9.exe)
+- **Windows 便携版** — [potluck-monitor-0.2.9.exe](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.9/potluck-monitor-0.2.9.exe)
+- **Linux** — [potluck-monitor-0.2.9.AppImage](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.9/potluck-monitor-0.2.9.AppImage)
 
 <details>
 <summary><strong>首次启动与其他说明</strong></summary>
@@ -82,7 +70,7 @@ xattr -cr "/Applications/Potluck Monitor.app"
 open "/Applications/Potluck Monitor.app"
 ```
 
-若提示「已损坏」，那是隔离标记；上面命令会清掉。打开后到 **设置 → App Updates → Installed** 确认是 `v0.2.8`。
+若提示「已损坏」，那是隔离标记；上面命令会清掉。打开后到 **设置 → App Updates → Installed** 确认是 `v0.2.9`。
 
 ### tokscale 依赖
 

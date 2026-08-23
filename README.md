@@ -165,14 +165,14 @@ Multiple keys remain explicit:
 
 ## Installation
 
-Download the current stable release, [v0.2.8](https://github.com/Ezero23/potluck-monitor/releases/tag/v0.2.8):
+Download the current stable release, [v0.2.9](https://github.com/Ezero23/potluck-monitor/releases/tag/v0.2.9):
 
-- **macOS Apple Silicon** — [DMG](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.8/potluck-monitor-0.2.8-arm64.dmg) or [ZIP](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.8/potluck-monitor-0.2.8-arm64.zip)
-- **macOS Intel** — [DMG](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.8/potluck-monitor-0.2.8-x64.dmg) or [ZIP](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.8/potluck-monitor-0.2.8-x64.zip)
-- **Windows** — [installer](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.8/potluck-monitor-Setup-0.2.8.exe) or [portable executable](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.8/potluck-monitor-0.2.8.exe)
-- **Linux** — [AppImage](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.8/potluck-monitor-0.2.8.AppImage)
+- **macOS Apple Silicon** — [DMG](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.9/potluck-monitor-0.2.9-arm64.dmg) or [ZIP](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.9/potluck-monitor-0.2.9-arm64.zip)
+- **macOS Intel** — [DMG](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.9/potluck-monitor-0.2.9-x64.dmg) or [ZIP](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.9/potluck-monitor-0.2.9-x64.zip)
+- **Windows** — [installer](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.9/potluck-monitor-Setup-0.2.9.exe) or [portable executable](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.9/potluck-monitor-0.2.9.exe)
+- **Linux** — [AppImage](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.9/potluck-monitor-0.2.9.AppImage)
 
-The current macOS and Windows packages are unsigned. If macOS says the app is damaged, that is Gatekeeper quarantine — run `xattr -cr "/Applications/Potluck Monitor.app"` then open it; right-click **Open** is often not enough. Windows SmartScreen may require **More info → Run anyway**. See the [release notes](https://github.com/Ezero23/potluck-monitor/releases/tag/v0.2.8) before installing.
+The current macOS and Windows packages are unsigned. If macOS says the app is damaged, that is Gatekeeper quarantine — run `xattr -cr "/Applications/Potluck Monitor.app"` then open it; right-click **Open** is often not enough. Windows SmartScreen may require **More info → Run anyway**. See the [release notes](https://github.com/Ezero23/potluck-monitor/releases/tag/v0.2.9) before installing.
 
 Packaged builds check GitHub Releases automatically. When an update is available, the app shows an update indicator; supported platforms can also install from Settings → General.
 
