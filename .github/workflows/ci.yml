@@ -25,12 +25,20 @@ jobs:
           - os: windows-latest
             node-version: '24'
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
         with:
           node-version: ${{ matrix.node-version }}
           cache: npm
       - run: npm ci
+      - name: Audit production dependencies
+        # Fails on High/Critical advisories in the shipped dependency tree.
+        # Linux-only like the drift check below: npm audit reads lockfiles +
+        # the registry and is OS-independent.
+        if: runner.os == 'Linux'
+        run: |
+          npm audit --omit=dev --audit-level=high
+          npm audit --prefix worker --omit=dev --audit-level=high
       - name: Verify vendored worker shared code is in sync
         # Drift check is OS-independent; running it once on Linux avoids
         # false positives from Windows CRLF checkout vs the LF sync writes.
