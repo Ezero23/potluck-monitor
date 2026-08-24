@@ -1071,7 +1071,7 @@ test('main settings normalize the Z.ai API region', () => {
   assert.match(handler, /queueLimitInvalidation\(scope, 'settings-change'/);
 });
 
-test('main settings migration preserves explicit AI limit provider selections', () => {
+test('main settings migration expands untouched AI provider defaults and preserves explicit selections', () => {
   const main = fs.readFileSync(path.join(rendererDir, '..', 'main.js'), 'utf8');
   const context = {
     parseLimitProviders(value) {
@@ -1087,11 +1087,11 @@ test('main settings migration preserves explicit AI limit provider selections', 
 
   assert.equal(
     runMainFunction(main, 'migrateLimitProviders', 'migrateLimitProviderOrder', "migrateLimitProviders('claude,codex')", context),
-    'claude,codex'
+    'claude,codex,cursor,antigravity,opencode'
   );
   assert.equal(
-    runMainFunction(main, 'migrateLimitProviders', 'migrateLimitProviderOrder', "migrateLimitProviders('claude,codex,cursor,antigravity')", context),
-    'claude,codex,cursor,antigravity'
+    runMainFunction(main, 'migrateLimitProviders', 'migrateLimitProviderOrder', "migrateLimitProviders('claude,codex', true)", context),
+    'claude,codex'
   );
 });
 
@@ -1247,11 +1247,25 @@ test('main collectors share one live GUI limit credential resolver in every widg
   ]) assert.match(runtimeConfig, new RegExp(`${key}: settings\\.${key}`));
 });
 
-test('main settings migrateLimitProviders normalizes without expanding old defaults', () => {
+test('main settings records provider selection intent and defaults untouched installs to all providers', () => {
   const main = fs.readFileSync(path.join(__dirname, '..', '..', 'src', 'electron', 'main.js'), 'utf8');
   const body = functionBody(main, 'migrateLimitProviders', 'migrateLimitProviderOrder');
-  assert.match(body, /return parseLimitProviders\(value\)\.join/);
-  assert.doesNotMatch(body, /preMimoDefault|legacyDefault.*return defaultLimitProviders/);
+  assert.match(body, /selectionTouched[\s\S]*parseLimitProviders\(value\)\.join[\s\S]*defaultLimitProviders\(\)/);
+  assert.match(main, /limitProviderSelectionTouched: false/);
+  assert.match(main, /patch\.limitProviders !== undefined[\s\S]*limitProviderSelectionTouched/);
+});
+
+test('provider selection rendering is lazy, debounced, and ignores progressive list rebuilds', () => {
+  const app = readRendererFile('app.js');
+  const renderBody = functionBody(app, 'renderLimitProviderCheckboxes', 'onToolTrackingToggle');
+  const toggleBody = functionBody(app, 'onLimitProviderToggle', 'onLimitProviderMove');
+  const pushBody = app.slice(app.indexOf('window.tokenMonitor.onStatsPush?.'), app.indexOf('function pickWorstProvider'));
+
+  assert.match(renderBody, /!force && !limitProviderSettingsVisible\(\)/);
+  assert.match(renderBody, /if \(detailsOpen\) \{[\s\S]*appendLimitProviderConnectionCard/);
+  assert.match(toggleBody, /scheduleLimitProviderSelectionSave\(checked, revision\)/);
+  assert.doesNotMatch(toggleBody, /refreshStats|saveSettings/);
+  assert.match(pushBody, /reason !== 'progress' && !limitProviderSelectionPending\(\)/);
 });
 
 test('Home limits groups multiple MiMo accounts like Codex', () => {

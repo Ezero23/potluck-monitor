@@ -509,6 +509,7 @@ function setSettingsSectionExpanded(section, expanded) {
   }
   state.settingsSections[id] = next;
   applySettingsSectionDom(id, next);
+  if (id === 'limits' && next) renderLimitProviderCheckboxes({ force: true });
 }
 
 // Expanding a section auto-collapses the previously open one. When that one
@@ -8663,9 +8664,18 @@ function renderAccountConnectionDirectory() {
   syncInlineCredentialForms();
 }
 
-function renderLimitProviderCheckboxes() {
+function limitProviderSettingsVisible() {
+  return Boolean(
+    els.settingsPanel
+    && !els.settingsPanel.classList.contains('hidden')
+    && state.settingsSections.limits
+  );
+}
+
+function renderLimitProviderCheckboxes({ force = false } = {}) {
   if (!els.limitProviderCheckboxes || !limitProviderSummaryApi?.connectionsByProvider) return;
-  if (limitProviderListIsBusy()) return;
+  if (!force && !limitProviderSettingsVisible()) return;
+  if (!force && limitProviderListIsBusy()) return;
   const enabled = enabledLimitProviderSet();
   const collected = limitProviderSummaryApi.connectionsByProvider(state.stats?.limits?.providers || []);
   const providers = limitProviderOrderApi.orderedLimitProviders(LIMIT_PROVIDERS, state.settings?.limitProviderOrder);
@@ -8744,29 +8754,31 @@ function renderLimitProviderCheckboxes() {
     details.className = `limit-provider-details${detailsOpen ? '' : ' hidden'}`;
     details.id = `limit-provider-details-${id}`;
     summaryLine.setAttribute('aria-controls', details.id);
-    const tags = document.createElement('span');
-    tags.className = 'limit-provider-tags';
-    const provenance = limitProviderProvenance(provider);
-    for (const tagInfo of limitProviderPresentationApi.limitProviderSettingsTags(provider, provenance)) {
-      const tag = document.createElement('span');
-      tag.className = `limit-provider-tag limit-provider-tag-${tagInfo.kind}`;
-      if (tagInfo.tone) tag.classList.add(`limit-provider-tag-${tagInfo.tone}`);
-      tag.textContent = translatedLimitProviderTag(tagInfo);
-      tags.append(tag);
-    }
-    details.append(tags);
-    if (enabled.has(id)) {
-      rows.forEach((connection, index) => appendLimitProviderConnectionCard(details, connection, index, rows, id));
-      if (providerAccountSettingsEl(id) && (summary.sources.potluck > 0 || summary.headline === 'missing')) {
-        const addLocal = document.createElement('button');
-        addLocal.type = 'button';
-        addLocal.textContent = t('settings.limits.addMonitorAccount');
-        addLocal.addEventListener('click', (event) => {
-          event.preventDefault();
-          event.stopPropagation();
-          focusProviderAccountSettings(id);
-        });
-        details.append(addLocal);
+    if (detailsOpen) {
+      const tags = document.createElement('span');
+      tags.className = 'limit-provider-tags';
+      const provenance = limitProviderProvenance(provider);
+      for (const tagInfo of limitProviderPresentationApi.limitProviderSettingsTags(provider, provenance)) {
+        const tag = document.createElement('span');
+        tag.className = `limit-provider-tag limit-provider-tag-${tagInfo.kind}`;
+        if (tagInfo.tone) tag.classList.add(`limit-provider-tag-${tagInfo.tone}`);
+        tag.textContent = translatedLimitProviderTag(tagInfo);
+        tags.append(tag);
+      }
+      details.append(tags);
+      if (enabled.has(id)) {
+        rows.forEach((connection, index) => appendLimitProviderConnectionCard(details, connection, index, rows, id));
+        if (providerAccountSettingsEl(id) && (summary.sources.potluck > 0 || summary.headline === 'missing')) {
+          const addLocal = document.createElement('button');
+          addLocal.type = 'button';
+          addLocal.textContent = t('settings.limits.addMonitorAccount');
+          addLocal.addEventListener('click', (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            focusProviderAccountSettings(id);
+          });
+          details.append(addLocal);
+        }
       }
     }
     main.append(wrap, sub, details);
@@ -9202,7 +9214,6 @@ function focusProviderAccountSettings(providerId) {
 function focusLimitProviderSettings(providerId) {
   setLimitProviderDetailsOpen(providerId, true);
   setSettingsSectionExpanded('limits', true);
-  renderLimitProviderCheckboxes();
   document.getElementById(`limit-provider-details-${providerId}`)?.scrollIntoView({ block: 'nearest' });
   return true;
 }
@@ -9349,32 +9360,87 @@ async function onProjectVisibilityToggle() {
   await onViewVisibilityToggle('project');
 }
 
-async function onLimitProviderToggle() {
-  if (state.limitProviderToggleBusy) return;
-  state.limitProviderToggleBusy = true;
-  const checked = Array.from(els.limitProviderCheckboxes.querySelectorAll('input[type=checkbox]'))
-    .filter((cb) => cb.checked)
-    .map((cb) => cb.dataset.provider);
-  if (checked.length === 0 && state.breakdown === 'limits') {
-    setBreakdown('tool');
-  }
-  try {
-    await saveSettings({ limitProviders: checked.join(','), limitsEnabled: checked.length > 0 }, { skipFormSync: true });
-    clearDisabledLimitProviderPendingChecks(new Set(checked));
-    if (state.breakdown === 'limits') renderLimits();
-    else renderHomeIfVisible();
-  } finally {
-    state.limitProviderToggleBusy = false;
+const LIMIT_PROVIDER_SELECTION_SAVE_DELAY_MS = 180;
+let limitProviderSelectionRevision = 0;
+let limitProviderSelectionAppliedRevision = 0;
+let limitProviderSelectionSaveTimer = null;
+let limitProviderSelectionSaveQueue = Promise.resolve();
+
+function limitProviderSelectionPending() {
+  return limitProviderSelectionAppliedRevision < limitProviderSelectionRevision;
+}
+
+function updateLimitProviderSettingsSummary() {
+  if (els.limitsSettingsSummary) {
+    els.limitsSettingsSummary.textContent = settingsSectionSummary('limits');
   }
 }
 
-async function enableAllLimitProviders() {
-  const next = LIMIT_PROVIDERS.map((provider) => provider.id).join(',');
-  await saveSettings({ limitProviders: next, limitsEnabled: true }, { skipFormSync: true });
-  clearDisabledLimitProviderPendingChecks(new Set(LIMIT_PROVIDERS.map((provider) => provider.id)));
-  renderLimitProviderCheckboxes();
-  if (state.breakdown === 'limits') renderLimits();
-  else renderHomeIfVisible();
+function scheduleLimitProviderSelectionSave(selection, revision) {
+  clearTimeout(limitProviderSelectionSaveTimer);
+  limitProviderSelectionSaveTimer = setTimeout(() => {
+    limitProviderSelectionSaveTimer = null;
+    limitProviderSelectionSaveQueue = limitProviderSelectionSaveQueue
+      .catch(() => {})
+      .then(async () => {
+        try {
+          const next = await window.tokenMonitor.updateSettings({
+            limitProviders: selection.join(','),
+            limitsEnabled: selection.length > 0,
+            limitProviderSelectionTouched: true
+          });
+          if (revision !== limitProviderSelectionRevision) return;
+          state.settings = next;
+          limitProviderSelectionAppliedRevision = revision;
+          updateLimitProviderSettingsSummary();
+          restartTimer();
+          maybeUpdateBarsIcon();
+        } catch (error) {
+          console.error('Could not persist provider selection:', error);
+          if (revision !== limitProviderSelectionRevision) return;
+          try { state.settings = await window.tokenMonitor.getSettings(); } catch (_) {}
+          limitProviderSelectionAppliedRevision = revision;
+          renderLimitProviderCheckboxes({ force: true });
+          updateLimitProviderSettingsSummary();
+        }
+      });
+  }, LIMIT_PROVIDER_SELECTION_SAVE_DELAY_MS);
+}
+
+function onLimitProviderToggle() {
+  const checked = Array.from(els.limitProviderCheckboxes.querySelectorAll('input[type=checkbox]'))
+    .filter((cb) => cb.checked)
+    .map((cb) => cb.dataset.provider);
+  const revision = ++limitProviderSelectionRevision;
+  state.settings = {
+    ...state.settings,
+    limitProviders: checked.join(','),
+    limitsEnabled: checked.length > 0,
+    limitProviderSelectionTouched: true
+  };
+  if (checked.length === 0 && state.breakdown === 'limits') {
+    setBreakdown('tool');
+  }
+  clearDisabledLimitProviderPendingChecks(new Set(checked));
+  updateLimitProviderSettingsSummary();
+  scheduleLimitProviderSelectionSave(checked, revision);
+}
+
+function enableAllLimitProviders() {
+  const checked = LIMIT_PROVIDERS.map((provider) => provider.id);
+  for (const input of els.limitProviderCheckboxes.querySelectorAll('input[type=checkbox]')) {
+    input.checked = true;
+  }
+  const revision = ++limitProviderSelectionRevision;
+  state.settings = {
+    ...state.settings,
+    limitProviders: checked.join(','),
+    limitsEnabled: true,
+    limitProviderSelectionTouched: true
+  };
+  clearDisabledLimitProviderPendingChecks(new Set(checked));
+  updateLimitProviderSettingsSummary();
+  scheduleLimitProviderSelectionSave(checked, revision);
 }
 
 async function onLimitProviderMove(providerId, direction) {
@@ -10261,9 +10327,17 @@ els.appUpdateReleaseNotesButton.addEventListener('click', async () => {
 window.tokenMonitor.onSettingsPush?.((next) => {
   if (!next) return;
   const prevMetric = state.settings?.heatmapMetric;
-  state.settings = next;
+  const localProviderSelection = limitProviderSelectionPending()
+    ? {
+        limitProviders: state.settings?.limitProviders,
+        limitsEnabled: state.settings?.limitsEnabled,
+        limitProviderSelectionTouched: true
+      }
+    : null;
+  state.settings = localProviderSelection ? { ...next, ...localProviderSelection } : next;
   applyEffectiveCurrencyRates();
-  if (!state.settingsSaveInFlight) syncSettingsForm();
+  if (localProviderSelection) updateLimitProviderSettingsSummary();
+  else syncSettingsForm();
   maybeUpdateBarsIcon();
   if ((prevMetric || 'cost') !== (next.heatmapMetric || 'cost')) {
     render();
@@ -10335,7 +10409,11 @@ window.tokenMonitor.onStatsPush?.((payload) => {
   renderSyncClientStatus();
   if (payload.data?.stats) {
     render();
-    if (!limitProviderListIsBusy()) renderLimitProviderCheckboxes();
+    if (
+      payload.data?.reason !== 'progress'
+      && !limitProviderSelectionPending()
+      && !limitProviderListIsBusy()
+    ) renderLimitProviderCheckboxes();
     renderToolPreferences();
     renderWslPanel();
     updateOpenRouterProfilesStatus();

@@ -344,6 +344,7 @@ function defaultSettings() {
     customModelPricing: [],
     limitsEnabled: parseBoolean(process.env.TOKEN_MONITOR_LIMITS_ENABLED, true),
     limitProviders: parseLimitProviders(process.env.TOKEN_MONITOR_LIMIT_PROVIDERS).join(','),
+    limitProviderSelectionTouched: false,
     limitProviderOrder: defaultLimitProviderOrder(),
     homeLimitProviderOrder: '',
     hiddenHomeLimitProviders: '',
@@ -1387,11 +1388,14 @@ async function refreshCodexManagedAccountLimits(id) {
   }
 }
 
-function migrateLimitProviders(value) {
-  // Saved provider selections are user intent. Normalize ids, but do not expand
-  // older defaults into today's full provider list because the saved shape is
-  // indistinguishable from a deliberate "only these providers" choice.
-  return parseLimitProviders(value).join(',');
+function migrateLimitProviders(value, selectionTouched = false) {
+  // Older settings stored the then-current default as if it were an explicit
+  // allowlist. Without an interaction marker, newly added providers stayed
+  // disabled forever. Untouched legacy selections now follow the live default;
+  // once a user changes the list, their explicit selection remains stable.
+  return selectionTouched
+    ? parseLimitProviders(value).join(',')
+    : defaultLimitProviders();
 }
 
 function migrateLimitProviderOrder(value) {
@@ -1901,7 +1905,14 @@ function readSettings() {
       merged.hubMode = (saved.hubUrl && String(saved.hubUrl).trim()) ? 'client' : 'local';
     }
     if (saved.limitProviders !== undefined) {
-      merged.limitProviders = migrateLimitProviders(saved.limitProviders);
+      const selectionTouched = saved.limitProviderSelectionTouched === true;
+      const migratedProviders = migrateLimitProviders(saved.limitProviders, selectionTouched);
+      merged.limitProviders = migratedProviders;
+      merged.limitProviderSelectionTouched = selectionTouched;
+      if (
+        saved.limitProviderSelectionTouched === undefined
+        || migratedProviders !== saved.limitProviders
+      ) pendingSettingsMigration = true;
     }
     if (saved.limitProviderOrder !== undefined) {
       merged.limitProviderOrder = migrateLimitProviderOrder(saved.limitProviderOrder);
@@ -4540,6 +4551,9 @@ app.whenReady().then(() => {
       floatingBubbleEnabled: parseBoolean(patch.floatingBubbleEnabled ?? settings.floatingBubbleEnabled, false),
       limitsEnabled: parseBoolean(patch.limitsEnabled ?? settings.limitsEnabled, true),
       limitProviders: patch.limitProviders !== undefined ? parseLimitProviders(patch.limitProviders).join(',') : settings.limitProviders,
+      limitProviderSelectionTouched: patch.limitProviders !== undefined
+        ? parseBoolean(patch.limitProviderSelectionTouched, true)
+        : parseBoolean(settings.limitProviderSelectionTouched, false),
       limitProviderOrder: patch.limitProviderOrder !== undefined ? migrateLimitProviderOrder(patch.limitProviderOrder) : settings.limitProviderOrder,
       clientDisplayOrder: patch.clientDisplayOrder !== undefined ? migrateClientDisplayOrder(patch.clientDisplayOrder) : (settings.clientDisplayOrder || ''),
       hiddenClients: patch.hiddenClients !== undefined ? normalizeHiddenClients(patch.hiddenClients, KNOWN_CLIENT_LIST) : normalizeHiddenClients(settings.hiddenClients, KNOWN_CLIENT_LIST),
