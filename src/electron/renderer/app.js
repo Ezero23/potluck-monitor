@@ -2144,8 +2144,27 @@ function enabledLimitProviderSet() {
   return new Set(configuredLimitProviderSelection());
 }
 
+function limitProviderIdsWithData(providers = state.stats?.limits?.providers) {
+  const ids = new Set();
+  for (const provider of providers || []) {
+    const id = String(provider?.provider || '').trim().toLowerCase();
+    if (id) ids.add(id);
+  }
+  return ids;
+}
+
+function limitProviderShouldDisplay(id, enabled = enabledLimitProviderSet(), idsWithData = limitProviderIdsWithData()) {
+  return enabled.has(id) || idsWithData.has(id);
+}
+
 function limitProviderEnabled(providerName) {
   return enabledLimitProviderSet().has(providerName);
+}
+
+function limitProviderListIsBusy() {
+  return Boolean(state.limitProviderToggleBusy)
+    || Boolean(state.limitProviderPointerDown)
+    || Boolean(els.limitProviderCheckboxes?.contains(document.activeElement));
 }
 
 function limitProviderSelectionIncluding(providerName) {
@@ -3856,16 +3875,19 @@ function renderLimits() {
   if (activitySection) nodes.push(activitySection);
   const rows = limitProviderOrderApi
     .orderedLimitProviders(LIMIT_PROVIDERS, state.settings?.limitProviderOrder)
-    .filter(({ id }) => limitsEnabled && enabled.has(id));
+    .filter(({ id }) => limitsEnabled && limitProviderShouldDisplay(id, enabled));
   if (rows.length === 0) {
     els.limitsPanel.replaceChildren(...nodes);
     return;
   }
   for (const { id, label } of rows) {
     const providerEnabled = limitsEnabled && enabled.has(id);
-    const providerEntries = providerEnabled
-      ? (providers.get(id) || [{ provider: id, status: state.stats ? missingLimitProviderStatus() : 'unavailable', windows: [] }])
-      : [{ provider: id, status: 'disabled', windows: [] }];
+    const collected = providers.get(id);
+    const providerEntries = collected && collected.length > 0
+      ? collected
+      : providerEnabled
+        ? [{ provider: id, status: state.stats ? missingLimitProviderStatus() : 'unavailable', windows: [] }]
+        : [{ provider: id, status: 'disabled', windows: [] }];
     const visibleProviders = providerEntries.length > 0
       ? providerEntries
       : { provider: id, status: 'disabled', windows: [] };
@@ -4739,7 +4761,7 @@ function homeLimitRows() {
     enabledProviderIds: Array.from(enabled),
     hiddenProviderIds: Array.from(hiddenHomeLimitProviderSet()),
     colors: clientColors,
-    limit: state.settings?.homeLimitAccountCount ?? 20,
+    limit: state.settings?.homeLimitAccountCount ?? 50,
     sort: 'configured',
     pinnedAccountKeys: Array.from(pinnedHomeLimitAccountSet()),
     pinKey: (provider, index, providerId) => accountConnectionRowKey(providerId, provider, index),
@@ -5916,7 +5938,7 @@ async function refreshStats(options = {}) {
     applyCodexActiveAccountFromStats();
     setStatus(statusTextFor(state.mode, state.streamConnected));
     render();
-    renderLimitProviderCheckboxes();
+    if (!limitProviderListIsBusy()) renderLimitProviderCheckboxes();
     renderToolPreferences();
     renderWslPanel();
     updateOpenRouterProfilesStatus();
@@ -7476,7 +7498,7 @@ function renderHomeLimitProviderList() {
   countInput.max = '50';
   countInput.step = '1';
   countInput.inputMode = 'numeric';
-  countInput.value = String(state.settings?.homeLimitAccountCount ?? 20);
+  countInput.value = String(state.settings?.homeLimitAccountCount ?? 50);
   countInput.addEventListener('change', async () => {
     await saveSettings({ homeLimitAccountCount: Number(countInput.value) });
     renderHomeIfVisible();
@@ -8643,10 +8665,21 @@ function renderAccountConnectionDirectory() {
 
 function renderLimitProviderCheckboxes() {
   if (!els.limitProviderCheckboxes || !limitProviderSummaryApi?.connectionsByProvider) return;
+  if (limitProviderListIsBusy()) return;
   const enabled = enabledLimitProviderSet();
   const collected = limitProviderSummaryApi.connectionsByProvider(state.stats?.limits?.providers || []);
   const providers = limitProviderOrderApi.orderedLimitProviders(LIMIT_PROVIDERS, state.settings?.limitProviderOrder);
   els.limitProviderCheckboxes.replaceChildren();
+  const toolbar = document.createElement('div');
+  toolbar.className = 'settings-note-row limit-provider-list-header';
+  const enableAll = document.createElement('button');
+  enableAll.type = 'button';
+  enableAll.className = 'tool-header-action';
+  enableAll.textContent = t('settings.limits.enableAll');
+  enableAll.disabled = providers.every(({ id }) => enabled.has(id));
+  enableAll.addEventListener('click', () => void enableAllLimitProviders());
+  toolbar.append(enableAll);
+  els.limitProviderCheckboxes.appendChild(toolbar);
   for (const { id, label, settingsLabel } of providers) {
     const name = settingsLabel || label;
     const rows = collected.get(id) || [];
@@ -9317,15 +9350,31 @@ async function onProjectVisibilityToggle() {
 }
 
 async function onLimitProviderToggle() {
+  if (state.limitProviderToggleBusy) return;
+  state.limitProviderToggleBusy = true;
   const checked = Array.from(els.limitProviderCheckboxes.querySelectorAll('input[type=checkbox]'))
     .filter((cb) => cb.checked)
     .map((cb) => cb.dataset.provider);
   if (checked.length === 0 && state.breakdown === 'limits') {
     setBreakdown('tool');
   }
-  await saveSettings({ limitProviders: checked.join(','), limitsEnabled: checked.length > 0 });
-  clearDisabledLimitProviderPendingChecks(new Set(checked));
-  await refreshStats({ force: true });
+  try {
+    await saveSettings({ limitProviders: checked.join(','), limitsEnabled: checked.length > 0 }, { skipFormSync: true });
+    clearDisabledLimitProviderPendingChecks(new Set(checked));
+    if (state.breakdown === 'limits') renderLimits();
+    else renderHomeIfVisible();
+  } finally {
+    state.limitProviderToggleBusy = false;
+  }
+}
+
+async function enableAllLimitProviders() {
+  const next = LIMIT_PROVIDERS.map((provider) => provider.id).join(',');
+  await saveSettings({ limitProviders: next, limitsEnabled: true }, { skipFormSync: true });
+  clearDisabledLimitProviderPendingChecks(new Set(LIMIT_PROVIDERS.map((provider) => provider.id)));
+  renderLimitProviderCheckboxes();
+  if (state.breakdown === 'limits') renderLimits();
+  else renderHomeIfVisible();
 }
 
 async function onLimitProviderMove(providerId, direction) {
@@ -9606,20 +9655,23 @@ function preserveSettingsPanelScroll(callback) {
   return result;
 }
 
-async function saveSettings(patch) {
+async function saveSettings(patch, options = {}) {
+  state.settingsSaveInFlight = (state.settingsSaveInFlight || 0) + 1;
   try {
     state.settings = await window.tokenMonitor.updateSettings(patch);
   } catch (error) {
     console.error('Could not persist settings:', error);
     try { state.settings = await window.tokenMonitor.getSettings(); } catch (_) {}
     applyEffectiveCurrencyRates();
-    preserveSettingsPanelScroll(syncSettingsForm);
+    if (options.skipFormSync !== true) preserveSettingsPanelScroll(syncSettingsForm);
     restartTimer();
     maybeUpdateBarsIcon();
     throw error;
+  } finally {
+    state.settingsSaveInFlight = Math.max(0, (state.settingsSaveInFlight || 1) - 1);
   }
   applyEffectiveCurrencyRates();
-  preserveSettingsPanelScroll(syncSettingsForm);
+  if (options.skipFormSync !== true) preserveSettingsPanelScroll(syncSettingsForm);
   restartTimer();
   maybeUpdateBarsIcon();
   return true;
@@ -10058,6 +10110,17 @@ els.windowToggleShortcutValue?.addEventListener('click', startWindowShortcutReco
 els.windowToggleShortcutClearButton?.addEventListener('click', () => setWindowToggleShortcut('').catch(() => {}));
 els.startAtLoginInput?.addEventListener('change', () => saveSettings({ startAtLogin: els.startAtLoginInput.checked }));
 els.automaticAppUpdatesInput?.addEventListener('change', () => saveSettings({ automaticAppUpdates: els.automaticAppUpdatesInput.checked }));
+els.limitProviderCheckboxes?.addEventListener('pointerdown', (event) => {
+  if (event.target?.closest?.('input[type=checkbox], label.limit-provider-toggle')) {
+    state.limitProviderPointerDown = true;
+  }
+});
+window.addEventListener('pointerup', () => {
+  state.limitProviderPointerDown = false;
+});
+window.addEventListener('pointercancel', () => {
+  state.limitProviderPointerDown = false;
+});
 els.glassInput.addEventListener('change', saveAppearanceFromControls);
 els.blurInput.addEventListener('change', saveAppearanceFromControls);
 els.zoomInput.addEventListener('change', saveAppearanceFromControls);
@@ -10200,7 +10263,7 @@ window.tokenMonitor.onSettingsPush?.((next) => {
   const prevMetric = state.settings?.heatmapMetric;
   state.settings = next;
   applyEffectiveCurrencyRates();
-  syncSettingsForm();
+  if (!state.settingsSaveInFlight) syncSettingsForm();
   maybeUpdateBarsIcon();
   if ((prevMetric || 'cost') !== (next.heatmapMetric || 'cost')) {
     render();
@@ -10272,7 +10335,7 @@ window.tokenMonitor.onStatsPush?.((payload) => {
   renderSyncClientStatus();
   if (payload.data?.stats) {
     render();
-    renderLimitProviderCheckboxes();
+    if (!limitProviderListIsBusy()) renderLimitProviderCheckboxes();
     renderToolPreferences();
     renderWslPanel();
     updateOpenRouterProfilesStatus();

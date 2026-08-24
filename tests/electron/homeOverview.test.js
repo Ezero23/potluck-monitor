@@ -425,6 +425,26 @@ test('homeLimitAccountsForProviders keeps provider order and filters hidden prov
   assert.equal(rows[0].name, 'Codex');
 });
 
+test('homeLimitAccountsForProviders still shows untracked providers that already have quota data', () => {
+  const rows = homeLimitAccountsForProviders({
+    providers: [
+      { provider: 'gemini-cli', windows: [{ kind: 'session', usedPercent: 12 }] },
+      { provider: 'codex', windows: [{ kind: 'session', usedPercent: 40 }] }
+    ],
+    providerOptions: [
+      { id: 'codex', label: 'Codex' },
+      { id: 'gemini-cli', label: 'Gemini CLI' },
+      { id: 'nvidia', label: 'NVIDIA' }
+    ],
+    enabledProviderIds: ['codex'],
+    colors: { codex: '#49a3b0', 'gemini-cli': '#4285f4', nvidia: '#76b900' },
+    limit: 5,
+    sort: 'configured'
+  });
+
+  assert.deepEqual(rows.map((row) => row.providerId), ['codex', 'gemini-cli']);
+});
+
 test('homeLimitAccountsForProviders can preserve configured provider order over remaining quota', () => {
   const rows = homeLimitAccountsForProviders({
     providers: [

@@ -8,6 +8,7 @@ const test = require('node:test');
 const {
   appUpdateInstallSupport,
   buildCustomInstallScript,
+  checkLatestRelease,
   deriveAppUpdateAvailability,
   downloadedAppUpdateMatchesLatest,
   extractReleaseNotes,
@@ -486,4 +487,32 @@ test('buildCustomInstallScript escapes single quotes in interpolated paths', () 
   });
   assert.match(script, /APP_PATH='\/Applications\/O'\\''Brien\/Potluck Monitor\.app'/);
   assert.match(script, /ZIP_PATH='\/tmp\/it'\\''s here\/update\.zip'/);
+});
+
+test('checkLatestRelease uses the injected fetch and reports a newer release', async () => {
+  let calledUrl = '';
+  const result = await checkLatestRelease('0.2.0', {
+    fetch: async (url) => {
+      calledUrl = String(url);
+      return {
+        ok: true,
+        json: async () => ({
+          tag_name: 'v0.2.10',
+          html_url: 'https://github.com/Ezero23/potluck-monitor/releases/tag/v0.2.10',
+          name: 'v0.2.10',
+          published_at: '2026-08-24T03:29:04Z',
+          assets: []
+        })
+      };
+    }
+  });
+  assert.match(calledUrl, /repos\/Ezero23\/potluck-monitor\/releases\/latest/);
+  assert.equal(result.ok, true);
+  assert.equal(result.newer, true);
+  assert.equal(result.latest.version, '0.2.10');
+});
+
+test('update checks wait longer than 10s for GitHub', () => {
+  const source = fs.readFileSync(path.join(__dirname, '../../src/shared/appUpdater.js'), 'utf8');
+  assert.match(source, /REQUEST_TIMEOUT_MS = 20 \* 1000/);
 });

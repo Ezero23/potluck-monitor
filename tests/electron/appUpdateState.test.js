@@ -44,11 +44,12 @@ test('automatic updates are opt-in and download without installing', () => {
   assert.doesNotMatch(automaticDownload, /installDownloadedAppUpdate/);
 });
 
-test('enabling automatic updates bypasses the background-check cooldown', () => {
+test('enabling automatic updates force-checks immediately so errors surface', () => {
   assert.match(main, /runAppUpdateCheck\(\{ force = false, bypassCooldown = false \} = \{\}\)/);
   const check = sourceBetween('async function runAppUpdateCheck', 'function maybeRunBackgroundUpdateCheck');
   assert.match(check, /if \(!bypassCooldown && shouldSkipAppUpdateCheck\(/);
-  assert.match(main, /settings\.automaticAppUpdates && !previousAutomaticAppUpdates\) \{\s*runAppUpdateCheck\(\{ bypassCooldown: true \}\)\.catch\(\(\) => \{\}\);\s*\}/);
+  assert.match(check, /checkLatestRelease\(app\.getVersion\(\), \{ fetch: createOutboundFetch\(process\.env\) \}\)/);
+  assert.match(main, /settings\.automaticAppUpdates && !previousAutomaticAppUpdates\) \{\s*runAppUpdateCheck\(\{ force: true, bypassCooldown: true \}\)\.catch\(\(\) => \{\}\);\s*\}/);
 });
 
 test('automatic update control persists through settings', () => {

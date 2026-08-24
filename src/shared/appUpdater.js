@@ -4,7 +4,7 @@ const semver = require('semver');
 
 const GITHUB_REPO = 'Ezero23/potluck-monitor';
 const RELEASES_LATEST_URL = `https://api.github.com/repos/${GITHUB_REPO}/releases/latest`;
-const REQUEST_TIMEOUT_MS = 10 * 1000;
+const REQUEST_TIMEOUT_MS = 20 * 1000;
 const APP_UPDATE_BACKGROUND_COOLDOWN_MS = 24 * 60 * 60 * 1000;
 const APP_UPDATE_OUTDATED_COOLDOWN_MS = 60 * 60 * 1000;
 const MAX_RELEASE_BODY_CHARS = 128 * 1024;
@@ -241,11 +241,15 @@ async function withTimeout(ms, task) {
   }
 }
 
-async function checkLatestRelease(currentVersion) {
+async function checkLatestRelease(currentVersion, options = {}) {
   const checkedAt = new Date().toISOString();
+  const timeoutMs = Number(options.timeoutMs) > 0 ? Number(options.timeoutMs) : REQUEST_TIMEOUT_MS;
+  const fetchImpl = typeof options.fetch === 'function'
+    ? options.fetch
+    : (typeof fetch === 'function' ? fetch.bind(globalThis) : globalThis.fetch);
   try {
-    const payload = await withTimeout(REQUEST_TIMEOUT_MS, async (signal) => {
-      const response = await fetch(RELEASES_LATEST_URL, {
+    const payload = await withTimeout(timeoutMs, async (signal) => {
+      const response = await fetchImpl(RELEASES_LATEST_URL, {
         signal,
         headers: {
           'accept': 'application/vnd.github+json',

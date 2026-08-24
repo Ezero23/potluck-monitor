@@ -254,7 +254,7 @@ if (process.platform === 'win32') app.setAppUserModelId('com.javis.tokenmonitor'
 const gotLock = app.requestSingleInstanceLock();
 if (!gotLock) app.exit(0);
 
-const HOME_LIMIT_ACCOUNT_COUNT_DEFAULT = 20;
+const HOME_LIMIT_ACCOUNT_COUNT_DEFAULT = 50;
 const HOME_LIMIT_ACCOUNT_COUNT_MAX = 50;
 const POTLUCK_DEFAULT_PORT = 21023;
 const POTLUCK_LEGACY_PORTS = new Set([20129, 20131]);
@@ -3853,7 +3853,7 @@ async function runAppUpdateCheck({ force = false, bypassCooldown = false } = {})
     if (force) sendAppUpdatePush();
     let result;
     try {
-      result = await checkLatestRelease(app.getVersion());
+      result = await checkLatestRelease(app.getVersion(), { fetch: createOutboundFetch(process.env) });
       if (result.ok) {
         rememberLatestAppUpdate(result.latest, result.checkedAt);
         if (force && result.newer) restoreDismissedAppUpdate(result.latest?.version);
@@ -4625,7 +4625,7 @@ app.whenReady().then(() => {
       saveSettings({ throwOnError: true });
     }
     if (settings.automaticAppUpdates && !previousAutomaticAppUpdates) {
-      runAppUpdateCheck({ bypassCooldown: true }).catch(() => {});
+      runAppUpdateCheck({ force: true, bypassCooldown: true }).catch(() => {});
     }
     if (patch.zoomFactor !== undefined) applyZoomFactor();
     applyWindowSettings();

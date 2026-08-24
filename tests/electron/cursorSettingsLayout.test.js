@@ -853,6 +853,8 @@ test('disabled credential providers settle account status instead of checking fo
   const copilotRenderBody = functionBody(app, 'renderCopilotStatus', 'renderDeepseekStatus');
 
   assert.match(toggleBody, /clearDisabledLimitProviderPendingChecks\(new Set\(checked\)\)/);
+  assert.match(toggleBody, /skipFormSync: true/);
+  assert.doesNotMatch(toggleBody, /refreshStats/);
   assert.match(clearBody, /clearDeepseekPendingCheck\(\)/);
   assert.match(clearBody, /clearMinimaxPendingCheck\(\)/);
   assert.match(clearBody, /clearCopilotPendingCheck\(\)/);
@@ -1307,7 +1309,20 @@ test('settings provider rows drill into connections without collapsing the colla
   assert.match(renderSettings, /settings\.limits\.summary\.trackingNoAccount|headline === 'missing'/);
   assert.match(renderSettings, /limitProviderSettingsTags\(provider, provenance/);
   assert.match(renderSettings, /renderLimitsDataHealth\(\)/);
+  assert.match(renderSettings, /settings\.limits\.enableAll/);
+  assert.match(renderSettings, /enableAllLimitProviders/);
   assert.doesNotMatch(renderSettings, /copy\.append\(text, tags\)/);
+});
+
+test('Limits and Home show providers that already have quota data even when untracked', () => {
+  const app = readRendererFile('app.js');
+  const renderLimitsBody = functionBody(app, 'renderLimits', 'onLimitProviderPinToTop');
+  assert.match(app, /function limitProviderShouldDisplay\(/);
+  assert.match(renderLimitsBody, /limitProviderShouldDisplay\(id, enabled\)/);
+  assert.match(renderLimitsBody, /const collected = providers\.get\(id\);/);
+  assert.match(app, /async function saveSettings\(patch, options = \{\}\)/);
+  assert.match(app, /if \(options\.skipFormSync !== true\) preserveSettingsPanelScroll\(syncSettingsForm\)/);
+  assert.match(app, /if \(!state\.settingsSaveInFlight\) syncSettingsForm\(\)/);
 });
 
 test('Home limit-provider row styles stay independent of settings drill-down', () => {

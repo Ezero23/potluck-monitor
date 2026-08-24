@@ -233,8 +233,12 @@
     const accounts = [];
     for (const { id: rawId, label } of providerOptions || []) {
       const id = String(rawId || '').trim().toLowerCase();
-      if (!id || hidden.has(id) || (enabled.size > 0 && !enabled.has(id))) continue;
+      if (!id || hidden.has(id)) continue;
       let providerEntries = byId.get(id) || [];
+      // Untracked providers still appear when they already have quota data
+      // (Potluck ingest / another device). The checkbox only gates local
+      // probing and empty not-configured rows.
+      if (enabled.size > 0 && !enabled.has(id) && providerEntries.length === 0) continue;
       // Multi-account providers: when the user pinned one account for the home
       // page, only that account shows — duplicate sources of the same account
       // (e.g. Potluck Web + local collector) stop competing for the slot.
