@@ -4,17 +4,19 @@
 
 <!-- app-update-notes:en:start -->
 ### Fixed
-- **Dependency security updates:** the bundled `undici` HTTP stack is updated to 7.29.0 and `js-yaml` to 4.3.1, resolving every known High-severity advisory in production dependencies. These libraries carry provider, Hub, and update-server requests and parse the updater's YAML feed.
-- **CI supply-chain hardening:** CI now fails when `npm audit` reports a High or Critical production-dependency advisory, and pins its GitHub Actions to immutable commit hashes like the release workflow does.
+- **Renderer lag on long-running installations:** the quota forecast's shadow backtest re-filtered and re-sorted the entire raw sample history for every historical cycle, which could pin a full CPU core and make every click feel sluggish. Samples are now sorted once per backtest, cutting the forecast cost by roughly an order of magnitude on large histories.
+
+### Changed
+- **Tray provider badge removed:** the small provider mark drawn onto the tray icon and its **Settings** toggle are gone. Tray icons now always use the clean template styling.
 <!-- app-update-notes:en:end -->
 
 ## Download
 
-- **macOS Apple Silicon** — [potluck-monitor-0.2.9-arm64.dmg](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.9/potluck-monitor-0.2.9-arm64.dmg)
-- **macOS Intel** — [potluck-monitor-0.2.9-x64.dmg](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.9/potluck-monitor-0.2.9-x64.dmg)
-- **Windows installer** — [potluck-monitor-Setup-0.2.9.exe](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.9/potluck-monitor-Setup-0.2.9.exe)
-- **Windows portable** — [potluck-monitor-0.2.9.exe](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.9/potluck-monitor-0.2.9.exe)
-- **Linux** — [potluck-monitor-0.2.9.AppImage](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.9/potluck-monitor-0.2.9.AppImage)
+- **macOS Apple Silicon** — [potluck-monitor-0.2.10-arm64.dmg](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.10/potluck-monitor-0.2.10-arm64.dmg)
+- **macOS Intel** — [potluck-monitor-0.2.10-x64.dmg](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.10/potluck-monitor-0.2.10-x64.dmg)
+- **Windows installer** — [potluck-monitor-Setup-0.2.10.exe](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.10/potluck-monitor-Setup-0.2.10.exe)
+- **Windows portable** — [potluck-monitor-0.2.10.exe](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.10/potluck-monitor-0.2.10.exe)
+- **Linux** — [potluck-monitor-0.2.10.AppImage](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.10/potluck-monitor-0.2.10.AppImage)
 
 <details>
 <summary><strong>First launch and other notes</strong></summary>
@@ -28,7 +30,7 @@ xattr -cr "/Applications/Potluck Monitor.app"
 open "/Applications/Potluck Monitor.app"
 ```
 
-If macOS says the app is damaged, that is Gatekeeper quarantine — the command above clears it. Confirm **Settings → App Updates → Installed** shows `v0.2.9`.
+If macOS says the app is damaged, that is Gatekeeper quarantine — the command above clears it. Confirm **Settings → App Updates → Installed** shows `v0.2.10`.
 
 ### tokscale dependency
 
@@ -46,17 +48,19 @@ open-source: https://github.com/junhoyeo/tokscale
 
 <!-- app-update-notes:zh:start -->
 ### 修复
-- **依赖安全更新：**内置的 `undici` 网络栈升级到 7.29.0、`js-yaml` 固定到 4.3.1，清零生产依赖中全部已知 High 级安全告警。这两个库承载 Provider、Hub 与更新服务的网络请求，并负责解析更新器的 YAML 数据。
-- **CI 供应链加固：**CI 现在会在生产依赖审计出现 High 或 Critical 告警时直接失败，并像发布工作流一样把 GitHub Actions 固定为不可变 commit。
+- **长时间使用后的界面卡顿：**额度预测的 shadow backtest 会对每个历史周期重新过滤并排序整份原始样本历史，可能占满一个 CPU 核，导致每次点击都明显发卡。现在整个回测只排序一次，在大体量历史数据上把预测开销降低约一个数量级。
+
+### 变更
+- **移除托盘 Provider 徽章：**不再在托盘图标上叠加 Provider 小标记，**设置**里的对应开关也一并移除。托盘图标统一使用干净的模板样式。
 <!-- app-update-notes:zh:end -->
 
 ## 下载
 
-- **macOS Apple Silicon** — [potluck-monitor-0.2.9-arm64.dmg](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.9/potluck-monitor-0.2.9-arm64.dmg)
-- **macOS Intel** — [potluck-monitor-0.2.9-x64.dmg](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.9/potluck-monitor-0.2.9-x64.dmg)
-- **Windows 安装包** — [potluck-monitor-Setup-0.2.9.exe](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.9/potluck-monitor-Setup-0.2.9.exe)
-- **Windows 便携版** — [potluck-monitor-0.2.9.exe](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.9/potluck-monitor-0.2.9.exe)
-- **Linux** — [potluck-monitor-0.2.9.AppImage](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.9/potluck-monitor-0.2.9.AppImage)
+- **macOS Apple Silicon** — [potluck-monitor-0.2.10-arm64.dmg](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.10/potluck-monitor-0.2.10-arm64.dmg)
+- **macOS Intel** — [potluck-monitor-0.2.10-x64.dmg](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.10/potluck-monitor-0.2.10-x64.dmg)
+- **Windows 安装包** — [potluck-monitor-Setup-0.2.10.exe](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.10/potluck-monitor-Setup-0.2.10.exe)
+- **Windows 便携版** — [potluck-monitor-0.2.10.exe](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.10/potluck-monitor-0.2.10.exe)
+- **Linux** — [potluck-monitor-0.2.10.AppImage](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.10/potluck-monitor-0.2.10.AppImage)
 
 <details>
 <summary><strong>首次启动与其他说明</strong></summary>
@@ -70,7 +74,7 @@ xattr -cr "/Applications/Potluck Monitor.app"
 open "/Applications/Potluck Monitor.app"
 ```
 
-若提示「已损坏」，那是隔离标记；上面命令会清掉。打开后到 **设置 → App Updates → Installed** 确认是 `v0.2.9`。
+若提示「已损坏」，那是隔离标记；上面命令会清掉。打开后到 **设置 → App Updates → Installed** 确认是 `v0.2.10`。
 
 ### tokscale 依赖
 
