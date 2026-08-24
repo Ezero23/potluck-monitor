@@ -238,8 +238,8 @@ test('Home limit provider settings stay compact and list only enabled providers'
   assert.match(renderHomeLimitProviderList, /const hasCustomOrder = Boolean\(state\.settings\?\.limitProviderOrder\);/);
   assert.match(renderHomeLimitProviderList, /\.filter\(\(\{ id \}\) => enabled\.has\(id\)\)/);
   assert.match(resetHomeLimitProviderOrder, /saveSettings\(\{ limitProviderOrder: '', homeLimitProviderOrder: '' \}\)/);
-  assert.match(i18n, /Default is least remaining first/);
-  assert.match(i18n, /默认按剩余额度最少优先/);
+  assert.match(i18n, /All providers with quota data appear on Home/);
+  assert.match(i18n, /有额度数据的提供者默认都会显示在主页/);
   assert.doesNotMatch(renderHomeLimitProviderList, /limitProviderSettingsTags/);
   assert.doesNotMatch(renderHomeLimitProviderList, /limit-provider-tag/);
 });
