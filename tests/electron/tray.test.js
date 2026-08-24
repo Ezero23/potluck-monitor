@@ -12,7 +12,6 @@ const {
   formatTrayText,
   reconcileCodexAccountSelection,
   pickUsageTrayIconId,
-  shouldUseTemplateTrayIcon,
   sortCodexAccountsForDisplay
 } = require('../../src/electron/tray');
 const { translate } = require('../../src/electron/renderer/i18n');
@@ -364,21 +363,15 @@ test('usage tray icon returns null when the top client has no available icon', (
   );
 });
 
-test('macOS templates provider icons unless the colored badge is enabled', () => {
+test('macOS templates generated tray icons so they follow the menu bar tint', () => {
   for (const id of ['bars', 'barsSession', 'barsWeekly', 'barsAllSessions', 'limitsAllSessions', 'custom']) {
     assert.equal(isGeneratedTrayIconMode(id), true, `${id} should be classified as a generated image`);
-    assert.equal(shouldUseTemplateTrayIcon(id, 'darwin', false), true, `${id} should follow the menu bar tint`);
-    assert.equal(shouldUseTemplateTrayIcon(id, 'darwin', true), true, `${id} should stay a generated template`);
   }
   assert.equal(isBarsTrayIconMode('limitsAllSessions'), false);
   assert.equal(isBarsTrayIconMode('barsWeekly'), true);
   for (const id of ['codex', 'antigravity', 'claude']) {
     assert.equal(isGeneratedTrayIconMode(id), false, `${id} should be classified as a provider image`);
-    assert.equal(shouldUseTemplateTrayIcon(id, 'darwin', false), true, `${id} should preserve the default template behavior`);
-    assert.equal(shouldUseTemplateTrayIcon(id, 'darwin', true), false, `${id} should preserve its colored badge`);
   }
-  assert.equal(shouldUseTemplateTrayIcon('bars', 'win32'), false);
-  assert.equal(shouldUseTemplateTrayIcon('bars', 'linux'), false);
 });
 
 test('tray can show the first two configured session quotas as percentages', () => {

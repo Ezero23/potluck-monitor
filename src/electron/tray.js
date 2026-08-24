@@ -4,7 +4,6 @@ const path = require('node:path');
 const {
   formatTrayText,
   isBarsTrayIconMode,
-  isGeneratedTrayIconMode,
   pickUsageProviderId,
   pickWorstLimit
 } = require('../shared/trayText');
@@ -36,10 +35,6 @@ function pickUsageTrayIconId(stats, contentMode = 'tokens', availableIconIds = [
   if (!periodKey) return null;
   const metric = contentMode === 'cost' || contentMode === 'costAll' ? 'cost' : 'tokens';
   return pickUsageProviderId(stats, metric, periodKey, availableIconIds);
-}
-
-function shouldUseTemplateTrayIcon(id, platform = process.platform, showProviderBadge = false) {
-  return platform === 'darwin' && (isGeneratedTrayIconMode(id) || !showProviderBadge);
 }
 
 function sortCodexAccountsForDisplay(accounts) {
@@ -242,6 +237,5 @@ module.exports = {
   pickWorstLimit,
   popoverBounds,
   reconcileCodexAccountSelection,
-  shouldUseTemplateTrayIcon,
   sortCodexAccountsForDisplay
 };

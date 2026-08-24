@@ -28,21 +28,6 @@
     return sources;
   }
 
-  function trayProviderBadgeLayout(size = 44) {
-    const iconSize = Math.max(16, Math.round(Number(size) || 44));
-    const badgeSize = Math.round(iconSize * 0.43);
-    const borderWidth = Math.max(2, Math.round(iconSize * 0.045));
-    const edgeInset = Math.ceil(borderWidth / 2);
-    return {
-      iconSize,
-      badgeSize,
-      x: iconSize - badgeSize - edgeInset,
-      y: iconSize - badgeSize - edgeInset,
-      radius: Math.round(badgeSize * 0.28),
-      borderWidth
-    };
-  }
-
   function trayProviderOpticalLayout(bounds, size = 44, opticalRatio = 0.78) {
     const boxSize = Math.max(1, Number(size) || 44);
     const width = Math.max(1, Number(bounds?.width) || 1);
@@ -82,7 +67,6 @@
   return {
     createTrayProviderIconDeliveryGuard,
     trayProviderIconSources,
-    trayProviderBadgeLayout,
     trayProviderOpticalLayout,
     trayProviderOpticalRatio
   };

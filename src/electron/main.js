@@ -143,11 +143,11 @@ const {
   createTray,
   formatTrayText,
   isBarsTrayIconMode,
+  isGeneratedTrayIconMode,
   pickUsageTrayIconId,
   popoverBounds,
   reconcileCodexAccountSelection,
-  sortCodexAccountsForDisplay,
-  shouldUseTemplateTrayIcon
+  sortCodexAccountsForDisplay
 } = require('./tray');
 const {
   macActivationPolicyMode,
@@ -359,7 +359,6 @@ function defaultSettings() {
     trayMode: false,
     trayContent: 'tokens',
     trayCustomLayout: createDefaultTrayLayout(),
-    showTrayProviderBadge: false,
     windowToggleShortcut: '',
     currency: normalizeCurrency(process.env.TOKEN_MONITOR_CURRENCY || 'USD'),
     currencyRates: {},
@@ -1989,7 +1988,6 @@ function readSettings() {
     merged.floatingBubbleContent = normalizeTrayContent(merged.floatingBubbleContent, 'icon');
     merged.floatingBubbleCustomLayout = normalizeTrayLayout(merged.floatingBubbleCustomLayout);
     merged.trayCustomLayout = normalizeTrayLayout(merged.trayCustomLayout);
-    merged.showTrayProviderBadge = parseBoolean(merged.showTrayProviderBadge, false);
     merged.windowToggleShortcut = normalizeWindowToggleShortcut(merged.windowToggleShortcut);
     // 如果设置了 opencodeCookie 但没有 profiles，自动迁移
     if (merged.opencodeCookie && Object.keys(merged.opencodeProfiles || {}).length === 0) {
@@ -4478,7 +4476,6 @@ app.whenReady().then(() => {
     const previousTrayContent = settings.trayContent;
     const previousTrayCustomLayout = JSON.stringify(settings.trayCustomLayout || {});
     const previousFloatingBubbleCustomLayout = JSON.stringify(settings.floatingBubbleCustomLayout || {});
-    const previousShowTrayProviderBadge = settings.showTrayProviderBadge;
     const previousCurrency = settings.currency;
     const previousStartAtLogin = settings.startAtLogin;
     const previousAutomaticAppUpdates = settings.automaticAppUpdates;
@@ -4578,7 +4575,6 @@ app.whenReady().then(() => {
       }),
       trayContent: normalizeTrayContent(patch.trayContent ?? settings.trayContent),
       trayCustomLayout: normalizeTrayLayout(patch.trayCustomLayout ?? settings.trayCustomLayout),
-      showTrayProviderBadge: parseBoolean(patch.showTrayProviderBadge ?? settings.showTrayProviderBadge, false),
       floatingBubbleContent: normalizeTrayContent(patch.floatingBubbleContent ?? settings.floatingBubbleContent, 'icon'),
       floatingBubbleCustomLayout: normalizeTrayLayout(patch.floatingBubbleCustomLayout ?? settings.floatingBubbleCustomLayout),
       windowToggleShortcut: normalizeWindowToggleShortcut(patch.windowToggleShortcut ?? settings.windowToggleShortcut),
@@ -4675,7 +4671,6 @@ app.whenReady().then(() => {
       settings.trayContent !== previousTrayContent ||
       JSON.stringify(settings.trayCustomLayout || {}) !== previousTrayCustomLayout ||
       JSON.stringify(settings.floatingBubbleCustomLayout || {}) !== previousFloatingBubbleCustomLayout ||
-      settings.showTrayProviderBadge !== previousShowTrayProviderBadge ||
       settings.currency !== previousCurrency
     ) {
       updateTrayDisplay();
@@ -4788,7 +4783,7 @@ app.whenReady().then(() => {
       // Resize by height only; aspect ratio is preserved, so wide bar-style
       // icons keep their width while square provider icons stay 20x20.
       const sized = img.resize({ height: 20, quality: 'best' });
-      if (shouldUseTemplateTrayIcon(id, process.platform, settings?.showTrayProviderBadge)) sized.setTemplateImage(true);
+      if (process.platform === 'darwin' && isGeneratedTrayIconMode(id)) sized.setTemplateImage(true);
       providerTrayIcons[id] = sized;
     }
     updateTrayDisplay();

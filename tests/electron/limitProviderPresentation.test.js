@@ -685,31 +685,17 @@ test('limit percent tray mode renders provider icons into a generated tray image
   assert.match(updateTrayDisplay, /const limitText = formatTrayText/);
   assert.match(updateTrayDisplay, /trayImageMode[\s\S]*?\? '' : limitText/);
   assert.match(main, /if \(dataUrl === null\) \{[\s\S]*?delete providerTrayIcons\[id\]/);
-  assert.match(main, /if \(shouldUseTemplateTrayIcon\(id, process\.platform, settings\?\.showTrayProviderBadge\)\) sized\.setTemplateImage\(true\)/);
-  assert.doesNotMatch(main, /process\.platform === 'darwin'\) sized\.setTemplateImage\(true\)/);
+  assert.match(main, /if \(process\.platform === 'darwin' && isGeneratedTrayIconMode\(id\)\) sized\.setTemplateImage\(true\)/);
 });
 
-test('provider tray badges are opt-in and keep monochrome assets visible', () => {
+test('provider tray icon delivery is race-guarded and renders plain template assets', () => {
   const app = readRendererFile('app.js');
-  const html = readRendererFile('index.html');
-  const main = fs.readFileSync(path.join(__dirname, '../../src/electron/main.js'), 'utf8');
-  const defaults = functionBody(main, 'defaultSettings', 'normalizeCollectionMode');
-  const providerImage = functionBody(app, 'providerImageToPngDataUrl', 'deliverTrayProviderIcons');
 
-  assert.match(defaults, /showTrayProviderBadge:\s*false/);
-  assert.match(html, /<input id="showTrayProviderBadgeInput" type="checkbox" \/>/);
-  assert.match(html, /data-i18n="settings\.display\.trayProviderBadge"/);
-  assert.match(app, /showTrayProviderBadgeInput: document\.getElementById\('showTrayProviderBadgeInput'\)/);
-  assert.match(app, /saveSettings\(\{ showTrayProviderBadge: els\.showTrayProviderBadgeInput\.checked \}\)/);
-  assert.match(app, /deliverTrayProviderIcons\(patch\.showTrayProviderBadge === true\)/);
-  assert.match(app, /providerImageToPngDataUrl\(img, 44, showBadge\)/);
   assert.match(app, /if \(!trayProviderIconDeliveryGuard\.isCurrent\(deliveryId\)\) return;/);
-  assert.match(providerImage, /if \(!showBadge\) return canvas\.toDataURL\('image\/png'\)/);
-  assert.match(providerImage, /shadowColor = 'rgba\(255, 255, 255, 0\.95\)'/);
-  assert.match(providerImage, /shadowBlur = Math\.max/);
+  assert.match(app, /providerImageToPngDataUrl\(img, 44\)/);
   assert.match(app, /function drawCustomTrayProviderImage/);
-  assert.match(app, /showProviderBadge: state\.settings\?\.showTrayProviderBadge === true/);
-  assert.match(app, /globalCompositeOperation = 'destination-out'/);
+  assert.doesNotMatch(app, /showTrayProviderBadge/);
+  assert.doesNotMatch(readRendererFile('index.html'), /trayProviderBadge|showTrayProviderBadgeInput/);
 });
 
 test('Grok renders its single Monthly billing window full-width instead of an empty session/weekly pair', () => {
