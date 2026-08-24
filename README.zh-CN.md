@@ -165,14 +165,14 @@ Potluck 与 Potluck Monitor 会共享 Connection 和额度结果，但不会重�
 
 ## 安装
 
-下载当前正式版 [v0.2.11](https://github.com/Ezero23/potluck-monitor/releases/tag/v0.2.11)：
+下载当前正式版 [v0.2.12](https://github.com/Ezero23/potluck-monitor/releases/tag/v0.2.12)：
 
-- **macOS Apple Silicon** — [DMG](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.11/potluck-monitor-0.2.11-arm64.dmg) 或 [ZIP](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.11/potluck-monitor-0.2.11-arm64.zip)
-- **macOS Intel** — [DMG](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.11/potluck-monitor-0.2.11-x64.dmg) 或 [ZIP](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.11/potluck-monitor-0.2.11-x64.zip)
-- **Windows** — [安装包](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.11/potluck-monitor-Setup-0.2.11.exe) 或 [便携版](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.11/potluck-monitor-0.2.11.exe)
-- **Linux** — [AppImage](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.11/potluck-monitor-0.2.11.AppImage)
+- **macOS Apple Silicon** — [DMG](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.12/potluck-monitor-0.2.12-arm64.dmg) 或 [ZIP](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.12/potluck-monitor-0.2.12-arm64.zip)
+- **macOS Intel** — [DMG](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.12/potluck-monitor-0.2.12-x64.dmg) 或 [ZIP](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.12/potluck-monitor-0.2.12-x64.zip)
+- **Windows** — [安装包](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.12/potluck-monitor-Setup-0.2.12.exe) 或 [便携版](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.12/potluck-monitor-0.2.12.exe)
+- **Linux** — [AppImage](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.12/potluck-monitor-0.2.12.AppImage)
 
-当前 macOS 与 Windows 安装包尚未签名。若提示「已损坏，无法打开」，那是系统隔离，不是文件坏了：在终端执行 `xattr -cr "/Applications/Potluck Monitor.app"` 后再打开，仅右键「打开」经常不够。Windows SmartScreen 可能需要选择**更多信息 → 仍要运行**。安装前可查看 [v0.2.11 发布说明](https://github.com/Ezero23/potluck-monitor/releases/tag/v0.2.11)。
+当前 macOS 与 Windows 安装包尚未签名。若提示「已损坏，无法打开」，那是系统隔离，不是文件坏了：在终端执行 `xattr -cr "/Applications/Potluck Monitor.app"` 后再打开，仅右键「打开」经常不够。Windows SmartScreen 可能需要选择**更多信息 → 仍要运行**。安装前可查看 [v0.2.12 发布说明](https://github.com/Ezero23/potluck-monitor/releases/tag/v0.2.12)。
 
 打包版会自动检查 GitHub Releases。有新版本时，界面会显示更新提示；受支持的平台也可在 设置 → 常规 中安装更新。
 

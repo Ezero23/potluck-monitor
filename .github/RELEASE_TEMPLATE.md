@@ -4,20 +4,21 @@
 
 <!-- app-update-notes:en:start -->
 ### Changed
-- **Provider lists show existing quota by default:** Home and Limits keep any provider that already has quota data, even if its local-probe checkbox is off. Settings has **Enable all**, and Home shows up to 50 accounts by default.
+- **Safer macOS updates:** unsigned and ad-hoc builds now use a verified custom update path with resumable downloads, persistent ready-to-install state, staged bundle validation, and automatic rollback to the previous app if the replacement cannot launch.
 
 ### Fixed
-- **Laggy provider checkboxes:** toggling a provider no longer rebuilds the whole Settings page or force-refreshes stats, which made a single click feel like it cancelled itself and froze dropdowns.
-- **Automatic updates could fail silently:** enabling **Download updates automatically** now force-checks immediately, uses the proxy-aware GitHub request, and waits 20 seconds so a failed check appears in the update row.
+- **Automatic update installation on macOS:** ad-hoc packages are no longer mistaken for Developer ID builds and sent through an incompatible native updater. Release archives must pass GitHub SHA-256 and size verification before installation.
+- **Settings clicks and dropdowns:** provider changes and ordinary setting saves are serialized and reconciled without rebuilding the entire Settings page, preventing stale responses from reversing newer choices.
+- **Provider-list churn and layout:** unchanged live-data pushes no longer recreate all provider rows, and the text-only **Enable all** action no longer wraps vertically in the icon-button width.
 <!-- app-update-notes:en:end -->
 
 ## Download
 
-- **macOS Apple Silicon** — [potluck-monitor-0.2.11-arm64.dmg](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.11/potluck-monitor-0.2.11-arm64.dmg)
-- **macOS Intel** — [potluck-monitor-0.2.11-x64.dmg](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.11/potluck-monitor-0.2.11-x64.dmg)
-- **Windows installer** — [potluck-monitor-Setup-0.2.11.exe](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.11/potluck-monitor-Setup-0.2.11.exe)
-- **Windows portable** — [potluck-monitor-0.2.11.exe](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.11/potluck-monitor-0.2.11.exe)
-- **Linux** — [potluck-monitor-0.2.11.AppImage](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.11/potluck-monitor-0.2.11.AppImage)
+- **macOS Apple Silicon** — [potluck-monitor-0.2.12-arm64.dmg](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.12/potluck-monitor-0.2.12-arm64.dmg)
+- **macOS Intel** — [potluck-monitor-0.2.12-x64.dmg](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.12/potluck-monitor-0.2.12-x64.dmg)
+- **Windows installer** — [potluck-monitor-Setup-0.2.12.exe](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.12/potluck-monitor-Setup-0.2.12.exe)
+- **Windows portable** — [potluck-monitor-0.2.12.exe](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.12/potluck-monitor-0.2.12.exe)
+- **Linux** — [potluck-monitor-0.2.12.AppImage](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.12/potluck-monitor-0.2.12.AppImage)
 
 <details>
 <summary><strong>First launch and other notes</strong></summary>
@@ -31,7 +32,7 @@ xattr -cr "/Applications/Potluck Monitor.app"
 open "/Applications/Potluck Monitor.app"
 ```
 
-If macOS says the app is damaged, that is Gatekeeper quarantine — the command above clears it. Confirm **Settings → App Updates → Installed** shows `v0.2.11`.
+If macOS says the app is damaged, that is Gatekeeper quarantine — the command above clears it. Confirm **Settings → App Updates → Installed** shows `v0.2.12`.
 
 ### tokscale dependency
 
@@ -49,20 +50,21 @@ open-source: https://github.com/junhoyeo/tokscale
 
 <!-- app-update-notes:zh:start -->
 ### 变更
-- **有额度数据的提供者默认显示：**主页和额度页会保留已经有额度数据的提供者，即使本机探测勾选是关的。设置里有**全部启用**，主页默认最多显示 50 个账号。
+- **macOS 更新更安全：**未签名和 ad-hoc 签名的构建现在走经过校验的自定义更新通道，支持断点续传、重启后恢复“等待安装”状态、staging 包验证，并在新版本无法启动时自动回滚旧 App。
 
 ### 修复
-- **勾选提供者卡顿、像点了两下：**勾选不再整页重绘设置或强制刷新用量，避免点一下被当成取消，下拉框也不再跟着卡住。
-- **打开自动更新没有反应：**勾选**自动下载更新**后会立刻强制检查，走代理友好的 GitHub 请求，超时 20 秒，失败会显示在更新那一行。
+- **macOS 自动安装失败：**ad-hoc 安装包不再被误判成 Developer ID 构建并进入不兼容的原生更新器；发布压缩包必须通过 GitHub SHA-256 和文件大小校验才允许安装。
+- **设置单击和下拉框卡顿：**提供商选择和普通设置保存改为串行执行与轻量同步，旧保存结果不会再覆盖较新的选择，也不会整页重建设置。
+- **提供商列表重复重绘与排版：**额度数据没有变化时不再重建全部提供商行；纯文字的**全部启用**按钮也不会再被图标按钮宽度挤成竖排。
 <!-- app-update-notes:zh:end -->
 
 ## 下载
 
-- **macOS Apple Silicon** — [potluck-monitor-0.2.11-arm64.dmg](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.11/potluck-monitor-0.2.11-arm64.dmg)
-- **macOS Intel** — [potluck-monitor-0.2.11-x64.dmg](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.11/potluck-monitor-0.2.11-x64.dmg)
-- **Windows 安装包** — [potluck-monitor-Setup-0.2.11.exe](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.11/potluck-monitor-Setup-0.2.11.exe)
-- **Windows 便携版** — [potluck-monitor-0.2.11.exe](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.11/potluck-monitor-0.2.11.exe)
-- **Linux** — [potluck-monitor-0.2.11.AppImage](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.11/potluck-monitor-0.2.11.AppImage)
+- **macOS Apple Silicon** — [potluck-monitor-0.2.12-arm64.dmg](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.12/potluck-monitor-0.2.12-arm64.dmg)
+- **macOS Intel** — [potluck-monitor-0.2.12-x64.dmg](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.12/potluck-monitor-0.2.12-x64.dmg)
+- **Windows 安装包** — [potluck-monitor-Setup-0.2.12.exe](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.12/potluck-monitor-Setup-0.2.12.exe)
+- **Windows 便携版** — [potluck-monitor-0.2.12.exe](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.12/potluck-monitor-0.2.12.exe)
+- **Linux** — [potluck-monitor-0.2.12.AppImage](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.12/potluck-monitor-0.2.12.AppImage)
 
 <details>
 <summary><strong>首次启动与其他说明</strong></summary>
@@ -76,7 +78,7 @@ xattr -cr "/Applications/Potluck Monitor.app"
 open "/Applications/Potluck Monitor.app"
 ```
 
-若提示「已损坏」，那是隔离标记；上面命令会清掉。打开后到 **设置 → App Updates → Installed** 确认是 `v0.2.11`。
+若提示「已损坏」，那是隔离标记；上面命令会清掉。打开后到 **设置 → App Updates → Installed** 确认是 `v0.2.12`。
 
 ### tokscale 依赖
 
