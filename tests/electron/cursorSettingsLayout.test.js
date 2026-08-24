@@ -853,8 +853,8 @@ test('disabled credential providers settle account status instead of checking fo
   const copilotRenderBody = functionBody(app, 'renderCopilotStatus', 'renderDeepseekStatus');
 
   assert.match(toggleBody, /clearDisabledLimitProviderPendingChecks\(new Set\(checked\)\)/);
-  assert.match(toggleBody, /skipFormSync: true/);
-  assert.doesNotMatch(toggleBody, /refreshStats/);
+  assert.match(toggleBody, /scheduleLimitProviderSelectionSave\(checked, revision\)/);
+  assert.doesNotMatch(toggleBody, /refreshStats|saveSettings/);
   assert.match(clearBody, /clearDeepseekPendingCheck\(\)/);
   assert.match(clearBody, /clearMinimaxPendingCheck\(\)/);
   assert.match(clearBody, /clearCopilotPendingCheck\(\)/);
@@ -1051,9 +1051,10 @@ test('credential storage failures preserve the file and surface one actionable e
   assert.match(settingsHandler, /saveSettings\(\{ throwOnError: true \}\);/);
 
   const renderer = readRendererFile('app.js');
-  const rendererSave = functionBody(renderer, 'saveSettings', 'renderHomeIfVisible');
-  assert.match(rendererSave, /state\.settings = await window\.tokenMonitor\.getSettings\(\)/);
-  assert.match(rendererSave, /throw error;/);
+  const rendererPersist = functionBody(renderer, 'persistSettingsSave', 'saveSettings');
+  assert.match(rendererPersist, /const persisted = await window\.tokenMonitor\.getSettings\(\)/);
+  assert.match(rendererPersist, /state\.settings = pendingSettingsOverlay\(persisted\)/);
+  assert.match(rendererPersist, /throw error;/);
 });
 
 test('main settings normalize the Z.ai API region', () => {
@@ -1265,7 +1266,30 @@ test('provider selection rendering is lazy, debounced, and ignores progressive l
   assert.match(renderBody, /if \(detailsOpen\) \{[\s\S]*appendLimitProviderConnectionCard/);
   assert.match(toggleBody, /scheduleLimitProviderSelectionSave\(checked, revision\)/);
   assert.doesNotMatch(toggleBody, /refreshStats|saveSettings/);
-  assert.match(pushBody, /reason !== 'progress' && !limitProviderSelectionPending\(\)/);
+  assert.match(pushBody, /reason !== 'progress'[\s\S]*!limitProviderSelectionPending\(\)[\s\S]*!limitProviderListIsBusy\(\)/);
+});
+
+test('renderer serializes local setting saves and uses a light reconcile for dropdown settings', () => {
+  const app = readRendererFile('app.js');
+  const saveBody = functionBody(app, 'saveSettings', 'renderHomeIfVisible');
+  const persistBody = functionBody(app, 'persistSettingsSave', 'saveSettings');
+  const syncBody = functionBody(app, 'syncSettingsForm', 'enabledClientSet');
+  const settingsPush = app.match(/window\.tokenMonitor\.onSettingsPush\?\.\(\(next\) => \{[\s\S]*?\n\}\);/)?.[0] || '';
+  const refreshHandler = app.slice(
+    app.indexOf("els.limitsRefreshInput.addEventListener('change'"),
+    app.indexOf("document.getElementById('limitsDataHealthToggle')")
+  );
+
+  assert.match(saveBody, /pendingSettingsSaves\.push\(entry\)/);
+  assert.match(saveBody, /settingsSaveQueue[\s\S]*\.then\(\(\) => persistSettingsSave\(entry\)\)/);
+  assert.match(persistBody, /removePendingSettingsSave\(entry\.revision\)/);
+  assert.match(persistBody, /state\.settings = pendingSettingsOverlay\(persisted\)/);
+  assert.match(syncBody, /function syncSettingsForm\(\{ light = false \} = \{\}\)/);
+  assert.match(syncBody, /if \(light\) \{[\s\S]*renderSettingsSummaryText\(\);[\s\S]*return;[\s\S]*renderDeepseekStatus\(\)/);
+  assert.match(settingsPush, /const localSettingsSave = pendingSettingsSaves\.length > 0/);
+  assert.match(settingsPush, /localSettingsSave \? pendingSettingsOverlay\(next\) : next/);
+  assert.match(settingsPush, /if \(localSettingsSave \|\| localProviderSelection\)[\s\S]*else syncSettingsForm\(\)/);
+  assert.doesNotMatch(refreshHandler, /refreshStats/);
 });
 
 test('Home limits groups multiple MiMo accounts like Codex', () => {
@@ -1334,9 +1358,9 @@ test('Limits and Home show providers that already have quota data even when untr
   assert.match(app, /function limitProviderShouldDisplay\(/);
   assert.match(renderLimitsBody, /limitProviderShouldDisplay\(id, enabled\)/);
   assert.match(renderLimitsBody, /const collected = providers\.get\(id\);/);
-  assert.match(app, /async function saveSettings\(patch, options = \{\}\)/);
-  assert.match(app, /if \(options\.skipFormSync !== true\) preserveSettingsPanelScroll\(syncSettingsForm\)/);
-  assert.match(app, /if \(!state\.settingsSaveInFlight\) syncSettingsForm\(\)/);
+  assert.match(app, /function saveSettings\(patch\)/);
+  assert.match(app, /pendingSettingsSaves\.push\(entry\)/);
+  assert.match(app, /const localSettingsSave = pendingSettingsSaves\.length > 0/);
 });
 
 test('Home limit-provider row styles stay independent of settings drill-down', () => {

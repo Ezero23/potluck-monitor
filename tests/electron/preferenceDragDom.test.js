@@ -332,10 +332,10 @@ test('view visibility changes do not toggle trend history collection', () => {
 
 test('settings saves preserve the settings panel scroll position during rerender', () => {
   const app = readRendererFile('app.js');
-  const saveBody = functionBody(app, 'saveSettings', 'updateTitleFit');
+  const reconcileBody = functionBody(app, 'reconcileSavedSettings', 'persistSettingsSave');
   assert.match(app, /function preserveSettingsPanelScroll\(callback\)/);
-  assert.match(saveBody, /preserveSettingsPanelScroll\(syncSettingsForm\)/);
-  assert.doesNotMatch(saveBody, /\bsyncSettingsForm\(\);/);
+  assert.match(reconcileBody, /preserveSettingsPanelScroll\(\(\) => syncSettingsForm\(\{ light \}\)\)/);
+  assert.doesNotMatch(reconcileBody, /\bsyncSettingsForm\(\);/);
 });
 
 test('general section owns app-level preferences before startup and updates', () => {

@@ -713,6 +713,10 @@ function settingsSectionSummary(section) {
 function renderSettingsSummaries() {
   renderAccountConnectionDirectory();
   renderAccountCredentialsLegacy();
+  renderSettingsSummaryText();
+}
+
+function renderSettingsSummaryText() {
   for (const section of SETTINGS_SECTION_IDS) {
     const el = els[`${section}SettingsSummary`];
     if (el) el.textContent = settingsSectionSummary(section);
@@ -4436,6 +4440,7 @@ function openViewFromTray(viewId) {
   stopWindowShortcutRecording();
   els.settingsPanel?.classList.add('hidden');
   els.shell.classList.remove('settings-open');
+  state.settingsViewDirty = false;
   state.openSession = null;
   renderBreakdownChange(viewId, { allowHidden: true });
 }
@@ -6921,11 +6926,13 @@ function renderSessionUsageArchiveStatus() {
     : t('settings.collection.sessionArchiveEmpty');
 }
 
-function syncSettingsForm() {
-  applySettingsTranslations();
-  applyInitialBreakdownPreference();
-  syncPeriodTabs();
-  syncHubModeUi();
+function syncSettingsForm({ light = false } = {}) {
+  if (!light) {
+    applySettingsTranslations();
+    applyInitialBreakdownPreference();
+    syncPeriodTabs();
+    syncHubModeUi();
+  }
   if (els.languageInput) els.languageInput.value = currentLanguage();
   if (els.currencyInput) els.currencyInput.value = currentCurrency();
   syncCurrencyRateControls();
@@ -7015,6 +7022,13 @@ function syncSettingsForm() {
   els.blurInput.value = String(state.settings.glassBlur ?? 32);
   els.zoomInput.value = String(Math.round((Number(state.settings.zoomFactor) || 1) * 100));
   syncSliderRows();
+  if (light) {
+    renderSettingsSummaryText();
+    applyAppearanceSettings(state.settings);
+    applyFloatingBubbleState(state.floatingBubble);
+    updateTitleFit();
+    return;
+  }
   renderDeepseekStatus();
   renderMinimaxStatus();
   renderExternalProviderStatus('claude');
@@ -9721,26 +9735,112 @@ function preserveSettingsPanelScroll(callback) {
   return result;
 }
 
-async function saveSettings(patch, options = {}) {
-  state.settingsSaveInFlight = (state.settingsSaveInFlight || 0) + 1;
-  try {
-    state.settings = await window.tokenMonitor.updateSettings(patch);
-  } catch (error) {
-    console.error('Could not persist settings:', error);
-    try { state.settings = await window.tokenMonitor.getSettings(); } catch (_) {}
-    applyEffectiveCurrencyRates();
-    if (options.skipFormSync !== true) preserveSettingsPanelScroll(syncSettingsForm);
-    restartTimer();
-    maybeUpdateBarsIcon();
-    throw error;
-  } finally {
-    state.settingsSaveInFlight = Math.max(0, (state.settingsSaveInFlight || 1) - 1);
-  }
+const LIGHT_SETTINGS_KEYS = new Set([
+  'automaticAppUpdates',
+  'collectionIntervalMs',
+  'collectionMode',
+  'exportAutoEnabled',
+  'exportDir',
+  'exportIntervalMs',
+  'floatingBubbleContent',
+  'floatingBubbleCustomLayout',
+  'floatingBubbleEnabled',
+  'floatingBubbleTrigger',
+  'glassBlur',
+  'glassOpacity',
+  'heatmapMetric',
+  'historyIntervalMs',
+  'homeActiveDaysWindow',
+  'homeLimitAccountCount',
+  'limitsRefreshMs',
+  'maskLimitAccountEmails',
+  'qoderSite',
+  'reduceMotion',
+  'serviceStatusRefreshMs',
+  'sessionUsageArchiveEnabled',
+  'settingsInTitlebar',
+  'showCompactTotalTokens',
+  'showHomeLimitBars',
+  'showLimitSource',
+  'showLimitUsed',
+  'showLiveDot',
+  'showToolIcons',
+  'showTrayIcon',
+  'startAtLogin',
+  'syncUploadIntervalMs',
+  'systemGlass',
+  'titleIconOnly',
+  'trayContent',
+  'trayCustomLayout',
+  'trayMode',
+  'windowBehavior',
+  'windowToggleShortcut',
+  'windowsBackdrop',
+  'wslScanEnabled',
+  'zaiApiRegion',
+  'zoomFactor'
+]);
+
+let settingsSaveQueue = Promise.resolve();
+let settingsSaveRevision = 0;
+const pendingSettingsSaves = [];
+
+function settingsPatchUsesLightReconcile(patch) {
+  const keys = Object.keys(patch || {});
+  return keys.length > 0 && keys.every((key) => LIGHT_SETTINGS_KEYS.has(key));
+}
+
+function pendingSettingsOverlay(base, excludedRevision = null) {
+  return pendingSettingsSaves.reduce((settings, entry) => (
+    entry.revision === excludedRevision ? settings : { ...settings, ...entry.patch }
+  ), { ...(base || {}) });
+}
+
+function removePendingSettingsSave(revision) {
+  const index = pendingSettingsSaves.findIndex((entry) => entry.revision === revision);
+  if (index >= 0) pendingSettingsSaves.splice(index, 1);
+}
+
+function reconcileSavedSettings(patch, { forceFull = false } = {}) {
+  const light = !forceFull && settingsPatchUsesLightReconcile(patch);
   applyEffectiveCurrencyRates();
-  if (options.skipFormSync !== true) preserveSettingsPanelScroll(syncSettingsForm);
+  preserveSettingsPanelScroll(() => syncSettingsForm({ light }));
+  if (light) state.settingsViewDirty = true;
   restartTimer();
   maybeUpdateBarsIcon();
+}
+
+async function persistSettingsSave(entry) {
+  try {
+    const persisted = await window.tokenMonitor.updateSettings(entry.patch);
+    removePendingSettingsSave(entry.revision);
+    state.settings = pendingSettingsOverlay(persisted);
+  } catch (error) {
+    console.error('Could not persist settings:', error);
+    removePendingSettingsSave(entry.revision);
+    try {
+      const persisted = await window.tokenMonitor.getSettings();
+      state.settings = pendingSettingsOverlay(persisted);
+    } catch (_) {}
+    reconcileSavedSettings(entry.patch, { forceFull: true });
+    throw error;
+  }
+  reconcileSavedSettings(entry.patch);
   return true;
+}
+
+function saveSettings(patch) {
+  const entry = {
+    revision: ++settingsSaveRevision,
+    patch: { ...(patch || {}) }
+  };
+  pendingSettingsSaves.push(entry);
+  state.settings = { ...(state.settings || {}), ...entry.patch };
+  const task = settingsSaveQueue
+    .catch(() => {})
+    .then(() => persistSettingsSave(entry));
+  settingsSaveQueue = task;
+  return task;
 }
 
 function renderHomeIfVisible() {
@@ -9882,6 +9982,10 @@ els.settingsButton.addEventListener('click', (event) => {
   if (settingsOpen) void refreshPotluckGatewayState();
   els.shell.classList.toggle('settings-open', settingsOpen);
   if (!settingsOpen && event.detail > 0) els.settingsButton.blur();
+  if (!settingsOpen && state.settingsViewDirty) {
+    state.settingsViewDirty = false;
+    render();
+  }
   els.shell.style.transform = 'translateZ(0)';
   requestAnimationFrame(() => { els.shell.style.transform = ''; });
 });
@@ -9997,7 +10101,6 @@ els.secretPasteButton?.addEventListener('click', async () => {
 });
 els.limitsRefreshInput.addEventListener('change', async () => {
   await saveSettings({ limitsRefreshMs: Number(els.limitsRefreshInput.value) });
-  await refreshStats({ force: true });
 });
 document.getElementById('limitsDataHealthToggle')?.addEventListener('click', () => {
   state.limitsDataHealthOpen = !state.limitsDataHealthOpen;
@@ -10327,6 +10430,7 @@ els.appUpdateReleaseNotesButton.addEventListener('click', async () => {
 window.tokenMonitor.onSettingsPush?.((next) => {
   if (!next) return;
   const prevMetric = state.settings?.heatmapMetric;
+  const localSettingsSave = pendingSettingsSaves.length > 0;
   const localProviderSelection = limitProviderSelectionPending()
     ? {
         limitProviders: state.settings?.limitProviders,
@@ -10334,12 +10438,13 @@ window.tokenMonitor.onSettingsPush?.((next) => {
         limitProviderSelectionTouched: true
       }
     : null;
-  state.settings = localProviderSelection ? { ...next, ...localProviderSelection } : next;
+  state.settings = localSettingsSave ? pendingSettingsOverlay(next) : next;
+  if (localProviderSelection) state.settings = { ...state.settings, ...localProviderSelection };
   applyEffectiveCurrencyRates();
-  if (localProviderSelection) updateLimitProviderSettingsSummary();
+  if (localSettingsSave || localProviderSelection) updateLimitProviderSettingsSummary();
   else syncSettingsForm();
   maybeUpdateBarsIcon();
-  if ((prevMetric || 'cost') !== (next.heatmapMetric || 'cost')) {
+  if (!localSettingsSave && (prevMetric || 'cost') !== (next.heatmapMetric || 'cost')) {
     render();
   }
 });
