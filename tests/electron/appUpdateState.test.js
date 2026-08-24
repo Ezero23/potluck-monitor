@@ -63,22 +63,39 @@ test('unsigned macOS builds download updates through the custom path', () => {
   const download = sourceBetween('async function downloadAndPrepareAppUpdate', 'function installDownloadedAppUpdate');
   assert.match(download, /if \(process\.platform === 'darwin' && !\(await probeMacAppSigning\(\)\)\) \{\s*return downloadCustomAppUpdate\(latest\);\s*\}/);
   assert.match(download, /createOutboundFetch\(process\.env\)/);
+  assert.match(download, /appUpdateDownloadDir\(\)/);
+  assert.match(download, /range: `bytes=\$\{resumeAt\}-`/);
   assert.match(download, /pipeline\(Readable\.fromWeb\(response\.body\)/);
+  assert.match(download, /sha256File\(partialPath\)/);
+  assert.match(download, /rememberPreparedAppUpdate\(\{ version, assetName: zipAsset\.name, sha256: zipAsset\.sha256, size: zipAsset\.size \}\)/);
   assert.match(download, /phase: 'downloaded', version, progress: 100, error: null, filePath/);
   assert.match(download, /configureNativeAppUpdater\(\)/);
 });
 
 test('custom installs replace the bundle via a detached shell script', () => {
   const install = sourceBetween('function installDownloadedAppUpdate', 'function isAllowedExternalUrl');
-  assert.match(install, /buildCustomInstallScript\(\{\s*pid: process\.pid,\s*appPath: macAppBundlePath\(\),\s*zipPath: appUpdateNativeState\.filePath\s*\}\)/);
+  assert.match(install, /buildCustomInstallScript\(\{\s*pid: process\.pid,\s*appPath: macAppBundlePath\(\),\s*zipPath: appUpdateNativeState\.filePath,\s*expectedVersion: latest\.version\s*\}\)/);
+  assert.match(install, /installAttempt: \{ version: latest\.version, startedAt: new Date\(\)\.toISOString\(\) \}/);
   assert.match(install, /spawn\('\/bin\/sh', \[scriptPath\], \{ detached: true, stdio: 'ignore' \}\)\.unref\(\)/);
   assert.match(install, /autoUpdater\.quitAndInstall\(true, true\)/);
 });
 
 test('the codesign probe is one-shot and starts at app startup', () => {
   const probe = sourceBetween('function probeMacAppSigning', 'function latestFromUpdaterInfo');
-  assert.match(probe, /execFile\('codesign', \['--verify', '--deep', '--strict', macAppBundlePath\(\)\]/);
+  assert.match(probe, /execFile\('codesign', \['--display', '--verbose=4', macAppBundlePath\(\)\]/);
+  assert.match(probe, /macCodeSigningKind\(`/);
   assert.match(probe, /if \(!macAppSigningProbePromise\)/);
   assert.match(probe, /if \(process\.platform !== 'darwin'\) return Promise\.resolve\(true\)/);
-  assert.match(main, /void probeMacAppSigning\(\);/);
+  assert.match(main, /await probeMacAppSigning\(\);\s*await restorePreparedAppUpdate\(\);\s*sendAppUpdatePush\(\);\s*maybeRunBackgroundUpdateCheck\(\);/);
+});
+
+test('verified custom downloads survive restart and failed install attempts remain retryable', () => {
+  const recovery = sourceBetween('function appUpdateDownloadDir', 'function latestFromUpdaterInfo');
+  const defaults = sourceBetween('function defaultSettings', 'function normalizeCollectionMode');
+  assert.match(defaults, /prepared: null,\s*installAttempt: null/);
+  assert.match(recovery, /path\.basename\(assetName\) !== assetName/);
+  assert.match(recovery, /sha256File\(filePath\)/);
+  assert.match(recovery, /phase: 'downloaded'/);
+  assert.match(recovery, /Previous install did not complete/);
+  assert.match(recovery, /clearPreparedAppUpdate\(\{ removeArchive: true \}\)/);
 });

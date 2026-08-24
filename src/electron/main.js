@@ -90,6 +90,7 @@ const {
   deriveAppUpdateAvailability,
   downloadedAppUpdateMatchesLatest,
   GITHUB_REPO,
+  macCodeSigningKind,
   mergeLatestReleaseMetadata,
   shouldDownloadAutomaticAppUpdate,
   shouldSkipAppUpdateCheck
@@ -396,7 +397,9 @@ function defaultSettings() {
     appUpdate: {
       lastCheckedAt: null,
       lastKnownLatest: null,
-      dismissedVersion: null
+      dismissedVersion: null,
+      prepared: null,
+      installAttempt: null
     }
   };
 }
@@ -3700,21 +3703,110 @@ function macAppBundlePath() {
   return path.dirname(path.dirname(path.dirname(app.getPath('exe'))));
 }
 
-// One-shot codesign probe: unsigned macOS builds (shipped without
-// latest-mac.yml) cannot use electron-updater and take the custom
-// download/replace path instead. Non-macOS platforms are irrelevant here
-// and report signed so the native updater path is kept.
+// One-shot codesign probe. Only a notarizable Developer ID bundle can use
+// electron-updater safely; ad-hoc and unsigned local releases use the custom
+// verified download/replace path. Non-macOS platforms keep the native path.
 function probeMacAppSigning() {
   if (process.platform !== 'darwin') return Promise.resolve(true);
   if (!macAppSigningProbePromise) {
     macAppSigningProbePromise = new Promise((resolve) => {
-      execFile('codesign', ['--verify', '--deep', '--strict', macAppBundlePath()], (error) => {
-        macAppSigned = !error;
+      execFile('codesign', ['--display', '--verbose=4', macAppBundlePath()], (error, stdout, stderr) => {
+        macAppSigned = !error && macCodeSigningKind(`${stdout || ''}\n${stderr || ''}`) === 'developer-id';
         resolve(macAppSigned);
       });
     });
   }
   return macAppSigningProbePromise;
+}
+
+function appUpdateDownloadDir() {
+  return path.join(app.getPath('userData'), 'updates');
+}
+
+function preparedUpdateArchivePath(prepared, latest = settings?.appUpdate?.lastKnownLatest) {
+  const version = semver.valid(prepared?.version);
+  const assetName = typeof prepared?.assetName === 'string' ? prepared.assetName : '';
+  const sha256 = typeof prepared?.sha256 === 'string' ? prepared.sha256.toLowerCase() : '';
+  if (!version || !assetName || path.basename(assetName) !== assetName || !/^[a-f0-9]{64}$/.test(sha256)) return null;
+  if (latest && (latest.version !== version || latest.zipAsset?.name !== assetName || latest.zipAsset?.sha256 !== sha256)) return null;
+  return path.join(appUpdateDownloadDir(), assetName);
+}
+
+function sha256File(filePath) {
+  return new Promise((resolve, reject) => {
+    const hash = crypto.createHash('sha256');
+    const input = fs.createReadStream(filePath);
+    input.on('error', reject);
+    input.on('data', (chunk) => hash.update(chunk));
+    input.on('end', () => resolve(hash.digest('hex')));
+  });
+}
+
+function removeUpdateArchive(filePath) {
+  if (!filePath || path.dirname(filePath) !== appUpdateDownloadDir()) return;
+  try { fs.rmSync(filePath, { force: true }); } catch (_) {}
+}
+
+function clearPreparedAppUpdate({ removeArchive = false } = {}) {
+  const block = settings?.appUpdate || {};
+  const archivePath = preparedUpdateArchivePath(block.prepared, null);
+  if (removeArchive) removeUpdateArchive(archivePath);
+  settings.appUpdate = { ...block, prepared: null, installAttempt: null };
+  saveSettings();
+}
+
+function rememberPreparedAppUpdate({ version, assetName, sha256, size }) {
+  settings.appUpdate = {
+    ...(settings.appUpdate || {}),
+    prepared: {
+      version,
+      assetName,
+      sha256,
+      size: Number.isFinite(size) ? size : null,
+      preparedAt: new Date().toISOString()
+    },
+    installAttempt: null
+  };
+  saveSettings();
+}
+
+async function restorePreparedAppUpdate() {
+  const block = settings?.appUpdate || {};
+  const prepared = block.prepared;
+  if (!prepared) return false;
+  const filePath = preparedUpdateArchivePath(prepared);
+  const currentVersion = semver.valid(app.getVersion());
+  const preparedVersion = semver.valid(prepared.version);
+  if (currentVersion && preparedVersion && semver.gte(currentVersion, preparedVersion)) {
+    clearPreparedAppUpdate({ removeArchive: true });
+    return false;
+  }
+  if (!filePath) {
+    clearPreparedAppUpdate({ removeArchive: true });
+    return false;
+  }
+  try {
+    const stat = fs.statSync(filePath);
+    if (!stat.isFile() || (Number.isFinite(prepared.size) && stat.size !== prepared.size)) {
+      throw new Error('Prepared update archive has the wrong size');
+    }
+    const digest = await sha256File(filePath);
+    if (digest !== prepared.sha256) throw new Error('Prepared update archive failed checksum verification');
+    appUpdateNativeState = {
+      phase: 'downloaded',
+      version: prepared.version,
+      progress: 100,
+      error: block.installAttempt ? 'Previous install did not complete; the verified update is ready to retry' : null,
+      filePath
+    };
+    appUpdateNativeBusy = false;
+    return true;
+  } catch (error) {
+    console.warn(`[app-update] Discarding invalid prepared update: ${error.message}`);
+    removeUpdateArchive(filePath);
+    clearPreparedAppUpdate();
+    return false;
+  }
 }
 
 function latestFromUpdaterInfo(info) {
@@ -3985,52 +4077,99 @@ async function downloadAndPrepareAppUpdate() {
   return deriveAppUpdateState();
 }
 
-// Custom update path for unsigned macOS builds: stream the release zip from
-// GitHub (proxy-aware via the shared outbound fetch, which follows the asset
-// 302) into the temp dir, then installDownloadedAppUpdate swaps the bundle.
-// Progress percent comes from content-length when the server provides it,
-// falling back to the asset size reported by the release API.
+function updateIntegrityError(message) {
+  const error = new Error(message);
+  error.code = 'APP_UPDATE_INTEGRITY';
+  return error;
+}
+
+// Custom update path for ad-hoc/unsigned macOS builds. Archives live under
+// userData so an interrupted transfer can resume and a completed one survives
+// a restart. GitHub's release digest is verified before the update is offered.
 async function downloadCustomAppUpdate(latest) {
   const zipAsset = latest?.zipAsset || null;
-  if (!zipAsset?.url) {
-    setNativeAppUpdateState({ phase: 'error', progress: null, error: 'Release has no downloadable macOS archive', filePath: null });
+  if (!zipAsset?.url || !zipAsset?.sha256 || path.basename(zipAsset.name || '') !== zipAsset.name) {
+    setNativeAppUpdateState({ phase: 'error', progress: null, error: 'Release archive is missing a trusted SHA-256 digest', filePath: null });
     return deriveAppUpdateState();
   }
   const version = latest?.version || null;
-  const filePath = path.join(app.getPath('temp'), zipAsset.name);
+  const downloadDir = appUpdateDownloadDir();
+  const filePath = path.join(downloadDir, zipAsset.name);
   const partialPath = `${filePath}.download`;
   appUpdateNativeBusy = true;
   setNativeAppUpdateState({ phase: 'downloading', version, progress: 0, error: null, filePath: null });
   try {
+    fs.mkdirSync(downloadDir, { recursive: true, mode: 0o700 });
+    if (fs.existsSync(filePath)) {
+      const existing = fs.statSync(filePath);
+      const existingDigest = await sha256File(filePath);
+      if ((!Number.isFinite(zipAsset.size) || existing.size === zipAsset.size) && existingDigest === zipAsset.sha256) {
+        rememberPreparedAppUpdate({ version, assetName: zipAsset.name, sha256: zipAsset.sha256, size: zipAsset.size });
+        appUpdateNativeBusy = false;
+        setNativeAppUpdateState({ phase: 'downloaded', version, progress: 100, error: null, filePath });
+        return deriveAppUpdateState();
+      }
+      removeUpdateArchive(filePath);
+    }
+    let resumeAt = 0;
+    try {
+      const partial = fs.statSync(partialPath);
+      if (partial.isFile() && (!Number.isFinite(zipAsset.size) || partial.size <= zipAsset.size)) resumeAt = partial.size;
+      else fs.rmSync(partialPath, { force: true });
+    } catch (_) {}
     const fetchFn = createOutboundFetch(process.env);
     const response = await fetchFn(zipAsset.url, {
       redirect: 'follow',
-      headers: { 'user-agent': `potluck-monitor/${app.getVersion()}` }
+      headers: {
+        'user-agent': `potluck-monitor/${app.getVersion()}`,
+        ...(resumeAt > 0 ? { range: `bytes=${resumeAt}-` } : {})
+      }
     });
-    if (!response.ok || !response.body) throw new Error(`Download ${response.status}`);
-    const total = Number(response.headers.get('content-length') || 0) || zipAsset.size || 0;
-    let received = 0;
+    const rangeComplete = resumeAt > 0 && response.status === 416 && Number.isFinite(zipAsset.size) && resumeAt === zipAsset.size;
+    if (!rangeComplete && (!response.ok || !response.body)) throw new Error(`Download ${response.status}`);
+    let append = false;
+    if (resumeAt > 0 && response.status === 206) {
+      const contentRange = response.headers.get('content-range') || '';
+      append = new RegExp(`^bytes ${resumeAt}-\\d+/\\d+$`).test(contentRange);
+      if (!append) throw updateIntegrityError('Download server returned an invalid byte range');
+    } else if (!rangeComplete) {
+      resumeAt = 0;
+    }
+    const total = Number.isFinite(zipAsset.size)
+      ? zipAsset.size
+      : resumeAt + (Number(response.headers.get('content-length') || 0) || 0);
+    let received = resumeAt;
     let lastReportedBucket = -1;
     let lastReportedAt = 0;
-    const progressTap = new PassThrough();
-    progressTap.on('data', (chunk) => {
-      received += chunk.length;
-      const percent = total > 0 ? Math.max(0, Math.min(100, (received / total) * 100)) : null;
-      // Throttle pushes: one per integer percent (or per 500ms without a total).
-      const bucket = percent === null ? 0 : Math.floor(percent);
-      const now = Date.now();
-      if (bucket === lastReportedBucket && now - lastReportedAt < 500) return;
-      lastReportedBucket = bucket;
-      lastReportedAt = now;
-      setNativeAppUpdateState({ phase: 'downloading', version, progress: percent, error: null });
-    });
-    await pipeline(Readable.fromWeb(response.body), progressTap, fs.createWriteStream(partialPath));
+    if (!rangeComplete) {
+      const progressTap = new PassThrough();
+      progressTap.on('data', (chunk) => {
+        received += chunk.length;
+        const percent = total > 0 ? Math.max(0, Math.min(100, (received / total) * 100)) : null;
+        const bucket = percent === null ? 0 : Math.floor(percent);
+        const now = Date.now();
+        if (bucket === lastReportedBucket && now - lastReportedAt < 500) return;
+        lastReportedBucket = bucket;
+        lastReportedAt = now;
+        setNativeAppUpdateState({ phase: 'downloading', version, progress: percent, error: null });
+      });
+      await pipeline(Readable.fromWeb(response.body), progressTap, fs.createWriteStream(partialPath, { flags: append ? 'a' : 'w' }));
+    }
+    const stat = fs.statSync(partialPath);
+    if (Number.isFinite(zipAsset.size) && stat.size !== zipAsset.size) {
+      throw updateIntegrityError(`Downloaded archive size mismatch (${stat.size}/${zipAsset.size})`);
+    }
+    const digest = await sha256File(partialPath);
+    if (digest !== zipAsset.sha256) throw updateIntegrityError('Downloaded archive failed SHA-256 verification');
     fs.renameSync(partialPath, filePath);
+    rememberPreparedAppUpdate({ version, assetName: zipAsset.name, sha256: zipAsset.sha256, size: zipAsset.size });
     appUpdateNativeBusy = false;
     setNativeAppUpdateState({ phase: 'downloaded', version, progress: 100, error: null, filePath });
   } catch (error) {
     appUpdateNativeBusy = false;
-    try { fs.rmSync(partialPath, { force: true }); } catch (_) {}
+    if (error?.code === 'APP_UPDATE_INTEGRITY') {
+      try { fs.rmSync(partialPath, { force: true }); } catch (_) {}
+    }
     setNativeAppUpdateState({ phase: 'error', progress: null, error: error?.message || String(error), filePath: null });
   }
   return deriveAppUpdateState();
@@ -4050,8 +4189,14 @@ function installDownloadedAppUpdate() {
     fs.writeFileSync(scriptPath, buildCustomInstallScript({
       pid: process.pid,
       appPath: macAppBundlePath(),
-      zipPath: appUpdateNativeState.filePath
+      zipPath: appUpdateNativeState.filePath,
+      expectedVersion: latest.version
     }), { mode: 0o700 });
+    settings.appUpdate = {
+      ...(settings.appUpdate || {}),
+      installAttempt: { version: latest.version, startedAt: new Date().toISOString() }
+    };
+    saveSettings();
     spawn('/bin/sh', [scriptPath], { detached: true, stdio: 'ignore' }).unref();
     quitRequested = true;
     app.quit();
@@ -5598,12 +5743,14 @@ app.whenReady().then(() => {
   ipcMain.on('dashboard:minimize', (event) => { BrowserWindow.fromWebContents(event.sender)?.minimize(); });
   ipcMain.on('dashboard:close', (event) => { BrowserWindow.fromWebContents(event.sender)?.close(); });
   app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
-  maybeRunBackgroundUpdateCheck();
+  void (async () => {
+    await probeMacAppSigning();
+    await restorePreparedAppUpdate();
+    sendAppUpdatePush();
+    maybeRunBackgroundUpdateCheck();
+  })().catch((error) => console.warn(`[app-update] Startup recovery failed: ${error.message}`));
   startAppUpdateBackgroundChecks();
   startCodexAuthBackgroundRefresh();
-  // Resolve the codesign probe early so a later download picks the right
-  // (native vs. custom) update path without waiting on codesign first.
-  void probeMacAppSigning();
 });
 
 app.on('second-instance', focusExistingWindow);

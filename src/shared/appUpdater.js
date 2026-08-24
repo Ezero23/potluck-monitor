@@ -140,13 +140,25 @@ function selectMacZipAsset(assets, arch = process.arch) {
     if (!pattern.test(name)) continue;
     const url = typeof asset?.browser_download_url === 'string' ? asset.browser_download_url : '';
     if (!url.startsWith('https://')) continue;
+    const digest = typeof asset?.digest === 'string' ? asset.digest.trim().toLowerCase() : '';
+    const sha256 = /^sha256:([a-f0-9]{64})$/.exec(digest)?.[1] || null;
     return {
       name,
       url,
-      size: Number.isFinite(asset?.size) ? asset.size : null
+      size: Number.isFinite(asset?.size) ? asset.size : null,
+      sha256
     };
   }
   return null;
+}
+
+function macCodeSigningKind(output) {
+  const text = String(output || '');
+  if (/^Signature=adhoc$/m.test(text)) return 'adhoc';
+  if (/^Authority=Developer ID Application:/m.test(text) && /^TeamIdentifier=(?!not set$).+$/m.test(text)) {
+    return 'developer-id';
+  }
+  return 'unsigned';
 }
 
 function parseLatestReleasePayload(payload, { arch = process.arch } = {}) {
@@ -276,16 +288,25 @@ function shSingleQuote(value) {
   return `'${String(value).replace(/'/g, `'\\''`)}'`;
 }
 
-// Shell script run after the app quits: waits for the main process to exit,
-// swaps the installed .app bundle for the downloaded unsigned build, strips
-// the quarantine flag Gatekeeper would otherwise add, and relaunches.
-function buildCustomInstallScript({ pid, appPath, zipPath } = {}) {
+// Shell script run after the app quits: stage + validate the downloaded bundle
+// before touching the live app, retain one recoverable backup, and roll back if
+// the replacement does not launch.
+function buildCustomInstallScript({ pid, appPath, zipPath, expectedVersion } = {}) {
   const numericPid = Math.trunc(Number(pid)) || 0;
   return [
     '#!/bin/sh',
+    'set -u',
     `PID=${numericPid}`,
     `APP_PATH=${shSingleQuote(appPath)}`,
     `ZIP_PATH=${shSingleQuote(zipPath)}`,
+    `EXPECTED_VERSION=${shSingleQuote(expectedVersion)}`,
+    'APP_NAME=$(basename "$APP_PATH")',
+    'APP_EXEC="$APP_PATH/Contents/MacOS/Potluck Monitor"',
+    'STAGE_DIR="${APP_PATH}.update-stage-${PID}"',
+    'BACKUP_PATH="${APP_PATH}.update-backup"',
+    'STAGED_APP="$STAGE_DIR/$APP_NAME"',
+    'cleanup_stage() { rm -rf "$STAGE_DIR"; }',
+    'trap cleanup_stage EXIT',
     'WAITED=0',
     'while kill -0 "$PID" 2>/dev/null; do',
     '  if [ "$WAITED" -ge 200 ]; then',
@@ -295,10 +316,45 @@ function buildCustomInstallScript({ pid, appPath, zipPath } = {}) {
     '  sleep 0.3',
     '  WAITED=$((WAITED + 1))',
     'done',
-    'rm -rf "$APP_PATH"',
-    'ditto -x -k "$ZIP_PATH" "$(dirname "$APP_PATH")"',
+    'cleanup_stage',
+    'mkdir -p "$STAGE_DIR"',
+    'ditto -x -k "$ZIP_PATH" "$STAGE_DIR"',
+    'if [ ! -d "$STAGED_APP" ] || [ ! -x "$STAGED_APP/Contents/MacOS/Potluck Monitor" ]; then',
+    '  echo "Downloaded archive does not contain a runnable $APP_NAME" >&2',
+    '  exit 1',
+    'fi',
+    'STAGED_VERSION=$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "$STAGED_APP/Contents/Info.plist" 2>/dev/null || true)',
+    'if [ "$STAGED_VERSION" != "$EXPECTED_VERSION" ]; then',
+    '  echo "Downloaded version $STAGED_VERSION does not match $EXPECTED_VERSION" >&2',
+    '  exit 1',
+    'fi',
+    'if [ ! -d "$APP_PATH" ]; then',
+    '  echo "Installed app is missing: $APP_PATH" >&2',
+    '  exit 1',
+    'fi',
+    'rm -rf "$BACKUP_PATH"',
+    'mv "$APP_PATH" "$BACKUP_PATH"',
+    'if ! mv "$STAGED_APP" "$APP_PATH"; then',
+    '  mv "$BACKUP_PATH" "$APP_PATH" 2>/dev/null || true',
+    '  exit 1',
+    'fi',
     'xattr -dr com.apple.quarantine "$APP_PATH" 2>/dev/null || true',
-    'open "$APP_PATH"',
+    'if open "$APP_PATH"; then',
+    '  ATTEMPTS=0',
+    '  while [ "$ATTEMPTS" -lt 20 ]; do',
+    '    if pgrep -f -x "$APP_EXEC" >/dev/null 2>&1; then',
+    '      rm -f "$ZIP_PATH" "$0"',
+    '      exit 0',
+    '    fi',
+    '    sleep 0.5',
+    '    ATTEMPTS=$((ATTEMPTS + 1))',
+    '  done',
+    'fi',
+    'rm -rf "$APP_PATH"',
+    'mv "$BACKUP_PATH" "$APP_PATH"',
+    'open "$APP_PATH" 2>/dev/null || true',
+    'echo "Updated app failed to launch; restored previous version" >&2',
+    'exit 1',
     ''
   ].join('\n');
 }
@@ -306,6 +362,7 @@ function buildCustomInstallScript({ pid, appPath, zipPath } = {}) {
 module.exports = {
   appUpdateInstallSupport,
   buildCustomInstallScript,
+  macCodeSigningKind,
   parseTag,
   parseLatestReleasePayload,
   selectMacZipAsset,

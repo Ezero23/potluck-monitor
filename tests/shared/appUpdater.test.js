@@ -12,6 +12,7 @@ const {
   deriveAppUpdateAvailability,
   downloadedAppUpdateMatchesLatest,
   extractReleaseNotes,
+  macCodeSigningKind,
   mergeLatestReleaseMetadata,
   parseLatestReleasePayload,
   parseTag,
@@ -399,18 +400,20 @@ test('parseLatestReleasePayload rejects payloads without an https html_url', () 
 });
 
 test('parseLatestReleasePayload carries the matching macOS zip asset', () => {
+  const sha256 = 'a'.repeat(64);
   const result = parseLatestReleasePayload({
     tag_name: 'v0.30.0',
     html_url: 'https://github.com/Ezero23/potluck-monitor/releases/tag/v0.30.0',
     assets: [
       { name: 'potluck-monitor-0.30.0-arm64.dmg', browser_download_url: 'https://example.com/app.dmg', size: 10 },
-      { name: 'potluck-monitor-0.30.0-arm64.zip', browser_download_url: 'https://example.com/app.zip', size: 1234 }
+      { name: 'potluck-monitor-0.30.0-arm64.zip', browser_download_url: 'https://example.com/app.zip', size: 1234, digest: `sha256:${sha256}` }
     ]
   }, { arch: 'arm64' });
   assert.deepEqual(result.zipAsset, {
     name: 'potluck-monitor-0.30.0-arm64.zip',
     url: 'https://example.com/app.zip',
-    size: 1234
+    size: 1234,
+    sha256
   });
 });
 
@@ -423,12 +426,14 @@ test('selectMacZipAsset picks the zip matching the requested arch', () => {
   assert.deepEqual(selectMacZipAsset(assets, 'arm64'), {
     name: 'potluck-monitor-0.30.0-arm64.zip',
     url: 'https://example.com/app-arm64.zip',
-    size: 100
+    size: 100,
+    sha256: null
   });
   assert.deepEqual(selectMacZipAsset(assets, 'x64'), {
     name: 'potluck-monitor-0.30.0-x64.zip',
     url: 'https://example.com/app-x64.zip',
-    size: 200
+    size: 200,
+    sha256: null
   });
 });
 
@@ -457,33 +462,58 @@ test('selectMacZipAsset skips malformed entries and tolerates a missing size', (
   assert.deepEqual(selectMacZipAsset(assets, 'arm64'), {
     name: 'potluck-monitor-0.30.0-arm64.zip',
     url: 'https://example.com/app.zip',
-    size: null
+    size: null,
+    sha256: null
   });
 });
 
-test('buildCustomInstallScript waits, replaces, dequarantines, and relaunches', () => {
+test('selectMacZipAsset accepts only a valid GitHub SHA-256 digest', () => {
+  const sha256 = '0123456789abcdef'.repeat(4);
+  const base = { name: 'potluck-monitor-0.30.0-arm64.zip', browser_download_url: 'https://example.com/app.zip' };
+  assert.equal(selectMacZipAsset([{ ...base, digest: `sha256:${sha256}` }], 'arm64').sha256, sha256);
+  assert.equal(selectMacZipAsset([{ ...base, digest: 'sha256:not-a-hash' }], 'arm64').sha256, null);
+  assert.equal(selectMacZipAsset([{ ...base, digest: `md5:${sha256}` }], 'arm64').sha256, null);
+});
+
+test('macCodeSigningKind distinguishes Developer ID from ad-hoc signatures', () => {
+  assert.equal(macCodeSigningKind('Signature=adhoc\nTeamIdentifier=not set'), 'adhoc');
+  assert.equal(macCodeSigningKind([
+    'Authority=Developer ID Application: Example Corp (ABCDE12345)',
+    'TeamIdentifier=ABCDE12345'
+  ].join('\n')), 'developer-id');
+  assert.equal(macCodeSigningKind('Authority=Apple Development: Dev\nTeamIdentifier=ABCDE12345'), 'unsigned');
+  assert.equal(macCodeSigningKind('code object is not signed at all'), 'unsigned');
+});
+
+test('buildCustomInstallScript stages, validates, backs up, and can roll back', () => {
   const script = buildCustomInstallScript({
     pid: 1234,
     appPath: '/Applications/Potluck Monitor.app',
-    zipPath: '/tmp/potluck-monitor-0.30.0-arm64.zip'
+    zipPath: '/tmp/potluck-monitor-0.30.0-arm64.zip',
+    expectedVersion: '0.30.0'
   });
   assert.match(script, /^#!/);
   assert.match(script, /PID=1234/);
   assert.match(script, /while kill -0 "\$PID" 2>\/dev\/null; do/);
   assert.match(script, /sleep 0\.3/);
-  assert.match(script, /rm -rf "\$APP_PATH"/);
-  assert.match(script, /ditto -x -k "\$ZIP_PATH" "\$\(dirname "\$APP_PATH"\)"/);
+  assert.match(script, /ditto -x -k "\$ZIP_PATH" "\$STAGE_DIR"/);
+  assert.match(script, /CFBundleShortVersionString/);
+  assert.match(script, /mv "\$APP_PATH" "\$BACKUP_PATH"/);
+  assert.match(script, /mv "\$BACKUP_PATH" "\$APP_PATH"/);
   assert.match(script, /xattr -dr com\.apple\.quarantine "\$APP_PATH" 2>\/dev\/null \|\| true/);
   assert.match(script, /open "\$APP_PATH"/);
   assert.match(script, /APP_PATH='\/Applications\/Potluck Monitor\.app'/);
   assert.match(script, /ZIP_PATH='\/tmp\/potluck-monitor-0\.30\.0-arm64\.zip'/);
+  assert.match(script, /EXPECTED_VERSION='0\.30\.0'/);
+  assert.ok(script.indexOf('ditto -x -k') < script.indexOf('mv "$APP_PATH" "$BACKUP_PATH"'));
 });
 
 test('buildCustomInstallScript escapes single quotes in interpolated paths', () => {
   const script = buildCustomInstallScript({
     pid: 42,
     appPath: "/Applications/O'Brien/Potluck Monitor.app",
-    zipPath: "/tmp/it's here/update.zip"
+    zipPath: "/tmp/it's here/update.zip",
+    expectedVersion: '0.30.0'
   });
   assert.match(script, /APP_PATH='\/Applications\/O'\\''Brien\/Potluck Monitor\.app'/);
   assert.match(script, /ZIP_PATH='\/tmp\/it'\\''s here\/update\.zip'/);
