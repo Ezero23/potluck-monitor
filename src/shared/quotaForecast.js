@@ -370,11 +370,11 @@ function exhaustEstimate(row, velocity, options = {}) {
   };
 }
 
-function observationsForCycle(series, cycle) {
+function observationsForCycle(series, cycle, presortedRaw = null) {
   const start = cycle.startedAt;
   const end = cycle.endedAt;
   if (!start || !end) return [];
-  const raw = successSamples(series.raw).filter((sample) => sample.at >= start && sample.at < end);
+  const raw = (presortedRaw || successSamples(series.raw)).filter((sample) => sample.at >= start && sample.at < end);
   if (raw.length >= 2) return raw;
   return (Array.isArray(series.hourly) ? series.hourly : [])
     .filter((bucket) => bucket.hour >= start && bucket.hour < end)
@@ -389,7 +389,7 @@ function observationsForCycle(series, cycle) {
 }
 
 function scoreShadowCycle(series, cycle, options = {}) {
-  const samples = observationsForCycle(series, cycle);
+  const samples = observationsForCycle(series, cycle, options.presortedRaw);
   const startMs = parseMs(cycle.startedAt);
   const endMs = parseMs(cycle.endedAt);
   if (samples.length < 2 || startMs == null || endMs == null || endMs <= startMs) {
@@ -427,7 +427,11 @@ function scoreShadowCycle(series, cycle, options = {}) {
 
 function shadowBacktest(series = {}, options = {}) {
   const cycles = (Array.isArray(series.cycles) ? series.cycles : []).filter((cycle) => cycle.endedAt);
-  const records = cycles.map((cycle) => scoreShadowCycle(series, cycle, options));
+  // Sorting the raw samples once here keeps per-cycle scoring linear — shadow
+  // backtests over thousands of historical cycles re-filtered and re-sorted
+  // the full raw series for every cycle, pinning the renderer's main thread.
+  const presortedRaw = successSamples(series.raw);
+  const records = cycles.map((cycle) => scoreShadowCycle(series, cycle, { ...options, presortedRaw }));
   const scored = records.filter((record) => record.gap !== true);
   const errors = scored.map((record) => record.error).filter((value) => value != null);
   const meanAbsError = errors.length ? round(errors.reduce((sum, value) => sum + Math.abs(value), 0) / errors.length) : null;
