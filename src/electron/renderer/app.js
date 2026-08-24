@@ -8686,13 +8686,40 @@ function limitProviderSettingsVisible() {
   );
 }
 
+let limitProviderSettingsRenderFingerprint = '';
+
+function currentLimitProviderSettingsRenderFingerprint(providers, enabled) {
+  return JSON.stringify({
+    providerOrder: providers.map(({ id }) => id),
+    enabled: [...enabled].sort(),
+    detailsOpen: [...state.limitProviderDetailsOpen].sort(),
+    rows: state.stats?.limits?.providers || [],
+    devices: (state.stats?.devices || []).map(
+      ({ deviceId, hostname, platform, osName, osVersion }) => ({ deviceId, hostname, platform, osName, osVersion })
+    ),
+    quotaArchive: state.limitProviderDetailsOpen.size > 0 ? state.quotaArchive : null,
+    presentation: {
+      language: state.settings?.language,
+      currency: state.settings?.currency,
+      showLimitSource: Boolean(state.settings?.showLimitSource),
+      showLimitUsed: Boolean(state.settings?.showLimitUsed),
+      maskLimitAccountEmails: Boolean(state.settings?.maskLimitAccountEmails)
+    }
+  });
+}
+
 function renderLimitProviderCheckboxes({ force = false } = {}) {
   if (!els.limitProviderCheckboxes || !limitProviderSummaryApi?.connectionsByProvider) return;
   if (!force && !limitProviderSettingsVisible()) return;
   if (!force && limitProviderListIsBusy()) return;
   const enabled = enabledLimitProviderSet();
-  const collected = limitProviderSummaryApi.connectionsByProvider(state.stats?.limits?.providers || []);
   const providers = limitProviderOrderApi.orderedLimitProviders(LIMIT_PROVIDERS, state.settings?.limitProviderOrder);
+  const fingerprint = currentLimitProviderSettingsRenderFingerprint(providers, enabled);
+  if (!force && fingerprint === limitProviderSettingsRenderFingerprint) {
+    renderLimitsDataHealth();
+    return;
+  }
+  const collected = limitProviderSummaryApi.connectionsByProvider(state.stats?.limits?.providers || []);
   els.limitProviderCheckboxes.replaceChildren();
   const toolbar = document.createElement('div');
   toolbar.className = 'settings-note-row limit-provider-list-header';
@@ -8805,6 +8832,7 @@ function renderLimitProviderCheckboxes({ force = false } = {}) {
     row.append(main, handle);
     els.limitProviderCheckboxes.appendChild(row);
   }
+  limitProviderSettingsRenderFingerprint = fingerprint;
   renderLimitsDataHealth();
 }
 

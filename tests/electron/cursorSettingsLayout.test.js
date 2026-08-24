@@ -1338,6 +1338,7 @@ test('Providers & Limits puts global settings above the provider list and adds d
 
 test('settings provider rows drill into connections without collapsing the collapsed summary', () => {
   const app = readRendererFile('app.js');
+  const css = readRendererFile('styles.css');
   const renderSettings = functionBody(app, 'renderLimitProviderCheckboxes', 'onToolTrackingToggle');
   assert.match(renderSettings, /limitProviderSettingsSummaryText\(summary, enabled\.has\(id\)\)/);
   assert.match(renderSettings, /limit-provider-summary-line/);
@@ -1349,6 +1350,11 @@ test('settings provider rows drill into connections without collapsing the colla
   assert.match(renderSettings, /renderLimitsDataHealth\(\)/);
   assert.match(renderSettings, /settings\.limits\.enableAll/);
   assert.match(renderSettings, /enableAllLimitProviders/);
+  assert.match(renderSettings, /currentLimitProviderSettingsRenderFingerprint\(providers, enabled\)/);
+  assert.match(renderSettings, /fingerprint === limitProviderSettingsRenderFingerprint/);
+  assert.match(renderSettings, /renderLimitsDataHealth\(\);\s*return;/);
+  assert.match(cssRule(css, '.settings-panel .limit-provider-list-header .tool-header-action'), /width:\s*auto/);
+  assert.match(cssRule(css, '.settings-panel .limit-provider-list-header .tool-header-action'), /white-space:\s*nowrap/);
   assert.doesNotMatch(renderSettings, /copy\.append\(text, tags\)/);
 });
 
