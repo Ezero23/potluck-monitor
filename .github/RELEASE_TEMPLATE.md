@@ -3,20 +3,21 @@
 ## What's changed
 
 <!-- app-update-notes:en:start -->
-### Fixed
-- **Renderer lag on long-running installations:** the quota forecast's shadow backtest re-filtered and re-sorted the entire raw sample history for every historical cycle, which could pin a full CPU core and make every click feel sluggish. Samples are now sorted once per backtest, cutting the forecast cost by roughly an order of magnitude on large histories.
-
 ### Changed
-- **Tray provider badge removed:** the small provider mark drawn onto the tray icon and its **Settings** toggle are gone. Tray icons now always use the clean template styling.
+- **Provider lists show existing quota by default:** Home and Limits keep any provider that already has quota data, even if its local-probe checkbox is off. Settings has **Enable all**, and Home shows up to 50 accounts by default.
+
+### Fixed
+- **Laggy provider checkboxes:** toggling a provider no longer rebuilds the whole Settings page or force-refreshes stats, which made a single click feel like it cancelled itself and froze dropdowns.
+- **Automatic updates could fail silently:** enabling **Download updates automatically** now force-checks immediately, uses the proxy-aware GitHub request, and waits 20 seconds so a failed check appears in the update row.
 <!-- app-update-notes:en:end -->
 
 ## Download
 
-- **macOS Apple Silicon** — [potluck-monitor-0.2.10-arm64.dmg](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.10/potluck-monitor-0.2.10-arm64.dmg)
-- **macOS Intel** — [potluck-monitor-0.2.10-x64.dmg](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.10/potluck-monitor-0.2.10-x64.dmg)
-- **Windows installer** — [potluck-monitor-Setup-0.2.10.exe](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.10/potluck-monitor-Setup-0.2.10.exe)
-- **Windows portable** — [potluck-monitor-0.2.10.exe](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.10/potluck-monitor-0.2.10.exe)
-- **Linux** — [potluck-monitor-0.2.10.AppImage](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.10/potluck-monitor-0.2.10.AppImage)
+- **macOS Apple Silicon** — [potluck-monitor-0.2.11-arm64.dmg](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.11/potluck-monitor-0.2.11-arm64.dmg)
+- **macOS Intel** — [potluck-monitor-0.2.11-x64.dmg](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.11/potluck-monitor-0.2.11-x64.dmg)
+- **Windows installer** — [potluck-monitor-Setup-0.2.11.exe](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.11/potluck-monitor-Setup-0.2.11.exe)
+- **Windows portable** — [potluck-monitor-0.2.11.exe](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.11/potluck-monitor-0.2.11.exe)
+- **Linux** — [potluck-monitor-0.2.11.AppImage](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.11/potluck-monitor-0.2.11.AppImage)
 
 <details>
 <summary><strong>First launch and other notes</strong></summary>
@@ -30,7 +31,7 @@ xattr -cr "/Applications/Potluck Monitor.app"
 open "/Applications/Potluck Monitor.app"
 ```
 
-If macOS says the app is damaged, that is Gatekeeper quarantine — the command above clears it. Confirm **Settings → App Updates → Installed** shows `v0.2.10`.
+If macOS says the app is damaged, that is Gatekeeper quarantine — the command above clears it. Confirm **Settings → App Updates → Installed** shows `v0.2.11`.
 
 ### tokscale dependency
 
@@ -47,20 +48,21 @@ open-source: https://github.com/junhoyeo/tokscale
 ## 更新内容
 
 <!-- app-update-notes:zh:start -->
-### 修复
-- **长时间使用后的界面卡顿：**额度预测的 shadow backtest 会对每个历史周期重新过滤并排序整份原始样本历史，可能占满一个 CPU 核，导致每次点击都明显发卡。现在整个回测只排序一次，在大体量历史数据上把预测开销降低约一个数量级。
-
 ### 变更
-- **移除托盘 Provider 徽章：**不再在托盘图标上叠加 Provider 小标记，**设置**里的对应开关也一并移除。托盘图标统一使用干净的模板样式。
+- **有额度数据的提供者默认显示：**主页和额度页会保留已经有额度数据的提供者，即使本机探测勾选是关的。设置里有**全部启用**，主页默认最多显示 50 个账号。
+
+### 修复
+- **勾选提供者卡顿、像点了两下：**勾选不再整页重绘设置或强制刷新用量，避免点一下被当成取消，下拉框也不再跟着卡住。
+- **打开自动更新没有反应：**勾选**自动下载更新**后会立刻强制检查，走代理友好的 GitHub 请求，超时 20 秒，失败会显示在更新那一行。
 <!-- app-update-notes:zh:end -->
 
 ## 下载
 
-- **macOS Apple Silicon** — [potluck-monitor-0.2.10-arm64.dmg](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.10/potluck-monitor-0.2.10-arm64.dmg)
-- **macOS Intel** — [potluck-monitor-0.2.10-x64.dmg](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.10/potluck-monitor-0.2.10-x64.dmg)
-- **Windows 安装包** — [potluck-monitor-Setup-0.2.10.exe](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.10/potluck-monitor-Setup-0.2.10.exe)
-- **Windows 便携版** — [potluck-monitor-0.2.10.exe](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.10/potluck-monitor-0.2.10.exe)
-- **Linux** — [potluck-monitor-0.2.10.AppImage](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.10/potluck-monitor-0.2.10.AppImage)
+- **macOS Apple Silicon** — [potluck-monitor-0.2.11-arm64.dmg](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.11/potluck-monitor-0.2.11-arm64.dmg)
+- **macOS Intel** — [potluck-monitor-0.2.11-x64.dmg](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.11/potluck-monitor-0.2.11-x64.dmg)
+- **Windows 安装包** — [potluck-monitor-Setup-0.2.11.exe](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.11/potluck-monitor-Setup-0.2.11.exe)
+- **Windows 便携版** — [potluck-monitor-0.2.11.exe](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.11/potluck-monitor-0.2.11.exe)
+- **Linux** — [potluck-monitor-0.2.11.AppImage](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.11/potluck-monitor-0.2.11.AppImage)
 
 <details>
 <summary><strong>首次启动与其他说明</strong></summary>
@@ -74,7 +76,7 @@ xattr -cr "/Applications/Potluck Monitor.app"
 open "/Applications/Potluck Monitor.app"
 ```
 
-若提示「已损坏」，那是隔离标记；上面命令会清掉。打开后到 **设置 → App Updates → Installed** 确认是 `v0.2.10`。
+若提示「已损坏」，那是隔离标记；上面命令会清掉。打开后到 **设置 → App Updates → Installed** 确认是 `v0.2.11`。
 
 ### tokscale 依赖
 
