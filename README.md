@@ -1,10 +1,6 @@
 <p align="right">
    <strong>EN</strong> | <a href="./README.zh-CN.md">简</a>
 </p>
-<div align="center">
-    <img src=".github/assets/app.png" alt="Potluck Monitor logo" width="120">
-    <h1>Potluck Monitor</h1>
-</div>
 
 <p align="center">
     <em>One live dashboard for every AI coding tool, synced across every machine.</em>
