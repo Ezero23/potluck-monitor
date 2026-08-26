@@ -1,10 +1,6 @@
 <p align="right">
    <a href="./README.md">EN</a> | <strong>简</strong>
 </p>
-<div align="center">
-    <img src=".github/assets/app.png" alt="Potluck Monitor logo" width="120">
-    <h1>Potluck Monitor</h1>
-</div>
 
 <p align="center">
     <em>跨设备聚合每个 AI 编程工具的实时用量。</em>
@@ -64,18 +60,6 @@ Custom 会从一个 GET 余额端点映射数值 JSON 字段；仅兼容 OpenAI 
 
 ## 界面展示
 
-<table>
-<tr>
-<td width="290" align="center"><img src=".github/assets/home-view.png" width="250" alt="主页视图"><br><sub>可自定义仪表板：自选要显示的模块与排序</sub></td>
-<td width="290" align="center"><img src=".github/assets/limits-view.png" width="250" alt="额度视图"><br><sub>多账号并列，Codex 可一键切换本机账号</sub></td>
-<td width="290" align="center"><img src=".github/assets/tools-view.png" width="250" alt="工具视图"><br><sub>点任一工具展开输入／输出与缓存命中明细</sub></td>
-</tr>
-<tr>
-<td width="290" align="center"><img src=".github/assets/sessions-view.png" width="250" alt="Session 视图"><br><sub>点进单个 session，逐条提问拆解 token 与用到的工具</sub></td>
-<td width="290" align="center"><img src=".github/assets/models-view.png" width="250" alt="模型视图"><br><sub>跨工具汇总每个模型的用量与成本</sub></td>
-<td width="290" align="center"><img src=".github/assets/devices-view.png" width="250" alt="设备视图"><br><sub>每台设备的用量、成本与同步状态，可展开看单机明细</sub></td>
-</tr>
-</table>
 
 <table>
 <tr>
