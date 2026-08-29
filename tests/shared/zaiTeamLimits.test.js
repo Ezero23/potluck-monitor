@@ -98,7 +98,7 @@ test('fetchZaiTeamLimits sends team headers and derives accountKey from org:proj
   assert.equal(session.usedPercent, 26);
   assert.equal(weekly.label, 'Weekly');
   assert.equal(weekly.usedPercent, 5);
-  assert.equal(billing.label, 'MCP');
+  assert.equal(billing.label, 'Monthly');
 });
 
 test('fetchZaiTeamLimits surfaces an invalid key as unauthorized', async () => {

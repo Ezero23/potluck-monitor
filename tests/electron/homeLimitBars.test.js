@@ -67,6 +67,20 @@ test('Indistinguishable multi-account rows are disambiguated by source device', 
   assert.match(app, /replace\(\/\\s\*·\\s\*#\[a-f0-9\]\{6,\}\$\/i/);
 });
 
+test('Kimi and GLM monthly windows use a clear monthly label on the limits page', () => {
+  const app = read('src/electron/renderer/app.js');
+
+  assert.match(app, /monthly\.label \|\| 'Monthly'/);
+  assert.match(app, /mcp\.label \|\| 'Monthly'/);
+});
+
+test('Home renders missing Kimi and GLM monthly coverage as unavailable, never as zero usage', () => {
+  const app = read('src/electron/renderer/app.js');
+
+  assert.match(app, /window\?\.showMeter === false && window\?\.detail === 'unavailable'/);
+  assert.match(app, /return t\('settings\.common\.unavailable'\)/);
+});
+
 test('Tool icons toggle re-renders Home and persists appearance', () => {
   const app = read('src/electron/renderer/app.js');
   assert.match(app, /els\.toolIconsInput\.addEventListener\('change', async \(\) => \{\s*state\.settings\.showToolIcons = els\.toolIconsInput\.checked;\s*renderHomeIfVisible\(\);\s*await saveAppearanceFromControls\(\);\s*\}\);/);

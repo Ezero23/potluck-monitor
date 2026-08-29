@@ -2563,6 +2563,9 @@ function formatLimitWindowValue(window, fillPercent, hasPercent, showUsed) {
 
 function formatHomeLimitWindowValue(window, showUsed) {
   if (window?.planStatus === 'expired') return t('limits.mimo.planExpired');
+  if (window?.showMeter === false && window?.detail === 'unavailable') {
+    return t('settings.common.unavailable');
+  }
   // A credits window's headline value is money. Its percentage denominator is
   // lifetime spend, which reads as a quota but isn't one.
   if (window?.metric === 'credits') {
@@ -3241,7 +3244,7 @@ function renderProviderWindows(provider, color) {
     }
     if (weekly) windows.append(limitWindowNode('Weekly', weekly, color, 0.68));
     if (mcp) {
-      const mcpNode = limitWindowNode('MCP', mcp, color, 0.68);
+      const mcpNode = limitWindowNode(mcp.label || 'Monthly', mcp, color, 0.68);
       mcpNode.classList.add('limit-window-wide');
       windows.append(mcpNode);
     }

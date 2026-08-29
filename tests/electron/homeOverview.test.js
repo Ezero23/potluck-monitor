@@ -112,6 +112,85 @@ test('Home device rows keep only the local badge and mute stale devices without 
   assert.doesNotMatch(match[1], /badge\.textContent = row\.isLocal \? t\('home\.localDevice'\) : t\('home\.staleDevice'\)/);
 });
 
+test('homeLimitAccounts keeps an exhausted monthly bucket visible over healthier short windows', () => {
+  const rows = homeLimitAccounts([
+    {
+      key: 'kimi:0',
+      providerId: 'kimi',
+      name: 'Kimi',
+      windows: [
+        { kind: 'session', label: '5-hour', usedPercent: 0 },
+        { kind: 'weekly', label: 'Weekly', usedPercent: 0 },
+        { kind: 'billing', label: 'Monthly', usedPercent: 100, resetDescription: '5d 2h' }
+      ]
+    }
+  ]);
+
+  assert.equal(rows.length, 1);
+  assert.deepEqual(rows[0].windows.map((window) => [window.kind, window.label, window.remainingPercent]), [
+    ['session', '5-hour', 100],
+    ['billing', 'Monthly', 0]
+  ]);
+  assert.equal(rows[0].lowestRemaining, 0);
+});
+
+test('Home marks required Kimi and GLM monthly coverage unavailable instead of implying the account is usable', () => {
+  const rows = homeLimitAccountsForProviders({
+    providers: [
+      {
+        provider: 'kimi',
+        status: 'ok',
+        source: 'api',
+        windows: [
+          { kind: 'session', label: '5-hour', usedPercent: 0 },
+          { kind: 'weekly', label: 'Weekly', usedPercent: 0 }
+        ]
+      },
+      {
+        provider: 'zai',
+        status: 'ok',
+        source: 'api',
+        windows: [
+          { kind: 'session', label: '5-hour', usedPercent: 0 },
+          { kind: 'weekly', label: 'Weekly', usedPercent: 100 }
+        ]
+      }
+    ],
+    providerOptions: [{ id: 'kimi', label: 'Kimi' }, { id: 'zai', label: 'GLM' }],
+    enabledProviderIds: ['kimi', 'zai'],
+    limit: 10,
+    sort: 'configured'
+  });
+
+  assert.deepEqual(rows.map((row) => row.windows.map((window) => [
+    window.kind,
+    window.label,
+    window.remainingPercent,
+    window.showMeter,
+    window.detail
+  ])), [
+    [
+      ['session', '5-hour', 100, true, ''],
+      ['billing', 'Monthly', null, false, 'unavailable']
+    ],
+    [
+      ['weekly', 'Weekly', 0, true, ''],
+      ['billing', 'Monthly', null, false, 'unavailable']
+    ]
+  ]);
+});
+
+test('Home does not invent an unavailable monthly window for an unconfigured provider', () => {
+  const rows = homeLimitAccountsForProviders({
+    providers: [{ provider: 'kimi', status: 'notConfigured', source: 'api', windows: [] }],
+    providerOptions: [{ id: 'kimi', label: 'Kimi' }],
+    enabledProviderIds: ['kimi'],
+    limit: 10
+  });
+
+  assert.deepEqual(rows, []);
+});
+
 test('homeLimitAccounts keeps account windows together and sorts lowest remaining first', () => {
   const rows = homeLimitAccounts([
     {

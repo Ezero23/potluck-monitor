@@ -57,7 +57,7 @@ test('parseZaiUsage maps quota windows to CodexBar labels and order', () => {
   assert.equal(usage.windows[1].usedPercent, 25);
   assert.equal(usage.windows[1].windowMinutes, 7 * 24 * 60);
   assert.equal(usage.windows[2].kind, 'billing');
-  assert.equal(usage.windows[2].label, 'MCP');
+  assert.equal(usage.windows[2].label, 'Monthly');
   assert.equal(usage.windows[2].remaining, 9);
   assert.equal(usage.windows[2].usedPercent, 40);
   assert.equal(usage.windows[2].resetsAt, '2026-07-13T00:00:00.000Z');
@@ -79,7 +79,7 @@ test('parseZaiUsage treats a single 5-hour token limit as the old-plan session w
   assert.equal(usage.windows[0].usedPercent, 12);
   assert.equal(usage.windows[0].windowMinutes, 5 * 60);
   assert.equal(usage.windows[1].kind, 'billing');
-  assert.equal(usage.windows[1].label, 'MCP');
+  assert.equal(usage.windows[1].label, 'Monthly');
   // MCP is a monthly bucket; z.ai encodes it as a misleading unit=5/number=1
   // (1-minute) marker, so drop windowMinutes and label the cadence Monthly.
   assert.equal(usage.windows[1].windowMinutes, undefined);

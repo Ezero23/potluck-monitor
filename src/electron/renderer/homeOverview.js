@@ -82,6 +82,21 @@
     return windows;
   }
 
+  function withRequiredMonthlyCoverage(providerId, status, windows) {
+    if (providerId !== 'kimi' && providerId !== 'zai') return windows;
+    if (windows.length === 0 || (status && status !== 'ok')) return windows;
+    if (windows.some((window) => window?.kind === 'billing' || window?.kind === 'monthly')) return windows;
+    return [
+      ...windows,
+      {
+        kind: 'billing',
+        label: 'Monthly',
+        showMeter: false,
+        detail: 'unavailable'
+      }
+    ];
+  }
+
   function homeLimitAccounts(accounts, limit = 3, { sort = 'remaining' } = {}) {
     return (accounts || [])
       .map((account, index) => {
@@ -114,14 +129,28 @@
           .filter((window) => window.remainingPercent != null
             || window.planStatus === 'expired'
             || window.value
+            || window.detail
             || (window.metric === 'credits' && (window.remaining != null || window.detail)))
           .sort((a, b) => {
             if (providerId === 'antigravity') return a.index - b.index;
+            // Keep the two most constrained windows visible. A billing/monthly
+            // bucket can be exhausted while session/weekly buckets are still
+            // healthy; sorting only by kind would hide the real blocker.
+            const aUnavailable = a.showMeter === false && a.detail === 'unavailable';
+            const bUnavailable = b.showMeter === false && b.detail === 'unavailable';
+            if (aUnavailable !== bUnavailable) return aUnavailable ? -1 : 1;
+            const aRemaining = a.remainingPercent ?? 100;
+            const bRemaining = b.remainingPercent ?? 100;
+            return aRemaining - bRemaining
+              || (windowPriority.get(a.kind) ?? 10) - (windowPriority.get(b.kind) ?? 10)
+              || a.index - b.index;
+          })
+          .slice(0, 2)
+          .sort((a, b) => {
             const aPriority = windowPriority.get(a.kind) ?? 10;
             const bPriority = windowPriority.get(b.kind) ?? 10;
             return aPriority - bPriority || a.index - b.index;
           })
-          .slice(0, 2)
           .map(({ index: _index, ...window }) => window);
         if (windows.length === 0) return null;
         return {
@@ -247,12 +276,13 @@
         if (pinnedEntries.length > 0) providerEntries = pinnedEntries;
       }
       providerEntries.forEach((provider, index) => {
+        const providerWindows = Array.isArray(provider.windows) ? provider.windows : [];
         accounts.push({
           key: `${id}:${index}`,
           providerId: id,
           name: typeof accountName === 'function' ? accountName(provider, index, providerEntries) : label,
           color: colors[id] || colors.default || '',
-          windows: provider.windows || [],
+          windows: withRequiredMonthlyCoverage(id, provider.status, providerWindows),
           balance: provider.balance || null
         });
       });

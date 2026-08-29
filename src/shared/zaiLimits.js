@@ -262,7 +262,7 @@ function parseZaiUsage(quotaBody, subscriptionBody = null) {
   // a 'Monthly' cadence so the reset stays right when the renew time is absent.
   const mcp = timeLimit && zaiWindow(timeLimit, {
     kind: 'billing',
-    label: 'MCP',
+    label: 'Monthly',
     fallbackResetAt: resetAt,
     includeWindowMinutes: false,
     resetDescription: 'Monthly'

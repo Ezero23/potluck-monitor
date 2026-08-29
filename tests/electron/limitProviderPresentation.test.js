@@ -803,7 +803,7 @@ test('Volcengine renders 5-hour, Weekly, and Monthly quota windows', () => {
   assert.match(renderProviderWindows, /monthlyNode\.classList\.add\('limit-window-wide'\)/);
 });
 
-test('Z.ai renders 5-hour and Weekly first, then MCP full-width', () => {
+test('Z.ai renders 5-hour and Weekly first, then Monthly full-width', () => {
   const app = readRendererFile('app.js');
   const renderProviderWindows = functionBody(app, 'renderProviderWindows', 'renderLimitProviderRow');
 
@@ -814,7 +814,7 @@ test('Z.ai renders 5-hour and Weekly first, then MCP full-width', () => {
   assert.match(renderProviderWindows, /const fiveHourNode = limitWindowNode\('5-hour', fiveHour, color, 0\.95\)/);
   assert.match(renderProviderWindows, /if \(!weekly\) fiveHourNode\.classList\.add\('limit-window-wide'\)/);
   assert.match(renderProviderWindows, /limitWindowNode\('Weekly', weekly, color, 0\.68\)/);
-  assert.match(renderProviderWindows, /const mcpNode = limitWindowNode\('MCP', mcp, color, 0\.68\)/);
+  assert.match(renderProviderWindows, /const mcpNode = limitWindowNode\(mcp\.label \|\| 'Monthly', mcp, color, 0\.68\)/);
   assert.match(renderProviderWindows, /mcpNode\.classList\.add\('limit-window-wide'\)/);
 });
 
