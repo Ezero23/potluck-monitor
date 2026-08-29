@@ -10,6 +10,7 @@ const {
   buildTrayIcon,
   buildTrayMenuTemplate,
   formatTrayText,
+  isGeneratedTrayIconMode: exportedGeneratedTrayIconMode,
   reconcileCodexAccountSelection,
   pickUsageTrayIconId,
   sortCodexAccountsForDisplay
@@ -37,6 +38,11 @@ const stats = {
     }
   }
 };
+
+test('tray exports the generated-icon classifier used by the main-process IPC handler', () => {
+  assert.equal(exportedGeneratedTrayIconMode, isGeneratedTrayIconMode);
+  assert.equal(exportedGeneratedTrayIconMode('barsSession'), true);
+});
 
 test('fallback tray icon source stays transparent and high-resolution', () => {
   const icon = fs.readFileSync(path.join(__dirname, '..', '..', 'assets', 'icons', 'tray-token-monitor.png'));

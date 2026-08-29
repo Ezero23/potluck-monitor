@@ -4,6 +4,7 @@ const path = require('node:path');
 const {
   formatTrayText,
   isBarsTrayIconMode,
+  isGeneratedTrayIconMode,
   pickUsageProviderId,
   pickWorstLimit
 } = require('../shared/trayText');
@@ -233,6 +234,7 @@ module.exports = {
   createTray,
   formatTrayText,
   isBarsTrayIconMode,
+  isGeneratedTrayIconMode,
   pickUsageTrayIconId,
   pickWorstLimit,
   popoverBounds,
