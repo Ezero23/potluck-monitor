@@ -7,6 +7,8 @@ const {
   parseKiroUsage,
   displayPlanName,
   parseResetDate,
+  kiroAuthFileCandidates,
+  readKiroIdentity,
   existingKiroCli,
   runKiroUsageCli,
   fetchKiroLimits
@@ -172,9 +174,35 @@ test('existingKiroCli finds a standard Windows install that is not on PATH', () 
   assert.equal(result, expected);
 });
 
+test('readKiroIdentity prefers the stable profile ARN without exposing credentials', () => {
+  const [filename] = kiroAuthFileCandidates({ HOME: '/home/me' }, 'linux');
+  const identity = readKiroIdentity({ HOME: '/home/me' }, 'linux', {
+    existsSync: (candidate) => candidate === filename,
+    readFileSync: () => JSON.stringify({
+      profileArn: 'arn:aws:codewhisperer:us-east-1:123456789012:profile/ABC',
+      accessToken: 'secret-token'
+    })
+  });
+
+  assert.equal(identity, 'arn:aws:codewhisperer:us-east-1:123456789012:profile/ABC');
+});
+
+test('readKiroIdentity falls back to a stable JWT subject', () => {
+  const payload = Buffer.from(JSON.stringify({ sub: 'kiro-user-123' })).toString('base64url');
+  const identity = readKiroIdentity({ HOME: '/home/me' }, 'linux', {
+    existsSync: () => true,
+    readFileSync: () => JSON.stringify({ accessToken: `header.${payload}.signature` })
+  });
+
+  assert.equal(identity, 'kiro-user-123');
+});
+
 test('fetchKiroLimits maps a healthy scan to a billing window', async () => {
   const provider = await fetchKiroLimits({}, {
     runKiroUsageCli: async () => LEGACY_BASIC,
+    env: { HOME: '/home/me' },
+    existsSync: () => true,
+    readFileSync: () => JSON.stringify({ profileArn: 'arn:aws:codewhisperer:us-east-1:123:profile/ABC' }),
     now: () => Date.parse('2026-06-01T00:00:00Z')
   });
   assert.equal(provider.provider, 'kiro');
@@ -191,6 +219,18 @@ test('fetchKiroLimits maps a healthy scan to a billing window', async () => {
   // Absolute credit count rides along so the renderer can show "remaining/total".
   assert.equal(provider.windows[0].used, 12.5);
   assert.equal(provider.windows[0].limit, 50);
+});
+
+test('fetchKiroLimits leaves account identity unknown instead of merging every login into default', async () => {
+  const provider = await fetchKiroLimits({}, {
+    runKiroUsageCli: async () => LEGACY_BASIC,
+    env: { HOME: '/home/me' },
+    existsSync: () => false,
+    now: () => Date.parse('2026-06-01T00:00:00Z')
+  });
+
+  assert.equal(provider.status, 'ok');
+  assert.equal(provider.accountKey, '');
 });
 
 test('fetchKiroLimits adds a second window for bonus credits', async () => {

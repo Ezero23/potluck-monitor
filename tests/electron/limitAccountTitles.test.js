@@ -11,6 +11,7 @@ const {
   accountEmailLabel,
   accountTitleLabel,
   codexAccountDisplayLabel,
+  connectionIdentityLabel,
   maskEmailAddress
 } = require('../../src/electron/renderer/accountIdentity');
 
@@ -20,7 +21,8 @@ const TITLE_FUNCTIONS = [
   'limitAccountDefaultTitle',
   'codexAccountTitle',
   'opencodeAccountTitle',
-  'namedApiAccountTitle'
+  'namedApiAccountTitle',
+  'connectionBackedAccountTitle'
 ];
 
 function readRendererFile(name) {
@@ -75,7 +77,7 @@ function runTitle(source, expression, context = {}) {
 
 function titleContext(maskLimitAccountEmails) {
   return {
-    accountIdentityApi: { accountEmailLabel, accountTitleLabel, codexAccountDisplayLabel, maskEmailAddress },
+    accountIdentityApi: { accountEmailLabel, accountTitleLabel, codexAccountDisplayLabel, connectionIdentityLabel, maskEmailAddress },
     state: { settings: { maskLimitAccountEmails } },
     t: (key) => (key === 'settings.codex.personalWorkspace' ? 'Personal' : key)
   };
@@ -295,5 +297,60 @@ test('accountEmailLabel keeps duplicate addresses apart regardless of masking', 
       suffix: 'Unused'
     }),
     'solo@example.com'
+  );
+});
+
+test('GLM and Kimi titles mark unverified subscriptions instead of rendering fingerprint identities', () => {
+  const app = readRendererFile('app.js');
+
+  // Confirmed rows keep their plan/user label — the identity came from the
+  // provider (subscription id or a parseable token subject).
+  assert.equal(
+    runTitle(
+      app,
+      "limitAccountTitle('zai', { accountLabel: 'GLM Coding Pro', upstreamAccountKey: 'sha256:sub', connectionKey: 'sha256:conn' }, 0)",
+      titleContext(true)
+    ),
+    'GLM Coding Pro'
+  );
+  assert.equal(
+    runTitle(
+      app,
+      "limitAccountTitle('kimi', { accountName: 'Work', upstreamAccountKey: 'sha256:subject', accountKey: 'sha256:key' }, 0)",
+      titleContext(true)
+    ),
+    'Work'
+  );
+
+  // Without upstream confirmation the row must not present its opaque
+  // fingerprint (or the synthetic fingerprint email) as an account identity.
+  const solo = { provider: 'zai', accountKey: 'sha256:aaa1', connectionKey: 'sha256:bbb1' };
+  assert.equal(
+    runTitle(app, `limitAccountTitle('zai', ${JSON.stringify(solo)}, 0)`, titleContext(true)),
+    'limits.identityUnconfirmed'
+  );
+
+  // Two unconfirmed keys stay two rows, told apart by the stable fingerprint.
+  const keyA = { provider: 'zai', accountKey: 'sha256:aaa111111111', connectionKey: 'sha256:bbb1' };
+  const keyB = { provider: 'zai', accountKey: 'sha256:aaa222222222', connectionKey: 'sha256:bbb2' };
+  assert.deepEqual(
+    [keyA, keyB].map((peer, index) => runTitle(
+      app,
+      `limitAccountTitle('zai', ${JSON.stringify(peer)}, ${index}, ${JSON.stringify([keyA, keyB])})`,
+      titleContext(true)
+    )),
+    ['limits.identityUnconfirmed · #aaa111', 'limits.identityUnconfirmed · #aaa222']
+  );
+
+  // The same rule holds for Kimi keys without a parseable subject, and neither
+  // surface may fall back to the synthetic GLM fingerprint email.
+  const kimiKey = { provider: 'kimi', accountKey: 'sha256:kkk111', connectionKey: 'sha256:ccc1' };
+  assert.equal(
+    runTitle(app, `limitAccountTitle('kimi', ${JSON.stringify(kimiKey)}, 0)`, titleContext(true)),
+    'limits.identityUnconfirmed'
+  );
+  assert.doesNotMatch(
+    runTitle(app, `limitAccountTitle('zai', ${JSON.stringify(solo)}, 0)`, titleContext(true)),
+    /glm-account\.local/
   );
 });

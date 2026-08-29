@@ -222,6 +222,8 @@ function mapCopilotUsageToProvider(usage, meta = {}) {
   return normalizeLimitProvider({
     provider: 'copilot',
     accountKey: meta.accountKey || '',
+    upstreamAccountKey: meta.upstreamAccountKey || '',
+    quotaPoolKey: meta.quotaPoolKey || '',
     accountLabel: meta.accountLabel || displayPlanLabel(usage.copilotPlan),
     accountName: meta.accountName || '',
     accountEmail: meta.accountEmail || '',
@@ -330,9 +332,14 @@ async function fetchCopilotLimits(options = {}, deps = {}) {
       fetchGitHubIdentity(token, requestDeps).catch(() => ({ login: '', id: null }))
     ]);
     const login = String(identity.login || '').trim();
-    const accountSeed = login || (identity.id != null ? String(identity.id) : '');
+    const stableIdentity = identity.id != null ? String(identity.id) : login;
+    const accountKey = stableIdentity
+      ? hashKey('copilot-account', stableIdentity)
+      : hashKey('copilot-connection', token);
     return mapCopilotUsageToProvider(usage, {
-      accountKey: hashKey('copilot', accountSeed || token.slice(0, 8)),
+      accountKey,
+      upstreamAccountKey: stableIdentity ? accountKey : '',
+      quotaPoolKey: stableIdentity ? hashKey('copilot-pool', stableIdentity) : '',
       accountLabel: displayPlanLabel(usage.copilotPlan),
       accountName: login,
       accountEmail: '',
@@ -342,7 +349,7 @@ async function fetchCopilotLimits(options = {}, deps = {}) {
   } catch (error) {
     return normalizeLimitProvider({
       provider: 'copilot',
-      accountKey: hashKey('copilot', token.slice(0, 8)),
+      accountKey: hashKey('copilot-connection', token),
       source: 'api',
       status: providerStatusFromError(error),
       updatedAt,

@@ -2,6 +2,7 @@
 
 const { normalizeLimitProvider } = require('./limits');
 const { hashKey } = require('./hashKey');
+const { readKimiCliAccessToken } = require('./kimiCliAuth');
 const { runWithProbeDeadline } = require('./probeDeadline');
 
 const KIMI_FETCH_TIMEOUT_MS = 12_000;
@@ -403,6 +404,17 @@ function jwtSessionHeaders(token) {
   }
 }
 
+function kimiTokenSubject(token) {
+  const parts = String(token || '').split('.');
+  if (parts.length !== 3) return '';
+  try {
+    const payload = JSON.parse(Buffer.from(parts[1], 'base64url').toString('utf8'));
+    return String(payload.sub || '').trim();
+  } catch (_) {
+    return '';
+  }
+}
+
 function kimiWebHeaders(token) {
   return {
     Authorization: `Bearer ${token}`,
@@ -510,7 +522,10 @@ async function fetchKimiLimits(options = {}, deps = {}) {
   const env = deps.env || process.env;
   const now = (deps.now || Date.now)();
   const updatedAt = new Date(now).toISOString();
-  const key = kimiToken(env, options.kimiApiKey);
+  const configuredKey = kimiToken(env, options.kimiApiKey);
+  const cliTokenReader = deps.readKimiCliAccessToken || readKimiCliAccessToken;
+  const cliToken = configuredKey ? '' : cliTokenReader({ env }, { now: deps.now });
+  const key = configuredKey || cliToken;
   const webToken = kimiWebToken(env, options.kimiWebAccessToken);
   if (!webToken && !key) {
     return normalizeLimitProvider({
@@ -540,13 +555,21 @@ async function fetchKimiLimits(options = {}, deps = {}) {
     }
   }
   const windows = mergeKimiWindows(webWindows, codeWindows);
-  const source = webWindows.length ? 'web' : 'api';
+  const source = webWindows.length ? 'web' : cliToken ? 'oauth' : 'api';
   // Keep the configured logical account stable when a temporary web failure
   // makes this tick report Code API fallback windows only.
   const accountSecret = webToken || key;
+  const subject = kimiTokenSubject(webToken) || kimiTokenSubject(key);
+  const accountKey = subject ? hashKey('kimi-account', subject) : accountSecret ? hashKey('kimi', accountSecret) : '';
+  const connectionKey = accountSecret ? hashKey('kimi-connection', webToken || '', key || '') : '';
   return normalizeLimitProvider({
     provider: 'kimi',
-    accountKey: accountSecret ? hashKey('kimi', accountSecret) : '',
+    accountKey,
+    connectionKey,
+    identityKind: connectionKey ? 'connection' : '',
+    upstreamAccountKey: subject ? accountKey : '',
+    quotaPoolKey: subject ? hashKey('kimi-pool', subject) : '',
+    authType: webToken ? 'cookie' : cliToken ? 'oauth' : 'apikey',
     accountName: options.kimiAccountLabel || '',
     source,
     status: windows.length ? 'ok' : failureStatus(errors),
@@ -564,6 +587,7 @@ module.exports = {
   KIMI_MEMBERSHIP_STATS_URL,
   kimiToken,
   kimiWebToken,
+  kimiTokenSubject,
   parseKimiUsage,
   parseKimiWebUsage,
   parseKimiMembershipStats,

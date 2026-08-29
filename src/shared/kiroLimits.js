@@ -45,6 +45,48 @@ function uniqueStrings(values) {
   return [...new Set(values.filter(Boolean))];
 }
 
+function decodeJwtPayload(token) {
+  const parts = String(token || '').split('.');
+  if (parts.length < 2) return null;
+  try {
+    return JSON.parse(Buffer.from(parts[1], 'base64url').toString('utf8'));
+  } catch (_) {
+    return null;
+  }
+}
+
+function kiroAuthFileCandidates(env = process.env, platform = process.platform) {
+  const home = env.HOME || env.USERPROFILE || '';
+  if (!home) return [];
+  const candidates = [path.join(home, '.aws', 'sso', 'cache', 'kiro-auth-token.json')];
+  if (platform === 'win32' && env.LOCALAPPDATA) {
+    candidates.push(path.join(env.LOCALAPPDATA, 'Kiro', 'kiro-auth-token.json'));
+  }
+  return uniqueStrings(candidates);
+}
+
+function readKiroIdentity(env = process.env, platform = process.platform, deps = {}) {
+  const existsSync = deps.existsSync || fs.existsSync;
+  const readFileSync = deps.readFileSync || fs.readFileSync;
+  for (const filename of kiroAuthFileCandidates(env, platform)) {
+    if (!existsSync(filename)) continue;
+    try {
+      const auth = JSON.parse(readFileSync(filename, 'utf8'));
+      const jwt = decodeJwtPayload(auth?.accessToken);
+      const identity = String(
+        auth?.profileArn
+        || jwt?.sub
+        || jwt?.user_id
+        || jwt?.username
+        || jwt?.email
+        || ''
+      ).trim();
+      if (identity) return identity;
+    } catch (_) {}
+  }
+  return '';
+}
+
 function stripAnsi(text) {
   return String(text || '').replace(ANSI_CSI, '').replace(ANSI_OSC, '');
 }
@@ -396,9 +438,11 @@ async function fetchKiroLimits(_options = {}, deps = {}) {
     });
   }
 
+  const identity = readKiroIdentity(env, platform, deps);
+
   return normalizeLimitProvider({
     provider: 'kiro',
-    accountKey: hashKey('kiro', 'default'),
+    accountKey: identity ? hashKey('kiro-account', identity) : '',
     accountLabel: planTierLabel(parsed.displayPlanName),
     source: 'cli',
     status: 'ok',
@@ -412,6 +456,8 @@ module.exports = {
   displayPlanName,
   parseResetDate,
   parseKiroUsage,
+  kiroAuthFileCandidates,
+  readKiroIdentity,
   kiroCliCandidates,
   existingKiroCli,
   runKiroUsageCli,

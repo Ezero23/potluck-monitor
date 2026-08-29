@@ -1199,7 +1199,8 @@ const V2_LIMITS_FIXTURE = {
     region: 'global',
     connectionKey: 'potluck:mac-esther:conn-a',
     accountKey: 'potluck:mac-esther:conn-a',
-    identityKind: 'connection',
+    identityKind: 'account',
+    upstreamAccountKey: 'sha256:zai-account-1',
     accountLabel: 'Work GLM',
     planLabel: 'Coding Plan',
     managedBy: 'potluck',
@@ -1274,7 +1275,8 @@ test('v2 limits fixtures project legacy status and keep additive identity fields
   assert.equal(provider.quotaStatus, 'fresh');
   assert.equal(provider.connectionKey, 'potluck:mac-esther:conn-a');
   assert.equal(provider.accountKey, 'potluck:mac-esther:conn-a');
-  assert.equal(provider.identityKind, 'connection');
+  assert.equal(provider.identityKind, 'account');
+  assert.equal(provider.upstreamAccountKey, 'sha256:zai-account-1');
   assert.equal(provider.managedBy, 'potluck');
   assert.equal(provider.authType, 'apikey');
   assert.equal(provider.enabled, true);

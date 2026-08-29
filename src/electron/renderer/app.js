@@ -3513,11 +3513,29 @@ function renderLimitConnectionRow(providerId, label, connection, index, connecti
 // while leaking it on the other, and from rendering two different titles for the
 // same account. Providers identified by email need no entry — the default below
 // already masks them.
+// GLM and Kimi rows can lack a provider-confirmed subscription identity: GLM
+// responses without a subscription/account id, or a Kimi key whose token has
+// no parseable subject. Their accountKey is then just an opaque connection
+// fingerprint, and GLM's synthetic fingerprint email is a merge key shared
+// with the Potluck Web handler — not a display identity. Confirmed rows show
+// their plan/user label; unverified ones must say so instead of inventing an
+// account, and distinct keys stay distinct rows.
+function connectionBackedAccountTitle(provider, index, providerEntries) {
+  const namedLabel = String(provider?.accountName || provider?.accountLabel || '').trim();
+  if (String(provider?.upstreamAccountKey || '').trim()) return namedLabel;
+  const unconfirmed = accountIdentityApi.connectionIdentityLabel(provider, providerEntries, {
+    unconfirmedLabel: t('limits.identityUnconfirmed')
+  });
+  return unconfirmed || limitAccountDefaultTitle(provider, index, providerEntries);
+}
+
 const LIMIT_ACCOUNT_TITLES = {
   codex: codexAccountTitle,
   opencode: opencodeAccountTitle,
   openrouter: (provider, index) => namedApiAccountTitle(provider, index, 'openrouter'),
-  thirdparty: (provider, index) => namedApiAccountTitle(provider, index, 'thirdparty')
+  thirdparty: (provider, index) => namedApiAccountTitle(provider, index, 'thirdparty'),
+  zai: connectionBackedAccountTitle,
+  kimi: connectionBackedAccountTitle
 };
 
 function limitAccountTitle(id, provider, index, providerEntries = [provider]) {

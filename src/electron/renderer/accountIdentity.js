@@ -129,6 +129,33 @@
     );
   }
 
+  // Some connections have no provider-confirmed subscription identity: a GLM
+  // key whose responses carry no subscription/account id, or a Kimi key whose
+  // token has no parseable subject. Their accountKey is only an opaque
+  // connection fingerprint (and the synthetic fingerprint email is a merge
+  // key, not a display identity), so the row must say the subscription
+  // identity is unverified instead of inventing an account. Distinct keys stay
+  // distinct rows and are disambiguated by stable key fingerprint — never
+  // merged by display heuristics.
+  function connectionIdentityLabel(account, peers = [account], options = {}) {
+    if (!account) return '';
+    if (String(account.upstreamAccountKey || '').trim()) return '';
+    const seed = String(account.connectionKey || account.accountKey || '').trim();
+    if (!seed) return '';
+    const label = String(options.unconfirmedLabel || '').trim();
+    if (!label) return '';
+    const resolvedPeers = Array.isArray(peers) && peers.length > 0 ? peers : [account];
+    // All unconfirmed rows share the same base label, so any second unconfirmed
+    // peer is a collision; mirror uniqueAccountLabel and disambiguate those by
+    // stable key fingerprint only.
+    const collidingPeers = resolvedPeers.filter((peer) => peer
+      && !String(peer.upstreamAccountKey || '').trim()
+      && String(peer.connectionKey || peer.accountKey || '').trim());
+    if (collidingPeers.length <= 1) return label;
+    const suffix = accountUniqueStableSuffix(account, collidingPeers);
+    return suffix ? `${label} · #${suffix}` : label;
+  }
+
   // Default account title for providers that identify accounts by email or name.
   function accountTitleLabel(account, peers = [account], options = {}) {
     const resolvedPeers = Array.isArray(peers) && peers.length > 0 ? peers : [account];
@@ -180,6 +207,7 @@
   return {
     accountEmailLabel,
     accountTitleLabel,
+    connectionIdentityLabel,
     codexAccountDisplayLabel,
     codexAccountIdForProvider,
     codexAccountMatchesProvider,

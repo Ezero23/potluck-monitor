@@ -2719,7 +2719,8 @@ async function fetchAntigravityLimits(_options = {}, deps = {}) {
   try {
     const snapshot = await probeFn(deps);
     const accountLabel = snapshot.accountPlan ? antigravityPlanLabelFromParts(snapshot.accountPlan) : '';
-    const accountKeySeed = snapshot.accountEmail || snapshot.accountPlan || 'default';
+    const accountEmail = String(snapshot.accountEmail || '').trim().toLowerCase();
+    const accountKey = accountEmail ? hashKey('antigravity-account', accountEmail) : '';
     const windows = Array.isArray(snapshot.windows)
       ? snapshot.windows.map((window) => ({
           kind: window.kind,
@@ -2741,9 +2742,11 @@ async function fetchAntigravityLimits(_options = {}, deps = {}) {
         }));
     return normalizeLimitProvider({
       provider: 'antigravity',
-      accountKey: hashKey('antigravity', accountKeySeed),
+      accountKey,
+      upstreamAccountKey: accountKey,
+      quotaPoolKey: accountEmail ? hashKey('antigravity-pool', accountEmail) : '',
       accountLabel,
-      accountEmail: snapshot.accountEmail || '',
+      accountEmail,
       source: 'rpc',
       sourceDetail: snapshot.sourceDetail || '',
       status: 'ok',
@@ -3275,7 +3278,11 @@ async function fetchCursorLimits(_options = {}, deps = {}) {
     };
   }
 
-  const { usage } = result;
+  const { usage, user = {} } = result;
+  const identityAccount = {
+    ...account,
+    userId: String(user.sub || account.userId || '').trim() || null
+  };
   const resetsAt = cursorResetIso(usage);
   const hasRequestUsage = finiteNumber(usage.requestsUsed) !== null
     && finiteNumber(usage.requestsLimit) !== null
@@ -3365,9 +3372,11 @@ async function fetchCursorLimits(_options = {}, deps = {}) {
 
   return {
     provider: 'cursor',
-    accountKey: hashCursorAccountKey(account),
+    accountKey: hashCursorAccountKey(identityAccount),
     accountLabel: formatCursorMembership(usage.membershipType) || account.label || '',
-    status: 'ok',
+    accountName: String(user.name || '').trim(),
+    accountEmail: String(user.email || '').trim().toLowerCase(),
+    status: windows.length > 0 ? 'ok' : 'unavailable',
     source: 'web',
     updatedAt,
     windows

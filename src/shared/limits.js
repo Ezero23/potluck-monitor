@@ -14,7 +14,7 @@ const VALID_CONNECTION_STATUSES = new Set([
 const VALID_QUOTA_STATUSES = new Set([
   'fresh', 'stale', 'unsupported', 'unavailable', 'unauthorized', 'rateLimited', 'error', 'notChecked'
 ]);
-const VALID_IDENTITY_KINDS = new Set(['connection', 'legacy_account_key']);
+const VALID_IDENTITY_KINDS = new Set(['account', 'connection', 'legacy_account_key']);
 const VALID_MANAGED_BY = new Set(['monitor', 'potluck', 'external']);
 const VALID_AUTH_TYPES = new Set(['apikey', 'oauth', 'cookie', 'cli', 'rpc', 'unknown']);
 const VALID_PRECISION = new Set(['exact', 'providerReported', 'derived', 'estimated', 'stale', 'unavailable']);

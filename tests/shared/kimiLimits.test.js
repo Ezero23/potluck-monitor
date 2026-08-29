@@ -1,14 +1,19 @@
 'use strict';
 
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
 const test = require('node:test');
 const { hashKey } = require('../../src/shared/hashKey');
+const { readKimiCliAccessToken } = require('../../src/shared/kimiCliAuth');
 
 const {
   KIMI_CODE_USAGES_URL,
   KIMI_MEMBERSHIP_STATS_URL,
   KIMI_WEB_USAGES_URL,
   kimiToken,
+  kimiTokenSubject,
   kimiWebToken,
   parseKimiUsage,
   parseKimiMembershipStats,
@@ -29,6 +34,29 @@ test('kimiWebToken accepts an access token or kimi-auth cookie without retaining
   assert.equal(kimiWebToken({}, 'Cookie: other=x; kimi-auth=jwt.token.value; theme=dark'), 'jwt.token.value');
   assert.equal(kimiWebToken({ KIMI_AUTH_TOKEN: 'env-token' }), 'env-token');
   assert.equal(kimiWebToken({}, 'Cookie: other=x'), '');
+});
+
+test('kimiTokenSubject derives a stable account identity from compatible JWT credentials', () => {
+  const payload = Buffer.from(JSON.stringify({ sub: 'kimi-user-1' })).toString('base64url');
+  assert.equal(kimiTokenSubject(`header.${payload}.signature`), 'kimi-user-1');
+  assert.equal(kimiTokenSubject('opaque-token'), '');
+});
+
+test('Kimi CLI discovery reads only a current credential from the official private location', () => {
+  const shareDir = fs.mkdtempSync(path.join(os.tmpdir(), 'potluck-kimi-cli-'));
+  const credentialsDir = path.join(shareDir, 'credentials');
+  const credentialPath = path.join(credentialsDir, 'kimi-code.json');
+  fs.mkdirSync(credentialsDir, { mode: 0o700 });
+  fs.writeFileSync(credentialPath, JSON.stringify({
+    access_token: 'cli-access-token',
+    expires_at: 2_000
+  }), { mode: 0o600 });
+  try {
+    assert.equal(readKimiCliAccessToken({ env: { KIMI_SHARE_DIR: shareDir } }, { now: () => 1_000_000 }), 'cli-access-token');
+    assert.equal(readKimiCliAccessToken({ env: { KIMI_SHARE_DIR: shareDir } }, { now: () => 2_000_000 }), '');
+  } finally {
+    fs.rmSync(shareDir, { recursive: true, force: true });
+  }
 });
 
 test('parseKimiMembershipStats returns 5-hour, weekly, and one shared monthly window', () => {
@@ -240,10 +268,38 @@ test('parseKimiUsage skips the top-level usage block once limits[] already cover
 });
 
 test('fetchKimiLimits returns notConfigured without an API key', async () => {
-  const provider = await fetchKimiLimits({}, { env: {}, now: () => Date.parse('2026-07-08T00:00:00Z') });
+  const provider = await fetchKimiLimits({}, {
+    env: {},
+    now: () => Date.parse('2026-07-08T00:00:00Z'),
+    readKimiCliAccessToken: () => ''
+  });
   assert.equal(provider.provider, 'kimi');
   assert.equal(provider.source, 'api');
   assert.equal(provider.status, 'notConfigured');
+});
+
+test('fetchKimiLimits automatically uses a valid Kimi CLI OAuth token when no key is configured', async () => {
+  const payload = Buffer.from(JSON.stringify({ sub: 'kimi-user-1' })).toString('base64url');
+  const token = `header.${payload}.signature`;
+  const provider = await fetchKimiLimits({}, {
+    env: {},
+    readKimiCliAccessToken: () => token,
+    fetch: async (_url, init) => {
+      assert.equal(init.headers.Authorization, `Bearer ${token}`);
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({ usage: { used: 10, limit: 100 } })
+      };
+    }
+  });
+
+  assert.equal(provider.status, 'ok');
+  assert.equal(provider.source, 'oauth');
+  assert.equal(provider.authType, 'oauth');
+  assert.equal(provider.identityKind, 'connection');
+  assert.equal(provider.accountKey, hashKey('kimi-account', 'kimi-user-1'));
+  assert.equal(provider.quotaPoolKey, hashKey('kimi-pool', 'kimi-user-1'));
 });
 
 test('fetchKimiLimits requests usages with a bearer token and normalizes windows', async () => {

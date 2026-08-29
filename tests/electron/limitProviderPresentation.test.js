@@ -1614,3 +1614,43 @@ test('Limits rows expose a pin-to-top button next to the drag handle', () => {
   assert.match(styles, /\.limit-provider-pin-top/);
   assert.match(i18n, /'settings\.limits\.pinToTop'/);
 });
+
+test('connectionIdentityLabel states an unverified subscription instead of a synthetic account', () => {
+  const unconfirmedLabel = '订阅身份未确认';
+  const single = { provider: 'zai', accountKey: 'sha256:aaa1', connectionKey: 'sha256:bbb1' };
+  assert.equal(
+    accountIdentityApi.connectionIdentityLabel(single, [single], { unconfirmedLabel }),
+    unconfirmedLabel
+  );
+
+  const first = { provider: 'zai', accountKey: 'sha256:aaa1', connectionKey: 'sha256:bbb1' };
+  const second = { provider: 'zai', accountKey: 'sha256:aaa2', connectionKey: 'sha256:bbb2' };
+  const firstLabel = accountIdentityApi.connectionIdentityLabel(first, [first, second], { unconfirmedLabel });
+  const secondLabel = accountIdentityApi.connectionIdentityLabel(second, [first, second], { unconfirmedLabel });
+  assert.match(firstLabel, /^订阅身份未确认 · #[0-9a-f]+$/);
+  assert.match(secondLabel, /^订阅身份未确认 · #[0-9a-f]+$/);
+  assert.notEqual(firstLabel, secondLabel);
+
+  // A provider-confirmed subscription (upstream account id or JWT subject)
+  // never claims to be unverified; rows without connection material or without
+  // a label fall back to the caller's default title logic.
+  assert.equal(accountIdentityApi.connectionIdentityLabel({
+    upstreamAccountKey: 'sha256:confirmed',
+    accountKey: 'sha256:aaa1',
+    connectionKey: 'sha256:bbb1'
+  }, [single], { unconfirmedLabel }), '');
+  assert.equal(accountIdentityApi.connectionIdentityLabel({ provider: 'zai' }, [single], { unconfirmedLabel }), '');
+  assert.equal(accountIdentityApi.connectionIdentityLabel(single, [single], { unconfirmedLabel: '' }), '');
+});
+
+test('GLM and Kimi account titles prefer confirmed plans and mark unverified subscriptions', () => {
+  const app = readRendererFile('app.js');
+  const i18n = readRendererFile('i18n.js');
+  assert.match(app, /function connectionBackedAccountTitle\(provider, index, providerEntries\)/);
+  assert.match(app, /if \(String\(provider\?\.upstreamAccountKey \|\| ''\)\.trim\(\)\) return namedLabel;/);
+  assert.match(app, /unconfirmedLabel: t\('limits\.identityUnconfirmed'\)/);
+  assert.match(app, /zai: connectionBackedAccountTitle/);
+  assert.match(app, /kimi: connectionBackedAccountTitle/);
+  assert.match(i18n, /'limits\.identityUnconfirmed': 'Subscription identity unverified'/);
+  assert.match(i18n, /'limits\.identityUnconfirmed': '订阅身份未确认'/);
+});

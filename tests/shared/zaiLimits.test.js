@@ -8,6 +8,7 @@ const {
   zaiRegion,
   zaiQuotaUrl,
   zaiSubscriptionUrl,
+  zaiSubscriptionIdentity,
   parseZaiUsage,
   fetchZaiLimits
 } = require('../../src/shared/zaiLimits');
@@ -104,6 +105,20 @@ test('parseZaiUsage reads official plan labels from subscription or quota payloa
     parseZaiUsage({ data: { planName: 'z.ai max', limits: [] } }, null).plan,
     'Z.ai Max'
   );
+});
+
+test('Z.ai subscription identity uses an explicit subscription id before account fallbacks', () => {
+  assert.equal(
+    zaiSubscriptionIdentity({ data: { userId: 'quota-user' } }, {
+      data: [{ id: 'sub-123', user_id: 'subscription-user' }]
+    }),
+    'subscription:sub-123'
+  );
+  assert.equal(
+    zaiSubscriptionIdentity({ data: { accountId: 'account-456' } }, null),
+    'account:account-456'
+  );
+  assert.equal(zaiSubscriptionIdentity({ data: {} }, { data: [{}] }), '');
 });
 
 test('fetchZaiLimits returns notConfigured without an API key', async () => {
@@ -230,4 +245,31 @@ test('fetchZaiLimits returns an opaque fingerprint email matching the web GLM ha
   const expected = require('node:crypto').createHash('sha256')
     .update('zai').update('\0').update('fp-key').update('\0').digest('hex');
   assert.equal(provider.accountEmail, `glm-${expected}@glm-account.local`);
+});
+
+test('different GLM keys merge only when the provider reports the same stable subscription', async () => {
+  async function fetchFor(key, subscriptionId) {
+    return fetchZaiLimits({ zaiApiKey: key }, {
+      env: {},
+      fetch: async (url) => ({
+        ok: true,
+        status: 200,
+        json: async () => String(url).includes('/subscription/list')
+          ? { data: [{ id: subscriptionId, product_name: 'GLM Coding' }] }
+          : { data: { limits: [{ type: 'TOKENS_LIMIT', unit: 6, number: 1, percentage: 25 }] } }
+      })
+    });
+  }
+
+  const first = await fetchFor('key-a', 'subscription-shared');
+  const second = await fetchFor('key-b', 'subscription-shared');
+  const different = await fetchFor('key-c', 'subscription-other');
+
+  assert.equal(first.accountKey, second.accountKey);
+  assert.equal(first.quotaPoolKey, second.quotaPoolKey);
+  assert.notEqual(first.connectionKey, second.connectionKey);
+  assert.notEqual(first.accountKey, different.accountKey);
+  assert.notEqual(first.quotaPoolKey, different.quotaPoolKey);
+  assert.equal(first.identityKind, 'connection');
+  assert.equal(first.authType, 'apikey');
 });

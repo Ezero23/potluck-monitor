@@ -187,6 +187,28 @@ function subscriptionResetAt(subscriptionBody) {
   return toIso(sub?.next_renew_time ?? sub?.nextRenewTime);
 }
 
+function identityField(source, fields, prefix) {
+  if (!source || typeof source !== 'object') return '';
+  for (const field of fields) {
+    const value = source[field];
+    if ((typeof value === 'string' || typeof value === 'number') && String(value).trim()) {
+      return `${prefix}:${String(value).trim().slice(0, 256)}`;
+    }
+  }
+  return '';
+}
+
+function zaiSubscriptionIdentity(quotaBody, subscriptionBody) {
+  const sub = firstSubscription(subscriptionBody);
+  const subscription = identityField(sub, ['subscription_id', 'subscriptionId', 'id'], 'subscription');
+  if (subscription) return subscription;
+  const quotaData = quotaBody?.data;
+  const quotaSubscription = identityField(quotaData, ['subscription_id', 'subscriptionId'], 'subscription');
+  if (quotaSubscription) return quotaSubscription;
+  return identityField(sub, ['account_id', 'accountId', 'user_id', 'userId'], 'account')
+    || identityField(quotaData, ['account_id', 'accountId', 'user_id', 'userId'], 'account');
+}
+
 function zaiWindow(limit, { kind, label, fallbackResetAt = null, includeWindowMinutes = true, resetDescription = null }) {
   const usedPercent = zaiUsedPercent(limit);
   if (usedPercent === null) return null;
@@ -212,6 +234,7 @@ function isZaiSessionTokenLimit(limit) {
 
 function parseZaiUsage(quotaBody, subscriptionBody = null) {
   const plan = planFromResponses(quotaBody, subscriptionBody);
+  const subscriptionIdentity = zaiSubscriptionIdentity(quotaBody, subscriptionBody);
   const resetAt = subscriptionResetAt(subscriptionBody);
   const limits = Array.isArray(quotaBody?.data?.limits) ? quotaBody.data.limits : [];
   const windows = [];
@@ -273,7 +296,7 @@ function parseZaiUsage(quotaBody, subscriptionBody = null) {
     windows.push(mcp);
   }
 
-  return { plan, windows };
+  return { plan, subscriptionIdentity, windows };
 }
 
 async function fetchJson(url, key, deps = {}) {
@@ -325,13 +348,26 @@ async function fetchZaiLimits(options = {}, deps = {}) {
       subscription = await fetchJson(zaiSubscriptionUrl(region), key, deps);
     } catch (_) {}
     const usage = parseZaiUsage(quota, subscription);
+    const connectionKey = hashKey('zai-connection', region, key);
+    const upstreamAccountKey = usage.subscriptionIdentity
+      ? hashKey('zai-account', region, usage.subscriptionIdentity)
+      : '';
+    const accountKey = upstreamAccountKey || hashKey('zai', key);
+    const quotaPoolKey = usage.subscriptionIdentity
+      ? hashKey('zai-pool', region, usage.subscriptionIdentity)
+      : '';
     // Opaque account fingerprint as a synthetic email: Potluck Web's GLM usage
     // handler returns the exact same value for the same API key, so the hub can
     // merge this local row and the web row of the same account into one.
     const fingerprintEmail = `glm-${hashKey('zai', key).replace(/^sha256:/, '')}@glm-account.local`;
     return normalizeLimitProvider({
       provider: 'zai',
-      accountKey: hashKey('zai', key),
+      accountKey,
+      connectionKey,
+      identityKind: 'connection',
+      upstreamAccountKey,
+      quotaPoolKey,
+      authType: 'apikey',
       accountLabel: usage.plan,
       accountEmail: fingerprintEmail,
       source: 'api',
@@ -361,6 +397,7 @@ module.exports = {
   zaiQuotaUrl,
   zaiSubscriptionUrl,
   zaiDashboardUrl,
+  zaiSubscriptionIdentity,
   parseZaiUsage,
   fetchZaiLimits
 };

@@ -213,11 +213,37 @@ test('fetchCopilotLimits uses the GitHub OAuth token directly for Copilot intern
   assert.equal(provider.accountName, 'octocat');
   assert.equal(provider.accountLabel, 'Free');
   assert.equal(provider.accountEmail, '');
+  assert.equal(provider.accountKey, 'sha256:d80644ed80a6c214caa1881de22df6abac43fc8e1fe03bfffea16775170d3073');
+  assert.equal(provider.upstreamAccountKey, provider.accountKey);
+  assert.ok(provider.quotaPoolKey);
   assert.equal(provider.windows.length, 2);
   assert.equal(provider.windows[0].usedPercent, 10);
   assert.equal(provider.windows[1].usedPercent, 50);
   assert.equal(authorizations[0], 'token gho-token');
   assert.equal(authorizations[1], 'token gho-token');
+});
+
+test('fetchCopilotLimits keeps account identity stable when a GitHub login is renamed', async () => {
+  const fetchForLogin = (login) => async (url) => {
+    if (String(url).includes('/copilot_internal/user')) {
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          copilot_plan: 'pro',
+          quota_snapshots: {
+            premium_interactions: { entitlement: 100, remaining: 50 }
+          }
+        })
+      };
+    }
+    return { ok: true, status: 200, json: async () => ({ login, id: 42 }) };
+  };
+  const first = await fetchCopilotLimits({ copilotApiToken: 'token' }, { env: {}, fetch: fetchForLogin('old-name') });
+  const renamed = await fetchCopilotLimits({ copilotApiToken: 'token' }, { env: {}, fetch: fetchForLogin('new-name') });
+
+  assert.equal(first.accountKey, renamed.accountKey);
+  assert.equal(first.quotaPoolKey, renamed.quotaPoolKey);
 });
 
 test('fetchCopilotLimits surfaces unauthorized responses', async () => {

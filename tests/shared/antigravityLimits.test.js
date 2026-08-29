@@ -39,6 +39,8 @@ test('fetchAntigravityLimits maps quota summary to two session and weekly groups
   assert.equal(result.sourceDetail, 'app');
   assert.equal(result.accountLabel, 'Pro');
   assert.equal(result.accountEmail, 'a@b.com');
+  assert.equal(result.upstreamAccountKey, result.accountKey);
+  assert.ok(result.quotaPoolKey);
   assert.deepEqual(result.windows.map((window) => [window.label, window.kind, window.windowMinutes]), [
     ['Gemini 5-hour', 'session', 300],
     ['Gemini weekly', 'weekly', 10_080],
@@ -62,6 +64,8 @@ test('fetchAntigravityLimits preserves Antigravity IDE source detail', async () 
 
   assert.equal(result.status, 'ok');
   assert.equal(result.sourceDetail, 'ide');
+  assert.equal(result.accountKey, '');
+  assert.equal(result.quotaPoolKey, undefined);
 });
 
 test('fetchAntigravityLimits does not invent session windows for Starter accounts', async () => {
