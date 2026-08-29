@@ -39,6 +39,8 @@ test('fetchCursorLimits returns ok with Cursor billing dimensions when probe suc
   assert.equal(result.status, 'ok');
   assert.equal(result.provider, 'cursor');
   assert.equal(result.source, 'web');
+  assert.equal(result.accountName, 'Alice');
+  assert.equal(result.accountEmail, 'a@b.com');
   assert.deepEqual(result.windows.map((window) => window.label), ['Total', 'Auto', 'API', 'Credits']);
   assert.equal(result.windows[0].kind, 'billing');
   assert.equal(result.windows[0].usedPercent, 70);
@@ -51,6 +53,27 @@ test('fetchCursorLimits returns ok with Cursor billing dimensions when probe suc
   assert.equal(result.windows[3].showMeter, false);
   assert.equal(result.windows[3].remaining, 50);
   assert.equal(result.windows[3].resetDescription, '');
+});
+
+test('fetchCursorLimits never turns a successful empty response into a zero-used Total quota', async () => {
+  const result = await fetchCursorLimits({}, {
+    readActiveAccount: () => ({ id: 'acct-1', sessionToken: 't', userId: 'local-user' }),
+    probe: async () => ({
+      ok: true,
+      usage: {
+        planPercent: null,
+        planUsedUsd: null,
+        planLimitUsd: null,
+        billingCycleEnd: null,
+        membershipType: 'pro'
+      },
+      user: { email: 'a@b.com', name: 'Alice', sub: 'server-user' }
+    })
+  });
+
+  assert.equal(result.status, 'unavailable');
+  assert.equal(result.windows.length, 0);
+  assert.equal(result.accountEmail, 'a@b.com');
 });
 
 test('fetchCursorLimits humanizes underscored membership types for the account label', async () => {

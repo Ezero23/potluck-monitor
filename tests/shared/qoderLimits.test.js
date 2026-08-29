@@ -87,6 +87,39 @@ test('parseQoderUsage accepts data-wrapped usage payloads', () => {
   assert.equal(usage.resetsAt, '2026-06-01T00:00:00.000Z');
 });
 
+test('parseQoderUsage does not turn an unknown zero-limit payload into 100% used', () => {
+  const usage = parseQoderUsage({
+    totalQuota: {
+      quotaSummary: {
+        usedValue: 0,
+        limitValue: 0,
+        remainingValue: 0
+      }
+    }
+  });
+
+  assert.equal(usage.usagePercentage, null);
+  assert.equal(usage.window.usedPercent, null);
+  assert.equal(usage.window.showMeter, false);
+});
+
+test('parseQoderUsage preserves an explicit percentage on a real zero-limit payload', () => {
+  const usage = parseQoderUsage({
+    totalQuota: {
+      quotaSummary: {
+        usedValue: 0,
+        limitValue: 0,
+        remainingValue: 0,
+        usagePercentage: 100
+      }
+    }
+  });
+
+  assert.equal(usage.usagePercentage, 100);
+  assert.equal(usage.window.usedPercent, 100);
+  assert.equal(usage.window.showMeter, true);
+});
+
 test('fetchQoderLimits returns notConfigured without a cookie', async () => {
   const provider = await fetchQoderLimits({}, { env: {}, now: () => Date.parse('2026-07-06T00:00:00Z') });
   assert.equal(provider.provider, 'qoder');

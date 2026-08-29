@@ -137,7 +137,7 @@ test('a standard key remains usable when the management credits endpoint is forb
   assert.equal(provider.balance.allTimeSpend, 3);
 });
 
-test('zero total credits remains a real empty balance meter', async () => {
+test('zero total credits remains a real balance without inventing a percentage', async () => {
   const [provider] = await fetchOpenRouterLimits({
     openrouterProfiles: { empty: { apiKey: 'sk-empty', enabled: true } }
   }, {
@@ -162,14 +162,14 @@ test('zero total credits remains a real empty balance meter', async () => {
     used: 0,
     limit: 0,
     remaining: 0,
-    usedPercent: 100,
-    remainingPercent: 0,
+    usedPercent: null,
+    remainingPercent: null,
     resetsAt: null,
     windowMinutes: null,
     resetDescription: '',
     detail: '',
     currency: null,
-    showMeter: true
+    showMeter: false
   }]);
 });
 

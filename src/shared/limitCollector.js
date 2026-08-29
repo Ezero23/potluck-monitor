@@ -3290,8 +3290,13 @@ async function fetchCursorLimits(_options = {}, deps = {}) {
   const totalPercent = hasRequestUsage
     ? percentFromUsedLimit(usage.requestsUsed, usage.requestsLimit)
     : usage.planPercent;
-  const windows = [
-    cursorBillingWindow('Total', {
+  const windows = [];
+  const hasTotalUsage = hasRequestUsage
+    || finiteNumber(totalPercent) !== null
+    || finiteNumber(usage.planUsedUsd) !== null
+    || finiteNumber(usage.planLimitUsd) !== null;
+  if (hasTotalUsage) {
+    windows.push(cursorBillingWindow('Total', {
       usedPercent: totalPercent,
       used: hasRequestUsage ? usage.requestsUsed : usage.planUsedUsd,
       limit: hasRequestUsage ? usage.requestsLimit : usage.planLimitUsd,
@@ -3301,8 +3306,8 @@ async function fetchCursorLimits(_options = {}, deps = {}) {
       resetsAt,
       windowMinutes: null,
       resetDescription: usage.membershipType ? `Cursor ${usage.membershipType}` : ''
-    })
-  ];
+    }));
+  }
 
   if (finiteNumber(usage.autoPercent) !== null) {
     windows.push(cursorBillingWindow('Auto', {

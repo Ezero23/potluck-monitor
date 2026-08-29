@@ -26,7 +26,7 @@ function numberOrNull(value) {
 }
 
 function centsToUsd(value) {
-  if (typeof value !== 'number' || !Number.isFinite(value)) return 0;
+  if (typeof value !== 'number' || !Number.isFinite(value)) return null;
   return Math.round(value) / 100;
 }
 
@@ -60,8 +60,8 @@ function parseUsageSummary(input, { requestUsage = null } = {}) {
   const team = summary.teamUsage && typeof summary.teamUsage === 'object' ? summary.teamUsage : {};
   const teamOnDemand = team.onDemand && typeof team.onDemand === 'object' ? team.onDemand : {};
   const teamPooled = team.pooled && typeof team.pooled === 'object' ? team.pooled : {};
-  const planUsed = numberOrNull(plan.used) ?? 0;
-  const planLimit = numberOrNull(plan.limit) ?? 0;
+  const planUsed = numberOrNull(plan.used);
+  const planLimit = numberOrNull(plan.limit);
   const overallUsed = numberOrNull(overall.used);
   const overallLimit = numberOrNull(overall.limit);
   const overallRemaining = numberOrNull(overall.remaining);
@@ -82,16 +82,16 @@ function parseUsageSummary(input, { requestUsage = null } = {}) {
     if (autoPercent !== null && apiPercent !== null) planPercent = clampPercent((autoPercent + apiPercent) / 2);
     else if (apiPercent !== null) planPercent = apiPercent;
     else if (autoPercent !== null) planPercent = autoPercent;
-    else if (planLimit > 0) planPercent = percentFromUsedLimit(planUsed, planLimit);
+    else if (planLimit !== null && planLimit > 0) planPercent = percentFromUsedLimit(planUsed, planLimit);
     else if (overallLimit !== null && overallLimit > 0) planPercent = percentFromUsedLimit(overallUsed, overallLimit);
     else if (teamPooledLimit !== null && teamPooledLimit > 0) planPercent = percentFromUsedLimit(teamPooledUsed, teamPooledLimit);
-    else planPercent = 0;
+    else planPercent = null;
   }
 
   let resolvedPlanUsed = planUsed;
   let resolvedPlanLimit = planLimit;
   let resolvedPlanRemaining = plan.remaining === undefined ? null : numberOrNull(plan.remaining);
-  if (resolvedPlanLimit <= 0 && resolvedPlanUsed <= 0) {
+  if ((resolvedPlanLimit === null || resolvedPlanLimit <= 0) && (resolvedPlanUsed === null || resolvedPlanUsed <= 0)) {
     if (overallUsed !== null && overallLimit !== null) {
       resolvedPlanUsed = overallUsed;
       resolvedPlanLimit = overallLimit;

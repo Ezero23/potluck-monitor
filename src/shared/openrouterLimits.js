@@ -97,8 +97,8 @@ function creditsWindow(data) {
     remaining: Math.max(0, totalCredits - totalUsage),
     usedPercent: totalCredits > 0
       ? Math.min(100, Math.max(0, (totalUsage / totalCredits) * 100))
-      : 100,
-    showMeter: true
+      : null,
+    showMeter: totalCredits > 0
   };
 }
 

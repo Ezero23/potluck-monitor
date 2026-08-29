@@ -91,8 +91,9 @@ test('parseUsageSummary falls back to enterprise pooled usage when individual da
 
 test('parseUsageSummary tolerates missing fields', () => {
   const result = parseUsageSummary({});
-  assert.equal(result.planPercent, 0);
-  assert.equal(result.planUsedUsd, 0);
+  assert.equal(result.planPercent, null);
+  assert.equal(result.planUsedUsd, null);
+  assert.equal(result.planLimitUsd, null);
   assert.equal(result.billingCycleEnd, null);
   assert.equal(result.membershipType, null);
 });

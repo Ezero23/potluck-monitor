@@ -152,7 +152,7 @@ function parseSummary(summary) {
     used,
     total,
     remaining,
-    usagePercentage: Math.max(0, Math.min(100, usagePercentage ?? (total === 0 ? 100 : 0))),
+    usagePercentage: usagePercentage === null ? null : Math.max(0, Math.min(100, usagePercentage)),
     unit: String(summary.unit || '').trim()
   };
 }
@@ -165,7 +165,13 @@ function parseQoderUsage(body) {
   const usedCredits = total.used + (shared?.used || 0);
   const totalCredits = total.total + (shared?.total || 0);
   const remainingCredits = total.remaining + (shared?.remaining || 0);
-  const usagePercentage = totalCredits > 0 ? (usedCredits / totalCredits) * 100 : total.usagePercentage;
+  const sourcePercentages = [total, shared]
+    .filter(Boolean)
+    .map((summary) => summary.usagePercentage)
+    .filter((percentage) => percentage !== null);
+  const usagePercentage = totalCredits > 0
+    ? (usedCredits / totalCredits) * 100
+    : (sourcePercentages.length === 1 ? sourcePercentages[0] : null);
   const resetsAt = toIso(read(payload, 'nextResetAt', 'next_reset_at'));
   const window = {
     kind: 'billing',
@@ -174,9 +180,8 @@ function parseQoderUsage(body) {
     limit: totalCredits,
     remaining: remainingCredits,
     usedPercent: usagePercentage,
-    remainingPercent: Math.max(0, Math.min(100, 100 - usagePercentage)),
     resetsAt,
-    showMeter: true
+    showMeter: usagePercentage !== null
   };
   return {
     usedCredits,
