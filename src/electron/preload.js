@@ -120,6 +120,10 @@ const bridge = {
     validateCookie: (cookie) => ipcRenderer.invoke('ollama:validateCookie', cookie),
     validateApiKey: (apiKey) => ipcRenderer.invoke('ollama:validateApiKey', apiKey)
   },
+  kimi: {
+    signIn: () => ipcRenderer.invoke('kimi:signIn'),
+    signOut: () => ipcRenderer.invoke('kimi:signOut')
+  },
   opencode: {
     saveCookie: (cookie) => ipcRenderer.invoke('opencode:saveCookie', cookie),
     logout: () => ipcRenderer.invoke('opencode:logout'),

@@ -24,6 +24,7 @@ const { exportFileSet, exportSignature, EXPORT_FILENAMES } = require('../shared/
 const { createDefaultTrayLayout, normalizeTrayLayout } = require('../shared/trayLayout');
 const motionPreferenceApi = require('./motionPreference');
 const { createClaudeWebFetch } = require('./claudeWebFetch');
+const { clearKimiWebSession, runKimiWebLogin } = require('./kimiWebLogin');
 
 // Install EPIPE suppression before anything that might log. Without this,
 // a closed parent pipe turns the next log call into an unhandled 'error'
@@ -37,6 +38,7 @@ const { customPricingPath } = require('../shared/tokscaleConfig');
 const { applyCustomPricing, normalizeCustomPricingSetting } = require('../shared/tokscaleCustomPricing');
 const { createHub } = require('../hub/server');
 const { claudeWebCookie, deepseekToken, fetchClaudeLimits, normalizeClaudeWebCookieInput, normalizeLimitsRefreshMs, parseBoolean, parseLimitProviders, runCodexLogin, minimaxToken, copilotToken, zaiToken, zaiRegion, zaiTeamToken, volcengineCredentials, qoderCookie, kimiToken, kimiWebToken, ollamaSessionCookie } = require('../shared/limitCollector');
+const { fetchKimiLimits } = require('../shared/kimiLimits');
 const { fetchOllamaLimits, ollamaApiKey, rememberOllamaValidation } = require('../shared/ollamaLimits');
 const { copilotLoginErrorMessage, isAllowedVerificationUrl, runCopilotDeviceFlowLogin } = require('../shared/copilotDeviceFlow');
 const {
@@ -638,6 +640,7 @@ let codexWorkspaceSelection = null;
 let codexWorkspaceLabelHydrationPromise = null;
 let copilotLoginController = null;
 let copilotLoginFlowId = '';
+let kimiWebLoginPromise = null;
 const CODEX_WORKSPACE_LABEL_HYDRATION_CONCURRENCY = 3;
 
 // Startup label hydration is a small one-shot map. LimitsRuntime's bounded
@@ -5036,6 +5039,41 @@ app.whenReady().then(() => {
       .catch((error) => ({ ok: false, error: error.message }));
   });
   ipcMain.handle('app:openUserData', () => shell.openPath(app.getPath('userData')));
+  ipcMain.handle('kimi:signIn', (event) => {
+    if (kimiWebLoginPromise) return kimiWebLoginPromise;
+    const task = (async () => {
+      try {
+        const login = await runKimiWebLogin({ BrowserWindow, session, parent: BrowserWindow.fromWebContents(event.sender) });
+        const provider = await fetchKimiLimits({ kimiWebAccessToken: login.token });
+        if (provider?.status !== 'ok' || provider?.source !== 'web') {
+          await clearKimiWebSession(session);
+          return { ok: false, status: provider?.status || 'unavailable' };
+        }
+        handleSettingsUpdate(event, { kimiWebAccessToken: login.token });
+        return {
+          ok: true,
+          status: 'ok',
+          reused: login.reused,
+          hasMonthly: provider.windows.some((window) => window.kind === 'billing')
+        };
+      } catch (error) {
+        return { ok: false, status: error?.code || 'error' };
+      }
+    })();
+    kimiWebLoginPromise = task.finally(() => {
+      kimiWebLoginPromise = null;
+    });
+    return kimiWebLoginPromise;
+  });
+  ipcMain.handle('kimi:signOut', async (event) => {
+    try {
+      await clearKimiWebSession(session);
+      handleSettingsUpdate(event, { kimiWebAccessToken: '' });
+      return { ok: true };
+    } catch (error) {
+      return { ok: false, status: 'error', error: error.message };
+    }
+  });
   ipcMain.handle('mimo:accounts', () => mimoAccountsForRenderer());
   ipcMain.handle('mimo:addAccount', (_event, cookieHeader) => addMimoManagedAccount(cookieHeader));
   ipcMain.handle('mimo:openConsole', () => shell.openExternal(MIMO_PLATFORM_CONSOLE_URL)

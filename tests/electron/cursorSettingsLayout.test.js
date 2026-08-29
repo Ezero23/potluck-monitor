@@ -659,9 +659,11 @@ test('Z.ai, Volcengine, Qoder, and Ollama account panels are exposed in settings
   assert.match(volcengineUrlBody, /console\.volcengine\.com\/ark\/region:ark\+cn-beijing\/openManagement/);
 });
 
-test('Kimi account panel stores web access separately and opens the allowlisted Code console', () => {
+test('Kimi account panel offers isolated sign-in, with manual cookie and API key fallbacks', () => {
   const html = readRendererFile('index.html');
   assert.match(html, /data-i18n="settings\.kimi\.title">Kimi Account<\/span>/);
+  assert.match(html, /id="kimiSignInButton"[\s\S]*data-i18n="settings\.kimi\.signIn">Sign in to Kimi<\/button>/);
+  assert.match(html, /id="kimiLoginStatus"[\s\S]*role="status"/);
   assert.match(html, /data-i18n="settings\.kimi\.openBrowser">Open Kimi Code Console<\/button>/);
   assert.match(html, /settings\.kimi\.step2[\s\S]*Application\/Storage[\s\S]*Cookies[\s\S]*www\.kimi\.com/);
   assert.match(html, /settings\.kimi\.step3[\s\S]*Find kimi-auth and copy its Value/);
@@ -670,6 +672,9 @@ test('Kimi account panel stores web access separately and opens the allowlisted 
 
   const app = readRendererFile('app.js');
   const setupBody = functionBodyBeforeMarker(app, 'setupCursorAccountUI', '\nsetupCursorAccountUI();');
+  assert.match(setupBody, /window\.tokenMonitor\.kimi\.signIn\(\)/);
+  assert.match(setupBody, /window\.tokenMonitor\.kimi\.signOut\(\)/);
+  assert.match(setupBody, /result\.hasMonthly[\s\S]*settings\.kimi\.signInSuccess/);
   assert.match(setupBody, /saveSettings\(\{ kimiApiKey: input\.value \}\)/);
   assert.match(setupBody, /saveSettings\(\{ kimiWebAccessToken: input\.value \}\)/);
   assert.match(setupBody, /saveSettings\(\{ kimiApiKey: '', kimiWebAccessToken: '' \}\)/);

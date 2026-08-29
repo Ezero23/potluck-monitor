@@ -14096,11 +14096,54 @@ function setupCursorAccountUI() {
     });
 
     document.getElementById('kimiLogoutButton').addEventListener('click', async () => {
+      await window.tokenMonitor.kimi.signOut();
       await saveSettings({ kimiApiKey: '', kimiWebAccessToken: '' });
       clearExternalProviderCheckPending('kimi');
       clearExternalProviderPendingStatus('kimi');
       renderExternalProviderStatus('kimi');
       await refreshStats({ force: true });
+    });
+
+    document.getElementById('kimiSignInButton').addEventListener('click', async () => {
+      const button = document.getElementById('kimiSignInButton');
+      const statusEl = document.getElementById('kimiLoginStatus');
+      const errorEl = document.getElementById('kimiErrorMessage');
+      button.disabled = true;
+      button.textContent = t('settings.kimi.signingIn');
+      statusEl.classList.add('hidden');
+      errorEl.classList.add('hidden');
+      try {
+        markExternalProviderCheckPending('kimi');
+        const result = await window.tokenMonitor.kimi.signIn();
+        if (!result?.ok) {
+          clearExternalProviderCheckPending('kimi');
+          const key = result?.status === 'cancelled'
+            ? 'settings.kimi.signInCancelled'
+            : result?.status === 'timeout'
+              ? 'settings.kimi.signInTimeout'
+              : 'settings.kimi.signInFailed';
+          errorEl.textContent = t(key);
+          errorEl.classList.remove('hidden');
+          renderExternalProviderStatus('kimi');
+          return;
+        }
+        try { state.settings = await window.tokenMonitor.getSettings(); } catch (_) {}
+        statusEl.textContent = t(result.hasMonthly
+          ? 'settings.kimi.signInSuccess'
+          : 'settings.kimi.signInSuccessNoMonthly');
+        statusEl.classList.remove('hidden');
+        await refreshStats({ force: true });
+        setExternalAccountExpanded('kimi', !externalProviderAccountLinked('kimi'));
+        renderExternalProviderStatus('kimi');
+      } catch (_) {
+        clearExternalProviderCheckPending('kimi');
+        errorEl.textContent = t('settings.kimi.signInFailed');
+        errorEl.classList.remove('hidden');
+        renderExternalProviderStatus('kimi');
+      } finally {
+        button.disabled = false;
+        button.textContent = t('settings.kimi.signIn');
+      }
     });
 
     document.getElementById('kimiRefreshButton').addEventListener('click', async () => {
