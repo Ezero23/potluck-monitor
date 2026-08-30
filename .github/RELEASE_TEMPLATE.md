@@ -3,22 +3,26 @@
 ## What's changed
 
 <!-- app-update-notes:en:start -->
+### Added
+- **Sign in to Kimi:** Settings can open an isolated Kimi login window so monthly quota is collected without pasting a cookie. The session stays on this device; the manual cookie and API key remain as advanced fallbacks.
+
 ### Changed
-- **Safer macOS updates:** unsigned and ad-hoc builds now use a verified custom update path with resumable downloads, persistent ready-to-install state, staged bundle validation, and automatic rollback to the previous app if the replacement cannot launch.
+- **Same-subscription keys:** extra credentials for one provider account now share that subscription's quota pool when the provider confirms the identity, instead of showing as separate accounts. Unconfirmed connections are labeled **Subscription identity unverified**.
 
 ### Fixed
-- **Automatic update installation on macOS:** ad-hoc packages are no longer mistaken for Developer ID builds and sent through an incompatible native updater. Release archives must pass GitHub SHA-256 and size verification before installation.
-- **Settings clicks and dropdowns:** provider changes and ordinary setting saves are serialized and reconciled without rebuilding the entire Settings page, preventing stale responses from reversing newer choices.
-- **Provider-list churn and layout:** unchanged live-data pushes no longer recreate all provider rows, and the text-only **Enable all** action no longer wraps vertically in the icon-button width.
+- **Exhausted monthly looking healthy:** Home, Limits, and **Lowest remaining quota** no longer hide a missing or used-up monthly cap (Kimi, GLM, GLM Team) behind a green 5-hour 0% bar. The real monthly window wins, or the row is marked **Unavailable**.
+- **Unknown usage shown as 0% or 100%:** Cursor Total and on-demand, Qoder, OpenRouter, and Kiro no longer invent a healthy zero or a fake 50-credit total when the API omitted the numbers. Missing values stay unknown.
+- **Menu bar icons:** generated tray icons register again instead of throwing on every icon update, which left tray-only mode with no visible surface.
+- **MiniMax plan name:** the live subscribe title is shown instead of a hardcoded Token Plan label.
 <!-- app-update-notes:en:end -->
 
 ## Download
 
-- **macOS Apple Silicon** — [potluck-monitor-0.2.12-arm64.dmg](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.12/potluck-monitor-0.2.12-arm64.dmg)
-- **macOS Intel** — [potluck-monitor-0.2.12-x64.dmg](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.12/potluck-monitor-0.2.12-x64.dmg)
-- **Windows installer** — [potluck-monitor-Setup-0.2.12.exe](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.12/potluck-monitor-Setup-0.2.12.exe)
-- **Windows portable** — [potluck-monitor-0.2.12.exe](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.12/potluck-monitor-0.2.12.exe)
-- **Linux** — [potluck-monitor-0.2.12.AppImage](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.12/potluck-monitor-0.2.12.AppImage)
+- **macOS Apple Silicon** — [potluck-monitor-0.2.13-arm64.dmg](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.13/potluck-monitor-0.2.13-arm64.dmg)
+- **macOS Intel** — [potluck-monitor-0.2.13-x64.dmg](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.13/potluck-monitor-0.2.13-x64.dmg)
+- **Windows installer** — [potluck-monitor-Setup-0.2.13.exe](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.13/potluck-monitor-Setup-0.2.13.exe)
+- **Windows portable** — [potluck-monitor-0.2.13.exe](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.13/potluck-monitor-0.2.13.exe)
+- **Linux** — [potluck-monitor-0.2.13.AppImage](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.13/potluck-monitor-0.2.13.AppImage)
 
 <details>
 <summary><strong>First launch and other notes</strong></summary>
@@ -32,7 +36,7 @@ xattr -cr "/Applications/Potluck Monitor.app"
 open "/Applications/Potluck Monitor.app"
 ```
 
-If macOS says the app is damaged, that is Gatekeeper quarantine — the command above clears it. Confirm **Settings → App Updates → Installed** shows `v0.2.12`.
+If macOS says the app is damaged, that is Gatekeeper quarantine — the command above clears it. Confirm **Settings → App Updates → Installed** shows `v0.2.13`.
 
 ### tokscale dependency
 
@@ -49,22 +53,26 @@ open-source: https://github.com/junhoyeo/tokscale
 ## 更新内容
 
 <!-- app-update-notes:zh:start -->
+### 新增
+- **登录 Kimi：**设置里可以用隔离窗口登录 Kimi，无需再粘贴 cookie 即可采集每月额度。会话只留在本机；手动 cookie 和 API key 仍可作为高级备选。
+
 ### 变更
-- **macOS 更新更安全：**未签名和 ad-hoc 签名的构建现在走经过校验的自定义更新通道，支持断点续传、重启后恢复“等待安装”状态、staging 包验证，并在新版本无法启动时自动回滚旧 App。
+- **同一订阅的多把密钥：**当提供商确认身份后，同一账号下的多份凭证会共用额度池，不再显示成多个账号。未确认的连接会标为**订阅身份未确认**。
 
 ### 修复
-- **macOS 自动安装失败：**ad-hoc 安装包不再被误判成 Developer ID 构建并进入不兼容的原生更新器；发布压缩包必须通过 GitHub SHA-256 和文件大小校验才允许安装。
-- **设置单击和下拉框卡顿：**提供商选择和普通设置保存改为串行执行与轻量同步，旧保存结果不会再覆盖较新的选择，也不会整页重建设置。
-- **提供商列表重复重绘与排版：**额度数据没有变化时不再重建全部提供商行；纯文字的**全部启用**按钮也不会再被图标按钮宽度挤成竖排。
+- **月额度用尽却显示健康：**首页、额度页和**剩余额度最低**不再把缺失或已用尽的每月额度（Kimi、GLM、GLM Team）藏在绿色的 5 小时 0% 进度条后面。真正的每月窗口会排在前面，或标为**暂不可用**。
+- **未知用量显示成 0% 或 100%：**Cursor Total / on-demand、Qoder、OpenRouter、Kiro 在接口没返回数字时不再捏造健康的 0 或假的 50 积分总量。缺失值保持未知。
+- **菜单栏图标：**生成的托盘图标会再次注册，不再在每次更新时抛错，避免仅托盘模式下完全看不见应用。
+- **MiniMax 套餐名：**显示接口返回的订阅标题，而不再写死 Token Plan。
 <!-- app-update-notes:zh:end -->
 
 ## 下载
 
-- **macOS Apple Silicon** — [potluck-monitor-0.2.12-arm64.dmg](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.12/potluck-monitor-0.2.12-arm64.dmg)
-- **macOS Intel** — [potluck-monitor-0.2.12-x64.dmg](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.12/potluck-monitor-0.2.12-x64.dmg)
-- **Windows 安装包** — [potluck-monitor-Setup-0.2.12.exe](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.12/potluck-monitor-Setup-0.2.12.exe)
-- **Windows 便携版** — [potluck-monitor-0.2.12.exe](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.12/potluck-monitor-0.2.12.exe)
-- **Linux** — [potluck-monitor-0.2.12.AppImage](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.12/potluck-monitor-0.2.12.AppImage)
+- **macOS Apple Silicon** — [potluck-monitor-0.2.13-arm64.dmg](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.13/potluck-monitor-0.2.13-arm64.dmg)
+- **macOS Intel** — [potluck-monitor-0.2.13-x64.dmg](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.13/potluck-monitor-0.2.13-x64.dmg)
+- **Windows 安装包** — [potluck-monitor-Setup-0.2.13.exe](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.13/potluck-monitor-Setup-0.2.13.exe)
+- **Windows 便携版** — [potluck-monitor-0.2.13.exe](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.13/potluck-monitor-0.2.13.exe)
+- **Linux** — [potluck-monitor-0.2.13.AppImage](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.13/potluck-monitor-0.2.13.AppImage)
 
 <details>
 <summary><strong>首次启动与其他说明</strong></summary>
@@ -78,7 +86,7 @@ xattr -cr "/Applications/Potluck Monitor.app"
 open "/Applications/Potluck Monitor.app"
 ```
 
-若提示「已损坏」，那是隔离标记；上面命令会清掉。打开后到 **设置 → App Updates → Installed** 确认是 `v0.2.12`。
+若提示「已损坏」，那是隔离标记；上面命令会清掉。打开后到 **设置 → App Updates → Installed** 确认是 `v0.2.13`。
 
 ### tokscale 依赖
 
