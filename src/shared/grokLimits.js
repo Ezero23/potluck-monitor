@@ -654,6 +654,7 @@ async function fetchGrokLimits(options = {}, deps = {}) {
       return normalizeLimitProvider({
         provider: 'grok',
         accountKey: credential ? hashKey('grok', credential.token) : '',
+        quotaPoolKey: credential?.email ? hashKey('grok-pool', credential.email) : '',
         accountLabel: 'SuperGrok',
         accountEmail: credential?.email || '',
         source: 'rpc',
@@ -711,6 +712,7 @@ async function fetchGrokLimits(options = {}, deps = {}) {
     return normalizeLimitProvider({
       provider: 'grok',
       accountKey: hashKey('grok', credential.token),
+      quotaPoolKey: credential.email ? hashKey('grok-pool', credential.email) : '',
       accountLabel: 'SuperGrok',
       accountEmail: credential.email || '',
       source: 'web',

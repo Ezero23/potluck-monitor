@@ -998,6 +998,20 @@ test('Claude command candidates include common Windows CLI install paths before 
   assert.ok(candidates.indexOf('claude.cmd') < candidates.indexOf('claude'));
 });
 
+test('Claude OAuth usage keys the quota pool from a stable account identity', () => {
+  const provider = mapClaudeUsageToProvider({
+    five_hour: { utilization: 10, resets_at: '2026-07-02T14:00:00Z' },
+    seven_day: { utilization: 22, resets_at: '2026-07-03T10:00:00Z' }
+  }, {
+    accountKey: 'sha256:claude-account',
+    quotaPoolKey: 'sha256:claude-pool',
+    accountEmail: 'user@example.com'
+  });
+
+  assert.equal(provider.quotaPoolKey, 'sha256:claude-pool');
+  assert.equal(provider.accountKey, 'sha256:claude-account');
+});
+
 test('Claude OAuth usage adds a Fable-only weekly window from the limits array', () => {
   const provider = mapClaudeUsageToProvider({
     five_hour: { utilization: 96, resets_at: '2026-07-02T14:00:00Z' },

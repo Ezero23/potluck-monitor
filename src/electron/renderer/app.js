@@ -2982,6 +2982,16 @@ function renderLimitProviderHead(id, label, provider, color, options = {}) {
 }
 
 function renderProviderWindows(provider, color) {
+  if (typeof homeOverviewApi?.withRequiredCoverage === 'function') {
+    provider = {
+      ...provider,
+      windows: homeOverviewApi.withRequiredCoverage(
+        provider.provider,
+        provider.status,
+        Array.isArray(provider.windows) ? provider.windows : []
+      )
+    };
+  }
   const windows = document.createElement('div');
   windows.className = 'limit-windows';
   if (provider.provider === 'codex') {

@@ -149,6 +149,19 @@ function parseMinimaxTiers(body) {
   return windows;
 }
 
+function minimaxPlanLabel(body) {
+  const data = body?.data && typeof body.data === 'object' ? body.data : body;
+  const title = String(
+    data?.current_subscribe_title
+    || data?.currentSubscribeTitle
+    || data?.subscribe_title
+    || data?.plan_name
+    || data?.planName
+    || ''
+  ).trim();
+  return title || 'Token Plan';
+}
+
 function minimaxRegionOrder(options = {}) {
   const pinned = options.minimaxApiHost;
   if (pinned === 'cn') return ['cn'];
@@ -289,7 +302,7 @@ async function fetchMinimaxLimits(options = {}, deps = {}) {
       return normalizeLimitProvider({
         provider: 'minimax',
         accountKey,
-        accountLabel: 'Token Plan',
+        accountLabel: minimaxPlanLabel(data),
         source: 'api',
         status: windows.length ? 'ok' : 'unavailable',
         updatedAt,
@@ -332,5 +345,6 @@ module.exports = {
   minimaxBaseUrl,
   minimaxRegionForUrl,
   parseMinimaxTiers,
+  minimaxPlanLabel,
   fetchMinimaxLimits
 };

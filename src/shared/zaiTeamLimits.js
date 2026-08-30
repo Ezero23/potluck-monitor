@@ -94,9 +94,11 @@ async function fetchZaiTeamLimits(options = {}, deps = {}) {
   try {
     const quota = await fetchJson(ZAI_TEAM_QUOTA_URL, { key, organization, project }, deps);
     const usage = parseZaiUsage(quota, null);
+    const poolIdentity = usage.subscriptionIdentity || `org:${organization}:project:${project}`;
     return normalizeLimitProvider({
       provider: 'zaiteam',
       accountKey: hashKey('zaiteam', organization, project),
+      quotaPoolKey: hashKey('zaiteam-pool', poolIdentity),
       accountLabel: usage.plan || 'Team',
       source: 'api',
       status: usage.windows.length ? 'ok' : 'unavailable',

@@ -283,6 +283,7 @@ async function fetchMimoAccount(account, deps = {}) {
       status: 'ok',
       updatedAt,
       accountKey: cleanText(account.accountKey) || mimoAccountKey(cookieHeader),
+      quotaPoolKey: hashKey('mimo-pool', mimoAccountKey(cookieHeader)),
       accountName: '',
       accountEmail,
       accountLabel: hasTokenPlan || hasExpiredTokenPlan

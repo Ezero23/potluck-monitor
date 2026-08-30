@@ -695,6 +695,26 @@ test('kind-specific resolver can select billing from a mixed-window provider', (
   assert.equal(pick.remaining, 9);
 });
 
+test('lowest-remaining resolver prefers an exhausted monthly window over a healthy session', () => {
+  const monthly = { kind: 'billing', label: 'Monthly', remainingPercent: 0, usedPercent: 100 };
+  const pick = pickWorstLimitProvider({
+    limits: {
+      providers: [{
+        provider: 'kimi',
+        status: 'ok',
+        windows: [
+          { kind: 'session', label: '5-hour', remainingPercent: 100, usedPercent: 0 },
+          { kind: 'weekly', label: 'Weekly', remainingPercent: 100, usedPercent: 0 },
+          monthly
+        ]
+      }]
+    }
+  });
+
+  assert.equal(pick.selectedWindow, monthly);
+  assert.equal(pick.remaining, 0);
+});
+
 test('tray session quota text keeps lowest-remaining account selection when showing used percent', () => {
   const limitStats = {
     limits: {

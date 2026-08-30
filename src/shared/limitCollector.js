@@ -699,6 +699,7 @@ function mapClaudeUsageToProvider(usage, meta = {}) {
   return normalizeLimitProvider({
     provider: 'claude',
     accountKey: meta.accountKey || '',
+    quotaPoolKey: meta.quotaPoolKey || (meta.accountKey ? hashKey('claude-pool', meta.accountKey) : ''),
     accountLabel: meta.accountLabel || '',
     accountName: meta.accountName || '',
     accountEmail: meta.accountEmail || '',
@@ -887,6 +888,7 @@ function claudeWebAccountIdentity(accountBody, organization) {
   );
   return {
     accountKey: hashKey('claude-account', stableIdentity),
+    quotaPoolKey: hashKey('claude-pool', stableIdentity),
     accountEmail,
     accountName,
     accountLabel
@@ -1112,6 +1114,7 @@ function claudeOauthAccountIdentity(profile) {
 
   return {
     accountKey: hashKey('claude-account', stableIdentity),
+    quotaPoolKey: hashKey('claude-pool', stableIdentity),
     accountEmail,
     accountName
   };
@@ -1226,6 +1229,7 @@ async function fetchClaudeLimits(options = {}, deps = {}) {
       return {
         ...provider,
         accountKey: oauthIdentity.accountKey,
+        quotaPoolKey: oauthIdentity.quotaPoolKey || provider.quotaPoolKey,
         accountEmail: oauthIdentity.accountEmail,
         accountName: oauthIdentity.accountName
       };
@@ -1417,6 +1421,7 @@ function mapClaudeCliUsageToProvider(text, meta = {}) {
   return normalizeLimitProvider({
     provider: 'claude',
     accountKey: hashKey('claude-cli', parsed.accountKey),
+    quotaPoolKey: parsed.accountEmail ? hashKey('claude-pool', parsed.accountEmail) : '',
     accountLabel: parsed.accountLabel,
     accountName: parsed.accountName,
     accountEmail: parsed.accountEmail,
@@ -1971,6 +1976,7 @@ function mapCodexRateLimitsToProvider(payload, meta = {}) {
   return normalizeLimitProvider({
     provider: 'codex',
     accountKey: meta.accountKey || '',
+    quotaPoolKey: meta.accountKey ? hashKey('codex-pool', meta.accountKey) : '',
     accountLabel: meta.accountLabel || codexAccountLabel(payload),
     accountName: meta.accountName || '',
     accountEmail: meta.accountEmail || payload.account?.email || '',
@@ -2594,6 +2600,7 @@ async function fetchManagedCodexAccountLimits(account, _options = {}, deps = {})
     return normalizeLimitProvider({
       provider: 'codex',
       accountKey: managedCodexAccountKey(account, authIdentity, email),
+      quotaPoolKey: hashKey('codex-pool', managedCodexAccountKey(account, authIdentity, email)),
       accountEmail: email,
       accountLabel: account.accountLabel,
       accountName: account.workspaceLabel,
@@ -3327,8 +3334,8 @@ async function fetchCursorLimits(_options = {}, deps = {}) {
 
   if (usage.hasOnDemandUsage || finiteNumber(usage.onDemandLimitUsd) !== null || (finiteNumber(usage.onDemandUsedUsd) !== null && usage.onDemandUsedUsd > 0)) {
     const remaining = finiteNumber(usage.onDemandRemainingUsd)
-      ?? (finiteNumber(usage.onDemandLimitUsd) !== null
-        ? Math.max(0, usage.onDemandLimitUsd - (finiteNumber(usage.onDemandUsedUsd) || 0))
+      ?? (finiteNumber(usage.onDemandLimitUsd) !== null && finiteNumber(usage.onDemandUsedUsd) !== null
+        ? Math.max(0, usage.onDemandLimitUsd - usage.onDemandUsedUsd)
         : null);
     windows.push(cursorBillingWindow('Credits', {
       usedPercent: finiteNumber(usage.onDemandPercent) ?? percentFromUsedLimit(usage.onDemandUsedUsd, usage.onDemandLimitUsd),
@@ -3344,8 +3351,8 @@ async function fetchCursorLimits(_options = {}, deps = {}) {
 
   if (usage.hasTeamOnDemandUsage || finiteNumber(usage.teamOnDemandLimitUsd) !== null || (finiteNumber(usage.teamOnDemandUsedUsd) !== null && usage.teamOnDemandUsedUsd > 0)) {
     const remaining = finiteNumber(usage.teamOnDemandRemainingUsd)
-      ?? (finiteNumber(usage.teamOnDemandLimitUsd) !== null
-        ? Math.max(0, usage.teamOnDemandLimitUsd - (finiteNumber(usage.teamOnDemandUsedUsd) || 0))
+      ?? (finiteNumber(usage.teamOnDemandLimitUsd) !== null && finiteNumber(usage.teamOnDemandUsedUsd) !== null
+        ? Math.max(0, usage.teamOnDemandLimitUsd - usage.teamOnDemandUsedUsd)
         : null);
     windows.push(cursorBillingWindow('Team credits', {
       usedPercent: finiteNumber(usage.teamOnDemandPercent) ?? percentFromUsedLimit(usage.teamOnDemandUsedUsd, usage.teamOnDemandLimitUsd),
@@ -3361,8 +3368,8 @@ async function fetchCursorLimits(_options = {}, deps = {}) {
 
   if (usage.hasTeamPooledUsage || finiteNumber(usage.teamPooledLimitUsd) !== null || (finiteNumber(usage.teamPooledUsedUsd) !== null && usage.teamPooledUsedUsd > 0)) {
     const remaining = finiteNumber(usage.teamPooledRemainingUsd)
-      ?? (finiteNumber(usage.teamPooledLimitUsd) !== null
-        ? Math.max(0, usage.teamPooledLimitUsd - (finiteNumber(usage.teamPooledUsedUsd) || 0))
+      ?? (finiteNumber(usage.teamPooledLimitUsd) !== null && finiteNumber(usage.teamPooledUsedUsd) !== null
+        ? Math.max(0, usage.teamPooledLimitUsd - usage.teamPooledUsedUsd)
         : null);
     windows.push(cursorBillingWindow('Team pool', {
       usedPercent: finiteNumber(usage.teamPooledPercent) ?? percentFromUsedLimit(usage.teamPooledUsedUsd, usage.teamPooledLimitUsd),
@@ -3378,6 +3385,7 @@ async function fetchCursorLimits(_options = {}, deps = {}) {
   return {
     provider: 'cursor',
     accountKey: hashCursorAccountKey(identityAccount),
+    quotaPoolKey: identityAccount.userId ? hashKey('cursor-pool', identityAccount.userId) : '',
     accountLabel: formatCursorMembership(usage.membershipType) || account.label || '',
     accountName: String(user.name || '').trim(),
     accountEmail: String(user.email || '').trim().toLowerCase(),

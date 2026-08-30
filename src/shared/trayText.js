@@ -141,7 +141,8 @@
     for (const provider of stats?.limits?.providers || []) {
       const selection = compactLimitSelection(provider);
       if (!selection) continue;
-      const candidates = [selection.primaryWindow, selection.secondaryWindow].filter(Boolean);
+      const billingWindow = preferredWindow(selection.providerRecord, 'billing');
+      const candidates = [selection.primaryWindow, selection.secondaryWindow, billingWindow].filter(Boolean);
       const selectedWindow = requestedKind
         ? preferredWindow(selection.providerRecord, requestedKind)
         : candidates.reduce((pick, window) => (

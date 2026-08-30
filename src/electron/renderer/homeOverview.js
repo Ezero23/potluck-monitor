@@ -82,9 +82,12 @@
     return windows;
   }
 
-  function withRequiredMonthlyCoverage(providerId, status, windows) {
-    if (providerId !== 'kimi' && providerId !== 'zai') return windows;
-    if (windows.length === 0 || (status && status !== 'ok')) return windows;
+  const REQUIRED_MONTHLY_PROVIDER_IDS = new Set(['kimi', 'zai', 'zaiteam']);
+
+  function withRequiredCoverage(providerId, status, windows) {
+    const id = String(providerId || '').trim().toLowerCase();
+    if (!REQUIRED_MONTHLY_PROVIDER_IDS.has(id)) return windows;
+    if (!Array.isArray(windows) || windows.length === 0 || (status && status !== 'ok')) return windows;
     if (windows.some((window) => window?.kind === 'billing' || window?.kind === 'monthly')) return windows;
     return [
       ...windows,
@@ -282,7 +285,7 @@
           providerId: id,
           name: typeof accountName === 'function' ? accountName(provider, index, providerEntries) : label,
           color: colors[id] || colors.default || '',
-          windows: withRequiredMonthlyCoverage(id, provider.status, providerWindows),
+          windows: withRequiredCoverage(id, provider.status, providerWindows),
           balance: provider.balance || null
         });
       });
@@ -446,6 +449,7 @@
   }
 
   return {
+    withRequiredCoverage,
     homeLimitAccounts,
     homeLimitAccountsForProviders,
     homeModelRows,

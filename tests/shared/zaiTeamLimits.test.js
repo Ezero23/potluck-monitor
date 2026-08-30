@@ -81,6 +81,7 @@ test('fetchZaiTeamLimits sends team headers and derives accountKey from org:proj
   assert.equal(provider.region, 'bigmodel-cn');
   assert.equal(provider.accountLabel, 'Max');
   assert.equal(provider.accountKey, hashKey('zaiteam', 'org-xxx', 'proj_xxx'));
+  assert.equal(provider.quotaPoolKey, hashKey('zaiteam-pool', 'org:org-xxx:project:proj_xxx'));
   assert.deepEqual(urls, [ZAI_TEAM_QUOTA_URL]);
   assert.deepEqual(headers, [{
     Authorization: 'Bearer team-key',

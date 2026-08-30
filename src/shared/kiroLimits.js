@@ -209,8 +209,8 @@ function parseKiroUsage(rawOutput, now = new Date()) {
   let creditsPercent = firstNumber(stripped, /█+\s*(\d+)%/);
   const matchedPercent = creditsPercent !== null;
 
-  let creditsUsed = 0;
-  let creditsTotal = 50; // free-tier default, matching upstream
+  let creditsUsed = null;
+  let creditsTotal = null;
   const credits = stripped.match(/\((\d+\.?\d*)\s+of\s+(\d+)\s+covered/);
   const matchedCredits = Boolean(credits);
   if (credits) {
@@ -228,9 +228,9 @@ function parseKiroUsage(rawOutput, now = new Date()) {
       displayPlanName: displayPlanName(planName),
       managed: true,
       hasMetrics: false,
-      creditsPercent: 0,
-      creditsUsed: 0,
-      creditsTotal: 0,
+      creditsPercent: null,
+      creditsUsed: null,
+      creditsTotal: null,
       resetsAt: null,
       bonus: null,
       overage: null
@@ -247,7 +247,7 @@ function parseKiroUsage(rawOutput, now = new Date()) {
     displayPlanName: displayPlanName(planName),
     managed,
     hasMetrics: true,
-    creditsPercent: clampPercent(creditsPercent) ?? 0,
+    creditsPercent: clampPercent(creditsPercent),
     creditsUsed,
     creditsTotal,
     resetsAt: parseResetDate(resetRaw, now),
@@ -443,6 +443,7 @@ async function fetchKiroLimits(_options = {}, deps = {}) {
   return normalizeLimitProvider({
     provider: 'kiro',
     accountKey: identity ? hashKey('kiro-account', identity) : '',
+    quotaPoolKey: identity ? hashKey('kiro-pool', identity) : '',
     accountLabel: planTierLabel(parsed.displayPlanName),
     source: 'cli',
     status: 'ok',

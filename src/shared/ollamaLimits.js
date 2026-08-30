@@ -375,6 +375,7 @@ async function fetchOllamaLimits(options = {}, deps = {}) {
     return normalizeLimitProvider({
       provider: 'ollama',
       accountKey: hashKey('ollama', identity),
+      quotaPoolKey: parsed.accountEmail ? hashKey('ollama-pool', parsed.accountEmail) : '',
       accountName: options.ollamaAccountLabel || '',
       accountEmail: parsed.accountEmail,
       accountLabel: parsed.planName,

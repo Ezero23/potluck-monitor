@@ -10,6 +10,7 @@ const {
   homeDeviceRows,
   homeLimitAccounts,
   homeLimitAccountsForProviders,
+  withRequiredCoverage,
   homeModelRows,
   homeToolRows,
   homeActivityWheelRoute,
@@ -134,7 +135,7 @@ test('homeLimitAccounts keeps an exhausted monthly bucket visible over healthier
   assert.equal(rows[0].lowestRemaining, 0);
 });
 
-test('Home marks required Kimi and GLM monthly coverage unavailable instead of implying the account is usable', () => {
+test('Home marks required Kimi, GLM, and GLM Team monthly coverage unavailable instead of implying the account is usable', () => {
   const rows = homeLimitAccountsForProviders({
     providers: [
       {
@@ -154,10 +155,22 @@ test('Home marks required Kimi and GLM monthly coverage unavailable instead of i
           { kind: 'session', label: '5-hour', usedPercent: 0 },
           { kind: 'weekly', label: 'Weekly', usedPercent: 100 }
         ]
+      },
+      {
+        provider: 'zaiteam',
+        status: 'ok',
+        source: 'api',
+        windows: [
+          { kind: 'session', label: '5-hour', usedPercent: 0 }
+        ]
       }
     ],
-    providerOptions: [{ id: 'kimi', label: 'Kimi' }, { id: 'zai', label: 'GLM' }],
-    enabledProviderIds: ['kimi', 'zai'],
+    providerOptions: [
+      { id: 'kimi', label: 'Kimi' },
+      { id: 'zai', label: 'GLM' },
+      { id: 'zaiteam', label: 'GLM Team' }
+    ],
+    enabledProviderIds: ['kimi', 'zai', 'zaiteam'],
     limit: 10,
     sort: 'configured'
   });
@@ -176,8 +189,19 @@ test('Home marks required Kimi and GLM monthly coverage unavailable instead of i
     [
       ['weekly', 'Weekly', 0, true, ''],
       ['billing', 'Monthly', null, false, 'unavailable']
+    ],
+    [
+      ['session', '5-hour', 100, true, ''],
+      ['billing', 'Monthly', null, false, 'unavailable']
     ]
   ]);
+});
+
+test('withRequiredCoverage only fills monthly for coding-plan providers that hide it', () => {
+  const session = [{ kind: 'session', label: '5-hour', usedPercent: 0 }];
+  assert.equal(withRequiredCoverage('claude', 'ok', session).length, 1);
+  assert.equal(withRequiredCoverage('zaiteam', 'ok', session).some((window) => window.detail === 'unavailable'), true);
+  assert.equal(withRequiredCoverage('zaiteam', 'notConfigured', session).length, 1);
 });
 
 test('Home does not invent an unavailable monthly window for an unconfigured provider', () => {

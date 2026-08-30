@@ -4,6 +4,7 @@ const assert = require('node:assert/strict');
 const path = require('node:path');
 const test = require('node:test');
 
+const { hashKey } = require('../../src/shared/hashKey');
 const { codexCommandCandidates, codexCommandSourceDetail, createLimitsCollector, fetchCodexLimits, mapCodexRateLimitsToProvider } = require('../../src/shared/limitCollector');
 const { codexAccountKey, hashAccountKey } = require('../../src/shared/codexAuth');
 
@@ -135,12 +136,14 @@ test('Codex provider preserves source detail for renderer labels', () => {
   }, {
     source: 'rpc',
     sourceDetail: 'app',
+    accountKey: 'sha256:codex-user',
     updatedAt: '2026-06-01T00:00:00Z'
   });
 
   assert.equal(provider.source, 'rpc');
   assert.equal(provider.sourceDetail, 'app');
   assert.equal(provider.accountEmail, 'user@example.com');
+  assert.equal(provider.quotaPoolKey, hashKey('codex-pool', 'sha256:codex-user'));
 });
 
 test('Codex provider reads quota windows from alternate rate limit ids', () => {

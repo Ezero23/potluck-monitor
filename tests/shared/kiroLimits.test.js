@@ -114,7 +114,17 @@ test('parseKiroUsage handles a managed Q Developer plan with no metrics', () => 
   assert.equal(parsed.planName, 'Q Developer Pro');
   assert.equal(parsed.managed, true);
   assert.equal(parsed.hasMetrics, false);
-  assert.equal(parsed.creditsPercent, 0);
+  assert.equal(parsed.creditsPercent, null);
+  assert.equal(parsed.creditsUsed, null);
+  assert.equal(parsed.creditsTotal, null);
+});
+
+test('parseKiroUsage does not invent a 50-credit free-tier total from a percent bar alone', () => {
+  const parsed = parseKiroUsage('| KIRO PRO |\n████████████████████████████████████████████████████ 80%\nresets on 2026-09-01');
+  assert.equal(parsed.creditsPercent, 80);
+  assert.equal(parsed.creditsUsed, null);
+  assert.equal(parsed.creditsTotal, null);
+  assert.equal(parsed.hasMetrics, true);
 });
 
 test('parseKiroUsage throws notConfigured when logged out', () => {
@@ -212,6 +222,7 @@ test('fetchKiroLimits maps a healthy scan to a billing window', async () => {
   // prefix and shows just the tier (matches Cursor's "Free"/"Pro+").
   assert.equal(provider.accountLabel, 'Free');
   assert.ok(provider.accountKey, 'accountKey set');
+  assert.ok(provider.quotaPoolKey, 'quotaPoolKey set from the Kiro auth identity');
   assert.equal(provider.windows.length, 1);
   assert.equal(provider.windows[0].kind, 'billing');
   assert.equal(provider.windows[0].label, 'Credits');
@@ -231,6 +242,7 @@ test('fetchKiroLimits leaves account identity unknown instead of merging every l
 
   assert.equal(provider.status, 'ok');
   assert.equal(provider.accountKey, '');
+  assert.equal(provider.quotaPoolKey, undefined);
 });
 
 test('fetchKiroLimits adds a second window for bonus credits', async () => {

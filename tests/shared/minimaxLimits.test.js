@@ -315,6 +315,28 @@ test('fetchMinimaxLimits returns ok with both windows from the nested shape and 
   assert.ok(!JSON.stringify(r).includes('sk-cp-secret'));
 });
 
+test('fetchMinimaxLimits uses the live subscribe title instead of a generic Token Plan label', async () => {
+  const r = await fetchMinimaxLimits({ minimaxApiKey: 'sk-cp-plus' }, {
+    env: {},
+    now: () => 1_716_350_000_000,
+    fetch: async () => okResponse({
+      base_resp: { status_code: 0 },
+      data: {
+        current_subscribe_title: 'Token Plan Plus',
+        model_remains: [
+          {
+            model_name: 'general',
+            current_interval_remaining_percent: 40,
+            current_weekly_remaining_percent: 70
+          }
+        ]
+      }
+    })
+  });
+  assert.equal(r.status, 'ok');
+  assert.equal(r.accountLabel, 'Token Plan Plus');
+});
+
 test('fetchMinimaxLimits prefers the widget settings key over env fallback', async () => {
   let capturedAuth = '';
   const r = await fetchMinimaxLimits(

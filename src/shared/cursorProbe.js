@@ -67,7 +67,7 @@ function parseUsageSummary(input, { requestUsage = null } = {}) {
   const overallRemaining = numberOrNull(overall.remaining);
   const autoPercent = clampPercent(numberOrNull(plan.autoPercentUsed));
   const apiPercent = clampPercent(numberOrNull(plan.apiPercentUsed));
-  const onDemandUsed = numberOrNull(onDemand.used) ?? 0;
+  const onDemandUsed = numberOrNull(onDemand.used);
   const onDemandLimit = numberOrNull(onDemand.limit);
   const onDemandRemaining = numberOrNull(onDemand.remaining);
   const teamOnDemandUsed = numberOrNull(teamOnDemand.used);

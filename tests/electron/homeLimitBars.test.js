@@ -76,7 +76,10 @@ test('Kimi and GLM monthly windows use a clear monthly label on the limits page'
 
 test('Home renders missing Kimi and GLM monthly coverage as unavailable, never as zero usage', () => {
   const app = read('src/electron/renderer/app.js');
+  const overview = read('src/electron/renderer/homeOverview.js');
 
+  assert.match(overview, /REQUIRED_MONTHLY_PROVIDER_IDS = new Set\(\['kimi', 'zai', 'zaiteam'\]\)/);
+  assert.match(app, /homeOverviewApi\.withRequiredCoverage/);
   assert.match(app, /window\?\.showMeter === false && window\?\.detail === 'unavailable'/);
   assert.match(app, /return t\('settings\.common\.unavailable'\)/);
 });

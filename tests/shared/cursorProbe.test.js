@@ -6,6 +6,18 @@ const test = require('node:test');
 
 const { parseUsageSummary, parseUserInfo, probe } = require('../../src/shared/cursorProbe');
 
+test('parseUsageSummary keeps missing on-demand used unknown instead of zeroing it', () => {
+  const result = parseUsageSummary({
+    individualUsage: {
+      onDemand: { limit: 5000 }
+    }
+  });
+  assert.equal(result.onDemandUsedUsd, null);
+  assert.equal(result.onDemandLimitUsd, 50);
+  assert.equal(result.onDemandPercent, null);
+  assert.equal(result.hasOnDemandUsage, true);
+});
+
 test('parseUsageSummary maps cents to USD and reads billing cycle end', () => {
   const input = {
     billingCycleStart: '2026-05-01T00:00:00Z',
