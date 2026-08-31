@@ -150,7 +150,8 @@ const {
   pickUsageTrayIconId,
   popoverBounds,
   reconcileCodexAccountSelection,
-  sortCodexAccountsForDisplay
+  sortCodexAccountsForDisplay,
+  trayGuidForBuild
 } = require('./tray');
 const {
   macActivationPolicyMode,
@@ -3387,6 +3388,7 @@ function ensureTray() {
   if (!shouldCreateTray(settings)) return false;
   if (tray && !tray.isDestroyed()) return;
   tray = createTray({
+    guid: trayGuidForBuild(app.isPackaged),
     getMenuState: () => {
       const codex = trayCodexMenuState();
       return {

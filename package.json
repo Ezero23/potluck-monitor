@@ -26,6 +26,7 @@
     "verify": "npm run lint && npm test"
   },
   "build": {
+    "afterPack": "scripts/after-pack.js",
     "appId": "com.ezero23.potluckmonitor",
     "productName": "Potluck Monitor",
     "directories": {

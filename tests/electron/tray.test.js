@@ -7,13 +7,16 @@ const test = require('node:test');
 const zlib = require('node:zlib');
 
 const {
+  DEVELOPMENT_TRAY_GUID,
+  PRODUCTION_TRAY_GUID,
   buildTrayIcon,
   buildTrayMenuTemplate,
   formatTrayText,
   isGeneratedTrayIconMode: exportedGeneratedTrayIconMode,
   reconcileCodexAccountSelection,
   pickUsageTrayIconId,
-  sortCodexAccountsForDisplay
+  sortCodexAccountsForDisplay,
+  trayGuidForBuild
 } = require('../../src/electron/tray');
 const { translate } = require('../../src/electron/renderer/i18n');
 const {
@@ -39,6 +42,17 @@ const stats = {
   }
 };
 
+test('tray uses stable UUID identities except on ad-hoc-friendly macOS builds', () => {
+  const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+  assert.match(PRODUCTION_TRAY_GUID, uuid);
+  assert.match(DEVELOPMENT_TRAY_GUID, uuid);
+  assert.notEqual(PRODUCTION_TRAY_GUID, DEVELOPMENT_TRAY_GUID);
+  assert.equal(trayGuidForBuild(true, 'win32'), PRODUCTION_TRAY_GUID);
+  assert.equal(trayGuidForBuild(false, 'linux'), DEVELOPMENT_TRAY_GUID);
+  assert.equal(trayGuidForBuild(true, 'darwin'), undefined);
+  assert.equal(trayGuidForBuild(false, 'darwin'), undefined);
+});
+
 test('tray exports the generated-icon classifier used by the main-process IPC handler', () => {
   assert.equal(exportedGeneratedTrayIconMode, isGeneratedTrayIconMode);
   assert.equal(exportedGeneratedTrayIconMode('barsSession'), true);
@@ -62,9 +76,11 @@ test('fallback tray icon source stays transparent and high-resolution', () => {
   assert.equal(scanlines[4], 0, 'tray PNG corner should remain fully transparent');
 });
 
-test('macOS tray icon downsamples the high-resolution black-and-white badge without template tinting', () => {
+test('macOS tray icon downsamples the monochrome artwork and enables adaptive template tinting', () => {
   const calls = [];
-  const resized = {};
+  const resized = {
+    setTemplateImage(value) { calls.push(['template', value]); }
+  };
   const image = {
     resize(size) { calls.push(['resize', size]); return resized; }
   };
@@ -81,7 +97,8 @@ test('macOS tray icon downsamples the high-resolution black-and-white badge with
 
   assert.match(calls[0][1], /assets[\\/]icons[\\/]tray-token-monitor\.png$/);
   assert.deepEqual(calls.slice(1), [
-    ['resize', { height: 20, quality: 'best' }]
+    ['resize', { height: 20, quality: 'best' }],
+    ['template', true]
   ]);
 });
 

@@ -13,14 +13,32 @@ const { translate: translateMessage } = require('./renderer/i18n');
 
 const ICON_PATH = path.join(__dirname, '..', '..', 'assets', 'icon.png');
 const TRAY_ICON_PATH = path.join(__dirname, '..', '..', 'assets', 'icons', 'tray-token-monitor.png');
+// macOS uses this value as NSStatusItem's autosave identity. Keep these UUIDs
+// stable forever: changing them creates another entry in System Settings and
+// can make the status item lose its saved menu-bar position after an update.
+const PRODUCTION_TRAY_GUID = 'c498f4de-90f8-4dbf-aec2-047d789da062';
+const DEVELOPMENT_TRAY_GUID = 'b30731e4-b4c7-4c29-8928-7924412bed87';
+
+function trayGuidForBuild(isPackaged, platform = process.platform) {
+  // An unsigned/ad-hoc-signed macOS build has no stable TeamIdentifier for
+  // AppKit to associate with a GUID. Supplying one creates a separate Control
+  // Center identity that macOS may place in its hidden menu-bar section. Let
+  // AppKit use the bundle identity on macOS; keep stable UUIDs elsewhere.
+  if (platform === 'darwin') return undefined;
+  return isPackaged ? PRODUCTION_TRAY_GUID : DEVELOPMENT_TRAY_GUID;
+}
 
 function buildTrayIcon(options = {}) {
   const platform = options.platform || process.platform;
   const nativeImage = options.nativeImage || require('electron').nativeImage;
   if (platform === 'darwin') {
-    // Keep the explicit black badge / white gauge artwork. Template mode would
-    // recolor the whole silhouette and erase the intended high-contrast badge.
-    return nativeImage.createFromPath(TRAY_ICON_PATH).resize({ height: 20, quality: 'best' });
+    // Menu-bar icons must be template images on macOS. The source artwork is a
+    // transparent monochrome mask; template mode lets AppKit tint that mask for
+    // the active menu-bar appearance instead of leaving its white strokes nearly
+    // invisible on a light menu bar.
+    const icon = nativeImage.createFromPath(TRAY_ICON_PATH).resize({ height: 20, quality: 'best' });
+    icon.setTemplateImage(true);
+    return icon;
   }
   return nativeImage.createFromPath(ICON_PATH).resize({ width: 20, height: 20 });
 }
@@ -168,6 +186,7 @@ function buildTrayMenuTemplate(options = {}) {
 }
 
 function createTray({
+  guid,
   getMenuState,
   onOpenSettings,
   onOpenView,
@@ -180,7 +199,8 @@ function createTray({
   translateMenu
 }) {
   const { Tray, Menu } = require('electron');
-  const tray = new Tray(buildTrayIcon());
+  const trayIcon = buildTrayIcon();
+  const tray = guid ? new Tray(trayIcon, guid) : new Tray(trayIcon);
   tray.setToolTip('Token Monitor');
 
   tray.on('click', () => onToggle(tray));
@@ -229,6 +249,8 @@ function popoverBounds(tray, popoverWidth, popoverHeight) {
 }
 
 module.exports = {
+  DEVELOPMENT_TRAY_GUID,
+  PRODUCTION_TRAY_GUID,
   buildTrayIcon,
   buildTrayMenuTemplate,
   createTray,
@@ -239,5 +261,6 @@ module.exports = {
   pickWorstLimit,
   popoverBounds,
   reconcileCodexAccountSelection,
-  sortCodexAccountsForDisplay
+  sortCodexAccountsForDisplay,
+  trayGuidForBuild
 };
