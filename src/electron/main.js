@@ -102,6 +102,7 @@ const cursorAuth = require('../shared/cursorAuth');
 const cursorProbe = require('../shared/cursorProbe');
 const opencodeWeb = require('../shared/opencodeWeb');
 const potluckSupervisor = require('./potluckSupervisor');
+const { createNativeStatusItemBridge, trayBoundsAreVisible } = require('./nativeStatusItem');
 const openrouterLimits = require('../shared/openrouterLimits');
 const thirdPartyLimits = require('../shared/thirdPartyLimits');
 const semver = require('semver');
@@ -2249,6 +2250,10 @@ let streamFailure = null;
 let lastCollectedDevice = null;
 let latestHubStats = null;
 let tray = null;
+let nativeStatusItem = null;
+let nativeStatusItemTimer = null;
+let nativeStatusItemHealthTimer = null;
+let nativeStatusItemAnchor = null;
 let latestStats = null;
 let trayRefreshInFlight = false;
 let trayCodexActiveAccountId = '';
@@ -2803,6 +2808,7 @@ function updateTrayDisplay() {
   const customImageMode = mode === 'custom' && providerTrayIcons.custom;
   const text = trayImageMode || customImageMode ? '' : limitText;
   if (process.platform === 'darwin') tray.setTitle(text);
+  nativeStatusItem?.setTitle(text);
   // Tooltip always shows a useful summary, even in icon-only mode where setTitle is blank.
   const tip = formatTrayText(latestStats, 'both', currency);
   tray.setToolTip(`Potluck Monitor - ${tip}`);
@@ -2941,7 +2947,10 @@ function showPopover() {
   applyMacSpaceBehavior(true);
   applyWindowSettings();
   const current = mainWindow.getBounds();
-  const target = popoverBounds(tray, current.width, current.height);
+  const anchor = nativeStatusItemAnchor
+    ? { getBounds: () => nativeStatusItemAnchor }
+    : tray;
+  const target = popoverBounds(anchor, current.width, current.height);
   mainWindow.setBounds(target);
   suppressNextBlurHide = true;
   mainWindow.show();
@@ -3208,6 +3217,47 @@ function handleTrayToggle() {
   else if (action === 'focusWindow') focusExistingWindow();
 }
 
+function startNativeStatusItemFallback() {
+  if (process.platform !== 'darwin' || !app.isPackaged || !tray || tray.isDestroyed()) return false;
+  if (trayBoundsAreVisible(tray.getBounds(), screen.getAllDisplays())) {
+    nativeStatusItem?.stop();
+    nativeStatusItem = null;
+    nativeStatusItemAnchor = null;
+    return false;
+  }
+  if (!nativeStatusItem) {
+    nativeStatusItem = createNativeStatusItemBridge({
+      onToggle: (anchor) => {
+        nativeStatusItemAnchor = anchor;
+        handleTrayToggle();
+      },
+      onOpen: focusExistingWindow,
+      onRefresh: () => { void refreshFromTray(); },
+      onSettings: openSettingsFromTray,
+      onQuit: requestAppQuit,
+      onExit: () => scheduleNativeStatusItemFallback(1000),
+      onError: (error) => console.warn(`[tray] native status item: ${error.message}`)
+    });
+  }
+  const started = nativeStatusItem.start();
+  if (started) updateTrayDisplay();
+  return started;
+}
+
+function scheduleNativeStatusItemFallback(delayMs = 1500) {
+  if (process.platform !== 'darwin' || !app.isPackaged) return;
+  if (nativeStatusItemTimer) clearTimeout(nativeStatusItemTimer);
+  nativeStatusItemTimer = setTimeout(() => {
+    nativeStatusItemTimer = null;
+    startNativeStatusItemFallback();
+  }, delayMs);
+  nativeStatusItemTimer.unref?.();
+  if (!nativeStatusItemHealthTimer) {
+    nativeStatusItemHealthTimer = setInterval(startNativeStatusItemFallback, 5000);
+    nativeStatusItemHealthTimer.unref?.();
+  }
+}
+
 function trayMenuLocale() {
   const preferredLanguages = typeof app.getPreferredSystemLanguages === 'function'
     ? app.getPreferredSystemLanguages()
@@ -3422,10 +3472,18 @@ function ensureTray() {
     translateMenu: (key, params) => translate(trayMenuLocale(), key, params)
   });
   updateTrayDisplay();
+  scheduleNativeStatusItemFallback();
   return true;
 }
 
 function destroyTray() {
+  if (nativeStatusItemTimer) clearTimeout(nativeStatusItemTimer);
+  nativeStatusItemTimer = null;
+  if (nativeStatusItemHealthTimer) clearInterval(nativeStatusItemHealthTimer);
+  nativeStatusItemHealthTimer = null;
+  nativeStatusItem?.stop();
+  nativeStatusItem = null;
+  nativeStatusItemAnchor = null;
   if (tray && !tray.isDestroyed()) tray.destroy();
   tray = null;
 }
@@ -5795,7 +5853,7 @@ app.whenReady().then(() => {
 
 app.on('second-instance', focusExistingWindow);
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
-app.on('before-quit', () => { quitRequested = true; if (rateRefreshTimer) clearInterval(rateRefreshTimer); if (appUpdateBackgroundTimer) clearInterval(appUpdateBackgroundTimer); if (codexAuthRefreshTimer) clearInterval(codexAuthRefreshTimer); unregisterWindowToggleShortcut(); potluckSupervisor.onAppQuit(settings); stopAll(); });
+app.on('before-quit', () => { quitRequested = true; if (rateRefreshTimer) clearInterval(rateRefreshTimer); if (appUpdateBackgroundTimer) clearInterval(appUpdateBackgroundTimer); if (codexAuthRefreshTimer) clearInterval(codexAuthRefreshTimer); unregisterWindowToggleShortcut(); destroyTray(); potluckSupervisor.onAppQuit(settings); stopAll(); });
 for (const signal of ['SIGINT', 'SIGTERM', 'SIGHUP']) {
   process.once(signal, requestAppQuit);
 }
