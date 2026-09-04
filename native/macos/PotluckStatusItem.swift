@@ -14,10 +14,15 @@ final class StatusItemDelegate: NSObject, NSApplicationDelegate {
             return
         }
 
-        if let image = NSImage(
-            systemSymbolName: "gauge.with.dots.needle.50percent",
+        let bundledIcon = Bundle.main.url(
+            forResource: "tray-token-monitor",
+            withExtension: "png"
+        ).flatMap(NSImage.init(contentsOf:))
+        if let image = bundledIcon ?? NSImage(
+            systemSymbolName: "circle",
             accessibilityDescription: "Potluck Monitor"
         ) {
+            image.size = NSSize(width: 18, height: 18)
             image.isTemplate = true
             button.image = image
         } else {

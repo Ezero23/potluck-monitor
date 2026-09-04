@@ -4,7 +4,7 @@ const assert = require('node:assert/strict');
 const path = require('node:path');
 const test = require('node:test');
 
-const { compileNativeStatusItem, macAppPath } = require('../../scripts/after-pack');
+const { adHocSign, compileNativeStatusItem, macAppPath } = require('../../scripts/after-pack');
 
 test('mac afterPack resolves the branded application bundle', () => {
   assert.equal(macAppPath({
@@ -15,6 +15,7 @@ test('mac afterPack resolves the branded application bundle', () => {
 
 test('mac afterPack exposes the native status item compiler', () => {
   assert.equal(typeof compileNativeStatusItem, 'function');
+  assert.equal(typeof adHocSign, 'function');
 });
 
 test('mac afterPack refuses incomplete builder context', () => {
