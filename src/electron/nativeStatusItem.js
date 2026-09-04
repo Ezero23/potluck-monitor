@@ -66,7 +66,7 @@ function createNativeStatusItemBridge(options = {}) {
     const executable = options.executablePath || helperPath(options.resourcesPath);
     if (!fs.existsSync(executable)) return false;
     stopping = false;
-    child = spawn(executable, [], { stdio: ['pipe', 'pipe', 'pipe'] });
+    child = spawn(executable, options.args || [], { stdio: ['pipe', 'pipe', 'pipe'] });
     child.on('error', reportError);
     child.stdin.on('error', reportError);
     child.stdout.on('error', reportError);

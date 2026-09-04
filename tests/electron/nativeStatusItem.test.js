@@ -49,15 +49,16 @@ test('resolves the executable inside the bundled status item app', () => {
 
 test('helper pipe closure cannot surface an EPIPE as an uncaught app error', async (t) => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'potluck-status-helper-'));
-  const executable = path.join(dir, 'short-lived-helper');
-  fs.writeFileSync(executable, '#!/bin/sh\nprintf "ready\\n"\nexit 0\n', { mode: 0o755 });
+  const script = path.join(dir, 'short-lived-helper.js');
+  fs.writeFileSync(script, 'process.stdout.write("ready\\n");\n');
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
 
   const reported = [];
   await new Promise((resolve, reject) => {
     const timeout = setTimeout(() => reject(new Error('helper did not exit')), 2000);
     const bridge = createNativeStatusItemBridge({
-      executablePath: executable,
+      executablePath: process.execPath,
+      args: [script],
       onError: (error) => reported.push(error),
       onExit: () => {
         clearTimeout(timeout);
