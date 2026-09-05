@@ -3,6 +3,15 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
+const { Arch } = require('builder-util');
+
+function nativeTarget(arch, plist) {
+  const cpu = arch === Arch.arm64 ? 'arm64' : arch === Arch.x64 ? 'x86_64' : null;
+  if (!cpu) throw new Error(`Unsupported native status item architecture: ${arch}`);
+  const minimum = plist.match(/<key>LSMinimumSystemVersion<\/key>\s*<string>(\d+\.\d+(?:\.\d+)?)<\/string>/)?.[1];
+  if (!minimum) throw new Error('Missing native status item minimum macOS version');
+  return `${cpu}-apple-macosx${minimum}`;
+}
 
 function macAppPath(context) {
   const productFilename = context?.packager?.appInfo?.productFilename;
@@ -10,10 +19,11 @@ function macAppPath(context) {
   return path.join(context.appOutDir, `${productFilename}.app`);
 }
 
-function compileNativeStatusItem(appPath) {
+function compileNativeStatusItem(appPath, arch) {
   const sourcePath = path.join(__dirname, '..', 'native', 'macos', 'PotluckStatusItem.swift');
   const plistPath = path.join(__dirname, '..', 'native', 'macos', 'StatusItem-Info.plist');
   const iconPath = path.join(__dirname, '..', 'assets', 'icons', 'tray-token-monitor.png');
+  const target = nativeTarget(arch, fs.readFileSync(plistPath, 'utf8'));
   const helperAppPath = path.join(appPath, 'Contents', 'Resources', 'Potluck Monitor Status Item.app');
   const contentsPath = path.join(helperAppPath, 'Contents');
   const resourcesPath = path.join(contentsPath, 'Resources');
@@ -25,6 +35,8 @@ function compileNativeStatusItem(appPath) {
   const result = spawnSync('/usr/bin/xcrun', [
     'swiftc',
     sourcePath,
+    '-target',
+    target,
     '-O',
     '-o',
     executablePath
@@ -67,7 +79,7 @@ module.exports = async function afterPack(context) {
   if (context?.electronPlatformName !== 'darwin') return;
   const appPath = macAppPath(context);
   if (!appPath) throw new Error('Unable to resolve the packaged macOS app path');
-  const helperExecutable = compileNativeStatusItem(appPath);
+  const helperExecutable = compileNativeStatusItem(appPath, context.arch);
 
   if (process.env.CSC_LINK) return;
   const helperAppPath = path.resolve(path.dirname(helperExecutable), '..', '..');
@@ -78,3 +90,4 @@ module.exports = async function afterPack(context) {
 module.exports.macAppPath = macAppPath;
 module.exports.compileNativeStatusItem = compileNativeStatusItem;
 module.exports.adHocSign = adHocSign;
+module.exports.nativeTarget = nativeTarget;

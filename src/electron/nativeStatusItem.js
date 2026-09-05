@@ -24,7 +24,8 @@ function parseHelperEvent(line) {
   const parts = String(line || '').trim().split('\t');
   if (parts[0] !== 'toggle') return { type: parts[0] || 'unknown' };
   const values = parts.slice(1, 5).map(Number);
-  const anchor = values.every(Number.isFinite)
+  const anchor = parts.length === 5 && parts.slice(1).every((value) => value.trim() !== '')
+    && values.every(Number.isFinite) && values[2] > 0 && values[3] > 0
     ? { x: values[0], y: values[1], width: values[2], height: values[3] }
     : null;
   return { type: 'toggle', anchor };
@@ -41,51 +42,92 @@ function helperPath(resourcesPath = process.resourcesPath) {
 }
 
 function createNativeStatusItemBridge(options = {}) {
-  let child = null;
-  let ready = false;
+  let active = null;
   let pendingTitle = '';
-  let stopping = false;
+  let retryAt = 0;
+  let failures = 0;
 
-  const reportError = (error) => {
-    if (!error || error.code === 'EPIPE' || stopping) return;
+  const reportError = (run, error) => {
+    if (!error || run.stopping || active !== run || error.code === 'EPIPE') return;
     options.onError?.(error);
   };
 
+  const finish = (run, code, signal) => {
+    if (run.finished) return;
+    run.finished = true;
+    clearTimeout(run.readyTimer);
+    clearTimeout(run.killTimer);
+    run.lines?.close();
+    if (active !== run) return;
+    active = null;
+    if (run.stopping) return;
+    failures += 1;
+    retryAt = Date.now() + Math.min(30000, 1000 * (2 ** Math.min(failures - 1, 5)));
+    if (code && !signal) options.onError?.(new Error(`native status item exited with code ${code}`));
+    options.onExit?.({ code, signal });
+  };
+
+  const terminate = (run) => {
+    if (run.terminating) return;
+    run.terminating = true;
+    clearTimeout(run.readyTimer);
+    run.child.stdin.destroy();
+    run.child.kill();
+    run.killTimer = setTimeout(() => {
+      if (!run.finished) run.child.kill('SIGKILL');
+    }, 500);
+    run.killTimer.unref?.();
+  };
+
+  const streamError = (run, error) => {
+    reportError(run, error);
+    if (active === run && !run.finished) terminate(run);
+  };
+
   const sendTitle = () => {
-    if (!ready || !child?.stdin?.writable || child.stdin.destroyed || child.stdin.writableEnded) return;
+    const run = active;
+    if (!run?.ready || run.terminating || !run.child.stdin.writable || run.child.stdin.destroyed) return;
     const encoded = Buffer.from(pendingTitle, 'utf8').toString('base64');
     try {
-      child.stdin.write(`title\t${encoded}\n`, (error) => reportError(error));
+      run.child.stdin.write(`title\t${encoded}\n`, (error) => { if (error) streamError(run, error); });
     } catch (error) {
-      reportError(error);
+      streamError(run, error);
     }
   };
 
   const start = () => {
-    if (child) return true;
+    if (active) return !active.terminating;
+    if (Date.now() < retryAt) return false;
     const executable = options.executablePath || helperPath(options.resourcesPath);
     if (!fs.existsSync(executable)) return false;
-    stopping = false;
-    child = spawn(executable, options.args || [], { stdio: ['pipe', 'pipe', 'pipe'] });
-    child.on('error', reportError);
-    child.stdin.on('error', reportError);
-    child.stdout.on('error', reportError);
-    child.stderr.on('error', reportError);
-    child.stderr.on('data', (chunk) => reportError(new Error(String(chunk).trim())));
-    child.once('exit', (code, signal) => {
-      const exitedUnexpectedly = !stopping;
-      child = null;
-      ready = false;
-      if (code && !signal) options.onError?.(new Error(`native status item exited with code ${code}`));
-      if (exitedUnexpectedly) options.onExit?.({ code, signal });
+    const run = { child: spawn(executable, options.args || [], { stdio: ['pipe', 'pipe', 'pipe'] }), ready: false };
+    active = run;
+    const child = run.child;
+    child.on('error', (error) => {
+      reportError(run, error);
+      if (!child.pid) finish(run, null, null);
+      else terminate(run);
     });
-    const lines = createInterface({ input: child.stdout });
-    lines.on('line', (line) => {
+    for (const stream of [child.stdin, child.stdout, child.stderr]) {
+      stream.on('error', (error) => streamError(run, error));
+    }
+    child.stderr.on('data', (chunk) => reportError(run, new Error(String(chunk).trim())));
+    child.once('exit', (code, signal) => finish(run, code, signal));
+    child.once('close', (code, signal) => finish(run, code, signal));
+    run.readyTimer = setTimeout(() => {
+      reportError(run, new Error('native status item ready timeout'));
+      terminate(run);
+    }, options.readyTimeoutMs ?? 5000);
+    run.readyTimer.unref?.();
+    run.lines = createInterface({ input: child.stdout });
+    run.lines.on('line', (line) => {
+      if (active !== run || run.stopping || run.terminating) return;
       const event = parseHelperEvent(line);
       if (event.type === 'ready') {
-        ready = true;
+        run.ready = true;
+        clearTimeout(run.readyTimer);
         sendTitle();
-      } else if (event.type === 'toggle') options.onToggle?.(event.anchor);
+      } else if (event.type === 'toggle' && event.anchor) options.onToggle?.(event.anchor);
       else if (event.type === 'open') options.onOpen?.();
       else if (event.type === 'refresh') options.onRefresh?.();
       else if (event.type === 'settings') options.onSettings?.();
@@ -96,19 +138,18 @@ function createNativeStatusItemBridge(options = {}) {
   };
 
   const stop = () => {
-    if (!child) return;
-    stopping = true;
-    const current = child;
-    child = null;
-    ready = false;
-    current.stdin.end();
-    setTimeout(() => {
-      if (!current.killed) current.kill();
-    }, 500).unref?.();
+    retryAt = 0;
+    failures = 0;
+    if (!active) return;
+    const run = active;
+    run.stopping = true;
+    active = null;
+    terminate(run);
   };
 
   return {
-    isRunning: () => Boolean(child),
+    isRunning: () => Boolean(active && !active.terminating),
+    isReady: () => Boolean(active?.ready && !active.terminating),
     setTitle(value) {
       pendingTitle = String(value || '');
       sendTitle();

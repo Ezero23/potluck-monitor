@@ -37,6 +37,79 @@ test('parses native helper click anchors and menu events', () => {
   assert.deepEqual(parseHelperEvent('toggle\tbad'), { type: 'toggle', anchor: null });
 });
 
+test('rejects incomplete, blank and nonpositive native click bounds', () => {
+  for (const line of ['toggle', 'toggle\t1\t2', 'toggle\t1\t\t3\t4', 'toggle\t1\t2\t0\t4', 'toggle\t1\t2\t3\t4\t5']) {
+    assert.deepEqual(parseHelperEvent(line), { type: 'toggle', anchor: null });
+  }
+});
+
+async function waitUntil(predicate) {
+  const deadline = Date.now() + 4000;
+  while (!predicate()) {
+    if (Date.now() >= deadline) throw new Error('timed out waiting for helper state');
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+}
+
+test('failed spawn clears running state and retries only after backoff', async (t) => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'potluck-spawn-failure-'));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const errors = [];
+  let exits = 0;
+  const bridge = createNativeStatusItemBridge({
+    executablePath: dir,
+    onError: (error) => errors.push(error),
+    onExit: () => { exits += 1; }
+  });
+  t.after(() => bridge.stop());
+  assert.equal(bridge.start(), true);
+  await waitUntil(() => exits === 1);
+  assert.equal(bridge.isRunning(), false);
+  assert.equal(bridge.isReady(), false);
+  assert.equal(bridge.start(), false);
+  assert.ok(errors.length > 0);
+  await new Promise((resolve) => setTimeout(resolve, 1050));
+  assert.equal(bridge.start(), true);
+  await waitUntil(() => exits === 2);
+});
+
+test('helper that never becomes ready is terminated and recoverable', async (t) => {
+  let exits = 0;
+  const errors = [];
+  const bridge = createNativeStatusItemBridge({
+    executablePath: process.execPath,
+    args: ['-e', 'setInterval(() => {}, 1000)'],
+    readyTimeoutMs: 100,
+    onError: (error) => errors.push(error.message),
+    onExit: () => { exits += 1; }
+  });
+  t.after(() => bridge.stop());
+  bridge.start();
+  assert.equal(bridge.isReady(), false);
+  await waitUntil(() => exits === 1);
+  assert.equal(bridge.isRunning(), false);
+  assert.ok(errors.includes('native status item ready timeout'));
+});
+
+test('old process exit cannot clear a replacement helper or emit its callbacks', async (t) => {
+  let exits = 0;
+  const bridge = createNativeStatusItemBridge({
+    executablePath: process.execPath,
+    args: ['-e', 'process.stdout.write("ready\\n"); setInterval(() => {}, 1000)'],
+    onExit: () => { exits += 1; }
+  });
+  t.after(() => bridge.stop());
+  bridge.start();
+  await waitUntil(() => bridge.isReady());
+  bridge.stop();
+  assert.equal(bridge.start(), true);
+  await waitUntil(() => bridge.isReady());
+  await new Promise((resolve) => setTimeout(resolve, 600));
+  assert.equal(bridge.isRunning(), true);
+  assert.equal(bridge.isReady(), true);
+  assert.equal(exits, 0);
+});
+
 test('resolves the executable inside the bundled status item app', () => {
   assert.equal(helperPath('/tmp/resources'), path.join(
     '/tmp/resources',
