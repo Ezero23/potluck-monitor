@@ -45,45 +45,29 @@ final class StatusItemDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc private func handleStatusItemClick(_ sender: NSStatusBarButton) {
-        if NSApp.currentEvent?.type == .rightMouseUp {
-            showMenu()
-            return
-        }
-
         let frame = sender.window?.frame ?? .zero
-        let screen = NSScreen.screens.first(where: { $0.frame.intersects(frame) }) ?? NSScreen.main
-        let top = screen.map { $0.frame.maxY - frame.maxY + $0.frame.minY } ?? 0
-        emit("toggle\t\(Int(frame.minX))\t\(Int(top))\t\(Int(frame.width))\t\(Int(frame.height))")
+        // Electron's global coordinates start at the primary screen's top-left.
+        // NSScreen.main follows focus; screens.first remains the primary screen.
+        let top = (NSScreen.screens.first?.frame.maxY ?? 0) - frame.maxY
+        let event = NSApp.currentEvent?.type == .rightMouseUp ? "menu" : "toggle"
+        emit("\(event)\t\(Int(frame.minX))\t\(Int(top))\t\(Int(frame.width))\t\(Int(frame.height))")
     }
-
-    private func showMenu() {
-        guard let item = statusItem, let button = item.button else { return }
-        let menu = NSMenu()
-        menu.addItem(menuItem("Open Potluck Monitor", action: #selector(openApp)))
-        menu.addItem(menuItem("Refresh Now", action: #selector(refresh)))
-        menu.addItem(.separator())
-        menu.addItem(menuItem("Settings…", action: #selector(openSettings)))
-        menu.addItem(menuItem("Quit Potluck Monitor", action: #selector(quitApp)))
-        item.menu = menu
-        button.performClick(nil)
-        item.menu = nil
-    }
-
-    private func menuItem(_ title: String, action: Selector) -> NSMenuItem {
-        let item = NSMenuItem(title: title, action: action, keyEquivalent: "")
-        item.target = self
-        return item
-    }
-
-    @objc private func openApp() { emit("open") }
-    @objc private func refresh() { emit("refresh") }
-    @objc private func openSettings() { emit("settings") }
-    @objc private func quitApp() { emit("quit") }
 
     private func handleCommand(_ line: String) {
-        if line == "test-click" {
+        if line.hasPrefix("display\t") {
+            guard let data = Data(base64Encoded: String(line.dropFirst(8))),
+                  let display = try? JSONDecoder().decode(Display.self, from: data) else { return }
             DispatchQueue.main.async { [weak self] in
-                self?.statusItem?.button?.performClick(nil)
+                guard let button = self?.statusItem?.button else { return }
+                button.title = display.title.isEmpty ? "" : " \(display.title)"
+                button.toolTip = display.tooltip
+                if let data = Data(base64Encoded: display.image), let image = NSImage(data: data),
+                   display.width.isFinite, display.height.isFinite,
+                   display.width > 0, display.height > 0 {
+                    image.size = NSSize(width: min(display.width, 1024), height: min(display.height, 64))
+                    image.isTemplate = display.template
+                    button.image = image
+                }
             }
             return
         }
@@ -99,6 +83,15 @@ final class StatusItemDelegate: NSObject, NSApplicationDelegate {
     private func emit(_ message: String) {
         FileHandle.standardOutput.write(Data("\(message)\n".utf8))
     }
+}
+
+private struct Display: Decodable {
+    let title: String
+    let tooltip: String
+    let image: String
+    let width: Double
+    let height: Double
+    let template: Bool
 }
 
 let app = NSApplication.shared

@@ -13,22 +13,25 @@ function trayBoundsAreVisible(bounds, displays = []) {
     const area = display?.bounds;
     const workArea = display?.workArea;
     if (!area || !workArea) return false;
-    const centerX = bounds.x + bounds.width / 2;
-    const withinHorizontal = centerX >= area.x && centerX < area.x + area.width;
+    const right = bounds.x + bounds.width;
+    const withinHorizontal = bounds.x >= area.x && right <= area.x + area.width;
+    // Electron can inset an off-screen AppKit status window by one point:
+    // AX (1883,-1,38,24) becomes (1884,0,36,22) on a 1920-wide screen.
+    const parkedAtTopRight = bounds.y <= area.y && right >= area.x + area.width;
     const menuBarBottom = Math.max(area.y, workArea.y) + 6;
-    return withinHorizontal && bounds.y >= area.y && bounds.y < menuBarBottom;
+    return withinHorizontal && !parkedAtTopRight && bounds.y >= area.y && bounds.y < menuBarBottom;
   });
 }
 
 function parseHelperEvent(line) {
   const parts = String(line || '').trim().split('\t');
-  if (parts[0] !== 'toggle') return { type: parts[0] || 'unknown' };
+  if (!['toggle', 'menu'].includes(parts[0])) return { type: parts[0] || 'unknown' };
   const values = parts.slice(1, 5).map(Number);
   const anchor = parts.length === 5 && parts.slice(1).every((value) => value.trim() !== '')
     && values.every(Number.isFinite) && values[2] > 0 && values[3] > 0
     ? { x: values[0], y: values[1], width: values[2], height: values[3] }
     : null;
-  return { type: 'toggle', anchor };
+  return { type: parts[0], anchor };
 }
 
 function helperPath(resourcesPath = process.resourcesPath) {
@@ -44,6 +47,7 @@ function helperPath(resourcesPath = process.resourcesPath) {
 function createNativeStatusItemBridge(options = {}) {
   let active = null;
   let pendingTitle = '';
+  let pendingDisplay = null;
   let retryAt = 0;
   let failures = 0;
 
@@ -87,9 +91,10 @@ function createNativeStatusItemBridge(options = {}) {
   const sendTitle = () => {
     const run = active;
     if (!run?.ready || run.terminating || !run.child.stdin.writable || run.child.stdin.destroyed) return;
-    const encoded = Buffer.from(pendingTitle, 'utf8').toString('base64');
+    const command = pendingDisplay ? 'display' : 'title';
+    const encoded = Buffer.from(pendingDisplay ? JSON.stringify(pendingDisplay) : pendingTitle, 'utf8').toString('base64');
     try {
-      run.child.stdin.write(`title\t${encoded}\n`, (error) => { if (error) streamError(run, error); });
+      run.child.stdin.write(`${command}\t${encoded}\n`, (error) => { if (error) streamError(run, error); });
     } catch (error) {
       streamError(run, error);
     }
@@ -128,6 +133,7 @@ function createNativeStatusItemBridge(options = {}) {
         clearTimeout(run.readyTimer);
         sendTitle();
       } else if (event.type === 'toggle' && event.anchor) options.onToggle?.(event.anchor);
+      else if (event.type === 'menu' && event.anchor) options.onContextMenu?.(event.anchor);
       else if (event.type === 'open') options.onOpen?.();
       else if (event.type === 'refresh') options.onRefresh?.();
       else if (event.type === 'settings') options.onSettings?.();
@@ -152,6 +158,17 @@ function createNativeStatusItemBridge(options = {}) {
     isReady: () => Boolean(active?.ready && !active.terminating),
     setTitle(value) {
       pendingTitle = String(value || '');
+      if (pendingDisplay) pendingDisplay.title = pendingTitle;
+      sendTitle();
+    },
+    setDisplay({ title = '', tooltip = '', image } = {}) {
+      const size = image?.getSize();
+      pendingDisplay = {
+        title: String(title), tooltip: String(tooltip),
+        image: image?.toPNG().toString('base64') || '',
+        width: size?.width || 20, height: size?.height || 20,
+        template: image?.isTemplateImage() === true
+      };
       sendTitle();
     },
     start,

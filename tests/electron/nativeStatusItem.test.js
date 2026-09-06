@@ -24,6 +24,9 @@ test('recognizes a status item inside the macOS menu bar', () => {
 
 test('rejects status items parked outside the visible menu bar', () => {
   assert.equal(trayBoundsAreVisible({ x: 1883, y: -1, width: 38, height: 24 }, displays), false);
+  assert.equal(trayBoundsAreVisible({ x: 1884, y: 0, width: 36, height: 22 }, displays), false);
+  assert.equal(trayBoundsAreVisible({ x: 1910, y: 3, width: 24, height: 24 }, displays), false);
+  assert.equal(trayBoundsAreVisible({ x: 1113, y: 0, width: 24, height: 24 }, displays), true);
   assert.equal(trayBoundsAreVisible({ x: -1, y: 1075, width: 38, height: 24 }, displays), false);
   assert.equal(trayBoundsAreVisible({ x: 0, y: 0, width: 0, height: 0 }, displays), false);
 });
@@ -50,6 +53,76 @@ async function waitUntil(predicate) {
     await new Promise((resolve) => setTimeout(resolve, 10));
   }
 }
+
+test('native menu events preserve global negative display coordinates', () => {
+  assert.deepEqual(parseHelperEvent('menu\t-1200\t-900\t40\t24'), {
+    type: 'menu', anchor: { x: -1200, y: -900, width: 40, height: 24 }
+  });
+  assert.deepEqual(parseHelperEvent('menu\t1'), { type: 'menu', anchor: null });
+});
+
+test('native display is replayed on readiness and restart, including PNG and template semantics', async (t) => {
+  const received = [];
+  const bridge = createNativeStatusItemBridge({
+    executablePath: process.execPath,
+    args: ['-e', `
+      const readline = require('node:readline');
+      readline.createInterface({input: process.stdin}).on('line', line => {
+        process.stderr.write(line + '\\n');
+        process.stdout.write('menu\\t-1200\\t-900\\t40\\t24\\n');
+      });
+      process.stdout.write('ready\\n');
+    `],
+    onError: (error) => received.push(error.message),
+    onContextMenu: (anchor) => { assert.equal(anchor.x, -1200); }
+  });
+  t.after(() => bridge.stop());
+  bridge.setDisplay({ title: '额度 75%', tooltip: '中文提示', image: {
+    getSize: () => ({ width: 100, height: 20 }),
+    toPNG: () => Buffer.from('png-fixture'), isTemplateImage: () => false
+  } });
+  const expected = { title: '额度 75%', tooltip: '中文提示', image: Buffer.from('png-fixture').toString('base64'), width: 100, height: 20, template: false };
+  for (let i = 0; i < 2; i += 1) {
+    bridge.start();
+    await waitUntil(() => received.length > i);
+    const [command, encoded] = received[i].split('\t');
+    assert.equal(command, 'display');
+    assert.deepEqual(JSON.parse(Buffer.from(encoded, 'base64').toString()), expected);
+    bridge.stop();
+  }
+});
+
+test('native right-click uses the same current translated menu and actions as Electron', (t) => {
+  const Module = require('node:module');
+  const original = Module._load;
+  let template;
+  let location;
+  let refreshes = 0;
+  let refreshing = false;
+  const image = { resize() { return this; }, setTemplateImage() {} };
+  const fake = {
+    nativeImage: { createFromPath: () => image },
+    Tray: class { setToolTip() {} on() {} },
+    Menu: { buildFromTemplate(items) { template = items; return { popup: (options) => { location = options; } }; } }
+  };
+  t.mock.method(Module, '_load', function (name, ...args) {
+    return name === 'electron' ? fake : original.call(this, name, ...args);
+  });
+  const { createTray } = require('../../src/electron/tray');
+  const tray = createTray({
+    getMenuState: () => ({ refreshing }),
+    translateMenu: (key) => key === 'trayMenu.refreshNow' ? '立即刷新' : key,
+    onRefresh: () => { refreshes += 1; }
+  });
+  tray.showContextMenuAt({ x: -1200, y: -900, height: 24 });
+  assert.equal(location, undefined);
+  assert.equal(template[0].label, '立即刷新');
+  template[0].click();
+  assert.equal(refreshes, 1);
+  refreshing = true;
+  tray.showContextMenuAt({ x: 0, y: 0, height: 24 });
+  assert.equal(template[0].enabled, false);
+});
 
 test('failed spawn clears running state and retries only after backoff', async (t) => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'potluck-spawn-failure-'));

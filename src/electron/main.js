@@ -2808,7 +2808,6 @@ function updateTrayDisplay() {
   const customImageMode = mode === 'custom' && providerTrayIcons.custom;
   const text = trayImageMode || customImageMode ? '' : limitText;
   if (process.platform === 'darwin') tray.setTitle(text);
-  nativeStatusItem?.setTitle(text);
   // Tooltip always shows a useful summary, even in icon-only mode where setTitle is blank.
   const tip = formatTrayText(latestStats, 'both', currency);
   tray.setToolTip(`Potluck Monitor - ${tip}`);
@@ -2821,6 +2820,11 @@ function updateTrayDisplay() {
     if (usageIconId) icon = providerTrayIcons[usageIconId];
   }
   tray.setImage(icon || getDefaultTrayIcon());
+  nativeStatusItem?.setDisplay({
+    title: text,
+    tooltip: `Potluck Monitor - ${tip}`,
+    image: icon || getDefaultTrayIcon()
+  });
 }
 
 function sendStatus(connected, extra) {
@@ -3231,6 +3235,7 @@ function startNativeStatusItemFallback() {
         nativeStatusItemAnchor = anchor;
         handleTrayToggle();
       },
+      onContextMenu: (anchor) => tray?.showContextMenuAt(anchor),
       onOpen: focusExistingWindow,
       onRefresh: () => { void refreshFromTray(); },
       onSettings: openSettingsFromTray,
@@ -5840,7 +5845,7 @@ app.whenReady().then(() => {
   });
   ipcMain.on('dashboard:minimize', (event) => { BrowserWindow.fromWebContents(event.sender)?.minimize(); });
   ipcMain.on('dashboard:close', (event) => { BrowserWindow.fromWebContents(event.sender)?.close(); });
-  app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
+  app.on('activate', focusExistingWindow);
   void (async () => {
     await probeMacAppSigning();
     await restorePreparedAppUpdate();

@@ -204,7 +204,7 @@ function createTray({
   tray.setToolTip('Token Monitor');
 
   tray.on('click', () => onToggle(tray));
-  tray.on('right-click', () => {
+  tray.showContextMenuAt = (anchor) => {
     const menu = Menu.buildFromTemplate(buildTrayMenuTemplate({
       state: typeof getMenuState === 'function' ? getMenuState() : {},
       onOpenSettings,
@@ -216,8 +216,12 @@ function createTray({
       onSwitchCodexAccount,
       translate: translateMenu
     }));
-    tray.popUpContextMenu(menu);
-  });
+    // Menu.popup defaults to the actual cursor. Explicit coordinates may be
+    // interpreted relative to the focused window rather than the status bar.
+    if (anchor) menu.popup();
+    else tray.popUpContextMenu(menu);
+  };
+  tray.on('right-click', () => tray.showContextMenuAt());
 
   return tray;
 }
