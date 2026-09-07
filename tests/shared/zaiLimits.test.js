@@ -53,6 +53,7 @@ test('parseZaiUsage maps quota windows to CodexBar labels and order', () => {
   assert.equal(usage.windows[0].label, '5-hour');
   assert.equal(usage.windows[0].usedPercent, 15);
   assert.equal(usage.windows[0].windowMinutes, 5 * 60);
+  assert.equal(usage.windows[0].resetsAt, undefined);
   assert.equal(usage.windows[1].kind, 'weekly');
   assert.equal(usage.windows[1].label, 'Weekly');
   assert.equal(usage.windows[1].usedPercent, 25);
@@ -86,6 +87,48 @@ test('parseZaiUsage treats a single 5-hour token limit as the old-plan session w
   assert.equal(usage.windows[1].windowMinutes, undefined);
   assert.equal(usage.windows[1].resetDescription, 'Monthly');
   assert.equal(usage.windows.find((window) => window.kind === 'weekly'), undefined);
+});
+
+test('parseZaiUsage keeps a live 5-hour nextResetTime and leaves unused 5-hour blank', () => {
+  const inUse = parseZaiUsage({
+    data: {
+      limits: [
+        {
+          type: 'CREDIT_LIMIT',
+          unit: 3,
+          number: 5,
+          usage: 2000,
+          remaining: 1200,
+          percentage: 40,
+          nextResetTime: 1788616800000
+        },
+        {
+          type: 'CREDIT_LIMIT',
+          unit: 6,
+          number: 1,
+          usage: 2000,
+          remaining: 0,
+          percentage: 100,
+          nextResetTime: 1788836659998
+        }
+      ]
+    }
+  });
+  assert.equal(inUse.windows[0].kind, 'session');
+  assert.equal(inUse.windows[0].resetsAt, new Date(1788616800000).toISOString());
+  assert.equal(inUse.windows[1].kind, 'weekly');
+  assert.equal(inUse.windows[1].resetsAt, new Date(1788836659998).toISOString());
+
+  const unused = parseZaiUsage({
+    data: {
+      limits: [
+        { type: 'CREDIT_LIMIT', unit: 3, number: 5, usage: 2000, remaining: 2000, percentage: 0 },
+        { type: 'CREDIT_LIMIT', unit: 6, number: 1, usage: 2000, remaining: 0, percentage: 100, nextResetTime: 1788836659998 }
+      ]
+    }
+  });
+  assert.equal(unused.windows[0].resetsAt, undefined);
+  assert.equal(unused.windows[1].resetsAt, new Date(1788836659998).toISOString());
 });
 
 test('parseZaiUsage reads official plan labels from subscription or quota payloads', () => {

@@ -20,6 +20,7 @@ const {
   namedApiProfileStatus,
   limitProviderProvenance,
   limitResetRemainingMs,
+  formatLimitResetLabel,
   limitProviderSettingsTags
 } = require('../../src/electron/renderer/limitProviderPresentation');
 const {
@@ -275,12 +276,24 @@ test('Limits and Home share reset expiry while preserving the existing reset cop
   const homeLimits = functionBody(app, 'renderHomeLimitModule', 'renderHomeModelModule');
 
   assert.match(formatReset, /limitResetRemainingMs\(value\)/);
-  assert.match(formatReset, /diffMs === 0\) return 'Reset now'/);
-  assert.match(formatReset, /return `Reset \$\{formatDuration\(diffMs\)\}`/);
-  assert.match(limitWindow, /window\?\.resetsAt\s*\? formatReset\(window\.resetsAt\)/);
-  assert.doesNotMatch(limitWindow, /formatReset\(window\?\.resetsAt\) \|\| window\?\.resetDescription/);
-  assert.match(homeLimits, /window\.resetsAt\s*\? resetAt \|\|/);
+  assert.match(formatReset, /home\.reset\.now/);
+  assert.match(formatReset, /home\.reset\.countdown/);
+  assert.match(limitWindow, /formatLimitResetLabel\(window\)/);
+  assert.match(homeLimits, /formatLimitResetLabel\(window\)/);
   assert.doesNotMatch(app, /noActiveLimitWindow|formatResetDuration/);
+});
+
+test('formatLimitResetLabel keeps a real timestamp and stays blank without one', () => {
+  const t = (key) => key;
+  assert.equal(formatLimitResetLabel({
+    kind: 'weekly',
+    resetsAt: '2026-09-08T03:04:19.998Z'
+  }, { formatReset: () => 'Reset 1d 12h', t }), 'Reset 1d 12h');
+  assert.equal(formatLimitResetLabel({
+    kind: 'session',
+    label: '5-hour',
+    windowMinutes: 300
+  }, { formatReset: () => '', t }), '');
 });
 
 test('capability tags explain how each provider is collected in settings', () => {

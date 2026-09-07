@@ -82,29 +82,64 @@
     return windows;
   }
 
-  const REQUIRED_MONTHLY_PROVIDER_IDS = new Set(['kimi', 'zai', 'zaiteam']);
+  function isCreditsMetric(window) {
+    return String(window?.metric || '').trim().toLowerCase() === 'credits';
+  }
 
-  function withRequiredCoverage(providerId, status, windows) {
-    const id = String(providerId || '').trim().toLowerCase();
-    if (!REQUIRED_MONTHLY_PROVIDER_IDS.has(id)) return windows;
-    if (!Array.isArray(windows) || windows.length === 0 || (status && status !== 'ok')) return windows;
-    if (windows.some((window) => window?.kind === 'billing' || window?.kind === 'monthly')) return windows;
-    return [
-      ...windows,
-      {
-        kind: 'billing',
-        label: 'Monthly',
-        showMeter: false,
-        detail: 'unavailable'
-      }
-    ];
+  function isPlaceholderUnavailable(window) {
+    return window?.showMeter === false && window?.detail === 'unavailable';
+  }
+
+  function isMonthlyQuotaWindow(window) {
+    if (window?.kind !== 'billing' && window?.kind !== 'monthly') return false;
+    if (isCreditsMetric(window)) return false;
+    return !isPlaceholderUnavailable(window);
+  }
+
+  // Keep the real 5-hour, weekly, and monthly windows together. Do not invent
+  // "Monthly unavailable", and do not drop the 5-hour bar just because monthly
+  // now exists.
+  function selectHomeLimitWindows(providerId, windows) {
+    const visible = windows.filter((window) => !isPlaceholderUnavailable(window));
+    if (providerId === 'antigravity') return visible.slice(0, 2);
+
+    const monthly = visible.find(isMonthlyQuotaWindow);
+    const weekly = visible.find((window) => window.kind === 'weekly');
+    const session = visible.find((window) => window.kind === 'session');
+    const credits = visible.find(isCreditsMetric);
+    const picked = [];
+    const add = (window) => {
+      if (window && !picked.includes(window)) picked.push(window);
+    };
+    if (monthly) {
+      add(session);
+      add(weekly);
+      add(monthly);
+      if (picked.length < 2) add(credits);
+    } else {
+      add(weekly);
+      add(session || credits);
+    }
+    // Other plans also expose rolling/model-specific windows. Keep those real
+    // windows rather than letting the preferred cadence list hide a blocker.
+    visible.forEach(add);
+    const exhausted = (window) => window.remainingPercent === 0 || window.remaining === 0
+      || window.planStatus === 'expired';
+    const selected = picked
+      .sort((a, b) => Number(exhausted(b)) - Number(exhausted(a)))
+      .slice(0, 3);
+    return selected.sort((a, b) => {
+      const aPriority = windowPriority.get(a.kind) ?? 10;
+      const bPriority = windowPriority.get(b.kind) ?? 10;
+      return aPriority - bPriority || a.index - b.index;
+    });
   }
 
   function homeLimitAccounts(accounts, limit = 3, { sort = 'remaining' } = {}) {
     return (accounts || [])
       .map((account, index) => {
         const providerId = String(account?.providerId || '').trim().toLowerCase();
-        const windows = accountWindows(account)
+        const mapped = accountWindows(account)
           .map((window, windowIndex) => {
             const credits = balanceDisplay.isCreditsWindow(window);
             return {
@@ -122,6 +157,7 @@
               currency: credits ? balanceDisplay.creditsCurrency(account, window) : '',
               resetsAt: window.resetsAt,
               resetDescription: window.resetDescription || '',
+              windowMinutes: finiteNumber(window.windowMinutes),
               value: window.value || '',
               planStatus: window.planStatus || '',
               showMeter: window.showMeter !== false,
@@ -133,27 +169,8 @@
             || window.planStatus === 'expired'
             || window.value
             || window.detail
-            || (window.metric === 'credits' && (window.remaining != null || window.detail)))
-          .sort((a, b) => {
-            if (providerId === 'antigravity') return a.index - b.index;
-            // Keep the two most constrained windows visible. A billing/monthly
-            // bucket can be exhausted while session/weekly buckets are still
-            // healthy; sorting only by kind would hide the real blocker.
-            const aUnavailable = a.showMeter === false && a.detail === 'unavailable';
-            const bUnavailable = b.showMeter === false && b.detail === 'unavailable';
-            if (aUnavailable !== bUnavailable) return aUnavailable ? -1 : 1;
-            const aRemaining = a.remainingPercent ?? 100;
-            const bRemaining = b.remainingPercent ?? 100;
-            return aRemaining - bRemaining
-              || (windowPriority.get(a.kind) ?? 10) - (windowPriority.get(b.kind) ?? 10)
-              || a.index - b.index;
-          })
-          .slice(0, 2)
-          .sort((a, b) => {
-            const aPriority = windowPriority.get(a.kind) ?? 10;
-            const bPriority = windowPriority.get(b.kind) ?? 10;
-            return aPriority - bPriority || a.index - b.index;
-          })
+            || (window.metric === 'credits' && (window.remaining != null || window.detail)));
+        const windows = selectHomeLimitWindows(providerId, mapped)
           .map(({ index: _index, ...window }) => window);
         if (windows.length === 0) return null;
         return {
@@ -285,7 +302,7 @@
           providerId: id,
           name: typeof accountName === 'function' ? accountName(provider, index, providerEntries) : label,
           color: colors[id] || colors.default || '',
-          windows: withRequiredCoverage(id, provider.status, providerWindows),
+          windows: providerWindows,
           balance: provider.balance || null
         });
       });
@@ -449,7 +466,7 @@
   }
 
   return {
-    withRequiredCoverage,
+    selectHomeLimitWindows,
     homeLimitAccounts,
     homeLimitAccountsForProviders,
     homeModelRows,

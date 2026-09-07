@@ -2610,6 +2610,29 @@ html.is-windows .settings-panel select option {
 .home-device-badge {
   flex: 0 0 auto;
 }
+.home-rotation {
+  min-width: 0;
+  margin-bottom: 2px;
+  color: var(--text);
+  font-size: 11px;
+  line-height: 1.35;
+}
+.home-rotation-line {
+  overflow-wrap: anywhere;
+}
+.home-rotation details { margin-top: 4px; }
+.home-rotation summary { cursor: pointer; color: var(--muted); }
+.home-rotation details > label { display: flex; align-items: center; gap: 6px; margin: 6px 0; }
+.home-rotation select {
+  flex: 1;
+  min-width: 0;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 4px;
+}
+.home-rotation [role="status"] { margin-left: 6px; }
 .home-limit-account {
   display: grid;
   min-width: 0;
@@ -2630,6 +2653,10 @@ html.is-windows .settings-panel select option {
   gap: 12px;
 }
 .home-limit-window:only-child {
+  grid-column: 1 / -1;
+  max-width: none;
+}
+.home-limit-window:nth-child(3):last-child {
   grid-column: 1 / -1;
   max-width: none;
 }

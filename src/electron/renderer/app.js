@@ -126,6 +126,7 @@ const limitProviderOrderApi = window.TokenMonitorLimitProviderOrder;
 const limitProviderPresentationApi = window.TokenMonitorLimitProviderPresentation;
 const limitProviderSummaryApi = window.TokenMonitorLimitProviderSummary;
 const quotaForecastApi = window.TokenMonitorQuotaForecast;
+const quotaRotationApi = window.TokenMonitorQuotaRotation;
 const quotaRiskApi = window.TokenMonitorQuotaRisk;
 const appUpdatePresentationApi = window.TokenMonitorAppUpdatePresentation;
 const accountIdentityApi = window.TokenMonitorAccountIdentity;
@@ -834,8 +835,12 @@ function formatPercent(value) { return Number.isFinite(Number(value)) ? `${Math.
 function formatReset(value) {
   const diffMs = limitProviderPresentationApi.limitResetRemainingMs(value);
   if (diffMs === null) return '';
-  if (diffMs === 0) return 'Reset now';
-  return `Reset ${formatDuration(diffMs)}`;
+  if (diffMs === 0) return t('home.reset.now');
+  return t('home.reset.countdown', { value: formatDuration(diffMs) });
+}
+
+function formatLimitResetLabel(window) {
+  return limitProviderPresentationApi.formatLimitResetLabel(window, { formatReset, t });
 }
 function formatDuration(ms) {
   const totalMinutes = Math.max(0, Math.round(ms / 60000));
@@ -2646,9 +2651,7 @@ function limitWindowNode(label, window, color, tone = 1, valueOverride = null, d
   const meter = limitMeterNode(color, fillPercent, tone, meterRemaining, meterUsed, showUsed);
   const reset = document.createElement('div');
   reset.className = 'limit-reset';
-  const resetText = window?.resetsAt
-    ? formatReset(window.resetsAt)
-    : window?.resetDescription || '';
+  const resetText = formatLimitResetLabel(window);
   if (detailText) {
     // Keep the reset text left-aligned (consistent with every other provider)
     // and add the absolute count on the right, under the top-line percentage.
@@ -2982,16 +2985,6 @@ function renderLimitProviderHead(id, label, provider, color, options = {}) {
 }
 
 function renderProviderWindows(provider, color) {
-  if (typeof homeOverviewApi?.withRequiredCoverage === 'function') {
-    provider = {
-      ...provider,
-      windows: homeOverviewApi.withRequiredCoverage(
-        provider.provider,
-        provider.status,
-        Array.isArray(provider.windows) ? provider.windows : []
-      )
-    };
-  }
   const windows = document.createElement('div');
   windows.className = 'limit-windows';
   if (provider.provider === 'codex') {
@@ -4822,6 +4815,14 @@ function homeLimitWindowLabel(window, providerId = '', visibleWindows = []) {
   const compactLabel = limitProviderPresentationApi.limitProviderCompactWindowLabel(providerId, window, visibleWindows);
   if (compactLabel) return compactLabel;
   const explicitLabel = String(window?.label || '').trim();
+  const explicitKey = {
+    '5-hour': 'home.limit.fiveHour',
+    Session: 'home.limit.session',
+    Weekly: 'home.limit.weekly',
+    Billing: 'home.limit.billing',
+    Monthly: 'home.limit.monthly'
+  }[explicitLabel];
+  if (explicitKey) return t(explicitKey);
   // When several windows share a kind (e.g. Codex main quota vs. its Code
   // Review bucket), the kind name alone cannot tell them apart.
   if (explicitLabel && visibleWindows.filter((entry) => entry?.kind === window.kind).length > 1) {
@@ -4923,15 +4924,93 @@ function renderHomeWeeklyModule() {
   return module;
 }
 
+function homeRotationLine() {
+  if (!quotaRotationApi) return '';
+  const rotation = quotaRotationApi.buildQuotaRotation(state.stats?.limits?.providers || [], {
+    ...quotaRotationApi.normalizeRotationPreferences(state.settings?.quotaRotation),
+    blockedPoolKeys: state.stats?.rotationBlockedPoolKeys || [],
+    labelFor: (provider) => {
+      const id = String(provider?.provider || '').trim().toLowerCase();
+      return LIMIT_PROVIDERS.find((entry) => entry.id === id)?.label || id;
+    }
+  });
+  return quotaRotationApi.formatRotationLine(rotation, t);
+}
+
 function renderHomeLimitModule() {
   const { module, body } = homeModuleShell('limits', t('home.limits'), 'limits');
   const rows = homeLimitRows();
-  if (rows.length === 0) {
+  const rotationLine = homeRotationLine();
+  const accounts = quotaRotationApi?.rotationAccounts(state.stats?.limits?.providers || []) || [];
+  if (rows.length === 0 && !rotationLine && accounts.length === 0) {
     const empty = document.createElement('div');
     empty.className = 'home-module-empty';
     empty.textContent = t('home.noLimits');
     body.append(empty);
     return module;
+  }
+  if (rotationLine || accounts.length) {
+    const banner = document.createElement('div');
+    banner.className = 'home-rotation';
+    const line = document.createElement('div');
+    line.className = 'home-rotation-line';
+    line.textContent = rotationLine || t('home.rotation.unavailable');
+    banner.append(line);
+    const prefs = quotaRotationApi.normalizeRotationPreferences(state.settings?.quotaRotation);
+    const details = document.createElement('details');
+    details.open = state.rotationControlsOpen === true;
+    details.addEventListener('toggle', () => { state.rotationControlsOpen = details.open; });
+    const summary = document.createElement('summary');
+    summary.textContent = t('home.rotation.controls');
+    details.append(summary);
+    const scopeNote = document.createElement('p');
+    scopeNote.textContent = t('home.rotation.scope');
+    details.append(scopeNote);
+    const label = document.createElement('label');
+    label.textContent = t('home.rotation.current');
+    const select = document.createElement('select');
+    select.addEventListener('blur', () => { queueMicrotask(renderHomeIfVisible); });
+    select.append(new Option(t('home.rotation.auto'), ''));
+    for (const account of accounts) select.append(new Option(account.name, account.key));
+    if (prefs.currentPoolKey && !accounts.some((account) => account.key === prefs.currentPoolKey)) {
+      select.append(new Option(t('home.rotation.missing'), prefs.currentPoolKey));
+    }
+    select.value = prefs.currentPoolKey;
+    label.append(select);
+    const notificationLabel = document.createElement('label');
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.checked = prefs.notifications;
+    notificationLabel.append(checkbox, document.createTextNode(t('home.rotation.notifications')));
+    const mute = document.createElement('button');
+    mute.type = 'button';
+    mute.textContent = t(prefs.mutedUntil > Date.now() ? 'home.rotation.unmute' : 'home.rotation.mute');
+    const feedback = document.createElement('span');
+    feedback.setAttribute('role', 'status');
+    const persist = async (patch) => {
+      state.rotationSaving = true;
+      select.disabled = checkbox.disabled = mute.disabled = true;
+      try {
+        await saveSettings({ quotaRotation: { ...quotaRotationApi.normalizeRotationPreferences(state.settings?.quotaRotation), ...patch } });
+        feedback.textContent = t('home.rotation.saved');
+      } catch (_) {
+        feedback.textContent = t('home.rotation.saveFailed');
+      } finally {
+        const saved = quotaRotationApi.normalizeRotationPreferences(state.settings?.quotaRotation);
+        select.value = saved.currentPoolKey;
+        checkbox.checked = saved.notifications;
+        mute.textContent = t(saved.mutedUntil > Date.now() ? 'home.rotation.unmute' : 'home.rotation.mute');
+        line.textContent = homeRotationLine() || t('home.rotation.unavailable');
+        select.disabled = checkbox.disabled = mute.disabled = false;
+        state.rotationSaving = false;
+      }
+    };
+    select.addEventListener('change', () => { void persist({ currentPoolKey: select.value }); });
+    checkbox.addEventListener('change', () => { void persist({ notifications: checkbox.checked }); });
+    mute.addEventListener('click', () => { void persist({ mutedUntil: state.settings?.quotaRotation?.mutedUntil > Date.now() ? 0 : Date.now() + 3600000 }); });
+    details.append(label, notificationLabel, mute, feedback);
+    banner.append(details);
+    body.append(banner);
   }
   for (const row of rows) {
     const item = document.createElement('div');
@@ -4969,14 +5048,9 @@ function renderHomeLimitModule() {
       }
       line.append(label, value);
       metric.append(line);
-      const resetAt = formatReset(window.resetsAt);
       const resetText = document.createElement('span');
       resetText.className = 'home-limit-reset';
-      const resetLabel = window.resetsAt
-        ? resetAt || '\u00a0'
-        : window.resetDescription
-        ? t('home.reset', { value: window.resetDescription })
-        : '\u00a0';
+      const resetLabel = formatLimitResetLabel(window) || '\u00a0';
       const periodLabel = limitProviderPresentationApi.limitProviderCompactWindowPeriodLabel(row.providerId, window, row.windows);
       resetText.textContent = periodLabel && resetLabel !== '\u00a0' ? `${periodLabel} · ${resetLabel}` : resetLabel;
       metric.append(resetText);
@@ -5642,6 +5716,7 @@ function renderPotluckGatewayCard() {
 
 function renderHome() {
   if (!els.homePanel) return;
+  if (state.rotationSaving || document.activeElement?.matches?.('.home-rotation select')) return;
   try {
     // The previous scroller (and its ResizeObserver) is about to be replaced; drop the
     // observer so at most one is live and it is gone if the trends module disappears,

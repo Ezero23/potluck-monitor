@@ -5,6 +5,7 @@ const test = require('node:test');
 
 const {
   aggregateLimits,
+  carryForwardFutureResets,
   LIMITS_SCHEMA_VERSION,
   mergeCodexTransientWindows,
   normalizeLimitProvider,
@@ -1575,4 +1576,71 @@ test('v2 writers remain readable by the v1 status field', () => {
   assert.equal(v1Reader.connectionStatus, 'ok');
   assert.equal(v1Reader.quotaStatus, 'fresh');
   assert.equal(v1Reader.windows[0].resetsAt, '2026-08-19T12:00:00.000Z');
+});
+
+test('carryForwardFutureResets keeps a still-future reset when an in-use row omits it', () => {
+  const nowMs = Date.parse('2026-09-06T05:00:00.000Z');
+  const next = carryForwardFutureResets(
+    [
+      { kind: 'session', label: '5-hour', usedPercent: 35, remainingPercent: 65 },
+      { kind: 'weekly', label: 'Weekly', remainingPercent: 0, resetsAt: '2026-09-08T03:04:19.998Z' }
+    ],
+    [
+      { kind: 'session', label: '5-hour', remainingPercent: 40, resetsAt: '2026-09-06T08:00:00.000Z' },
+      { kind: 'weekly', label: 'Weekly', remainingPercent: 10, resetsAt: '2026-09-01T00:00:00.000Z' }
+    ],
+    nowMs
+  );
+  assert.equal(next[0].resetsAt, '2026-09-06T08:00:00.000Z');
+  assert.equal(next[1].resetsAt, '2026-09-08T03:04:19.998Z');
+});
+
+test('carryForwardFutureResets drops an already-passed reset instead of inventing a new one', () => {
+  const next = carryForwardFutureResets(
+    [{ kind: 'session', label: '5-hour', usedPercent: 20 }],
+    [{ kind: 'session', label: '5-hour', resetsAt: '2026-09-06T04:00:00.000Z' }],
+    Date.parse('2026-09-06T05:00:00.000Z')
+  );
+  assert.equal(next[0].resetsAt, undefined);
+});
+
+test('carryForwardFutureResets does not keep a previous reset after the window recovers', () => {
+  const next = carryForwardFutureResets(
+    [{ kind: 'session', label: '5-hour', usedPercent: 0, remainingPercent: 100 }],
+    [{ kind: 'session', label: '5-hour', usedPercent: 40, resetsAt: '2026-09-06T08:00:00.000Z' }],
+    Date.parse('2026-09-06T05:00:00.000Z')
+  );
+  assert.equal(next[0].resetsAt, undefined);
+});
+
+test('carryForwardFutureResets treats null or blank usage as unknown rather than unused', () => {
+  const reset = '2026-09-06T08:00:00.000Z';
+  for (const usedPercent of [null, undefined, '', ' ']) {
+    const [next] = carryForwardFutureResets(
+      [{ kind: 'session', label: '5-hour', usedPercent, remainingPercent: 40 }],
+      [{ kind: 'session', label: '5-hour', resetsAt: reset }],
+      Date.parse('2026-09-06T05:00:00.000Z')
+    );
+    assert.equal(next.resetsAt, reset);
+  }
+});
+
+test('carryForwardFutureResets does not transfer resets between different model labels', () => {
+  const [next] = carryForwardFutureResets(
+    [{ kind: 'session', label: 'Model B', usedPercent: 40 }],
+    [{ kind: 'session', label: 'Model A', resetsAt: '2026-09-06T08:00:00.000Z' }],
+    Date.parse('2026-09-06T05:00:00.000Z')
+  );
+  assert.equal(next.resetsAt, undefined);
+});
+
+test('carryForwardFutureResets matches the exact model and rejects ambiguous duplicates', () => {
+  const previous = [
+    { kind: 'session', label: 'Model A', resetsAt: '2026-09-06T07:00:00.000Z' },
+    { kind: 'session', label: 'Model B', resetsAt: '2026-09-06T08:00:00.000Z' }
+  ];
+  const row = { kind: 'session', label: 'Model B', usedPercent: 40 };
+  const nowMs = Date.parse('2026-09-06T05:00:00.000Z');
+  assert.equal(carryForwardFutureResets([row], previous, nowMs)[0].resetsAt, previous[1].resetsAt);
+  assert.equal(carryForwardFutureResets([row], [...previous, previous[1]], nowMs)[0].resetsAt, undefined);
 });

@@ -9,7 +9,7 @@ const {
   probeLimitProvider,
   providerPhysicalBoundMs
 } = require('./limitCollector');
-const { normalizeLimitProvider, normalizeLimitsSummary } = require('./limits');
+const { carryForwardFutureResets, normalizeLimitProvider, normalizeLimitsSummary } = require('./limits');
 const {
   nextLimitsResetBoundary,
   pruneAttemptedResetBoundaries
@@ -537,6 +537,10 @@ function createLimitsRuntime(initialOptions = {}, deps = {}) {
       lastAttempt: null
     };
     if (status === 'ok') {
+      const previousWindows = existing.lastGood?.windows;
+      row = previousWindows
+        ? { ...row, windows: carryForwardFutureResets(row.windows, previousWindows, now()) }
+        : row;
       existing.lastGood = row;
     } else if (!LAST_GOOD_RETAIN_STATUSES.has(status)) {
       existing.lastGood = null;

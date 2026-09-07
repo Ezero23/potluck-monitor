@@ -213,7 +213,16 @@ function zaiWindow(limit, { kind, label, fallbackResetAt = null, includeWindowMi
   const usedPercent = zaiUsedPercent(limit);
   if (usedPercent === null) return null;
   const windowMinutes = zaiWindowMinutes(numberOrNull(limit.unit), numberOrNull(limit.number));
-  const resetsAt = toIso(limit.nextResetTime ?? limit.next_reset_time) || fallbackResetAt;
+  const resetsAt = toIso(
+    limit.nextResetTime
+    ?? limit.next_reset_time
+    ?? limit.resetTime
+    ?? limit.reset_time
+    ?? limit.resetAt
+    ?? limit.reset_at
+    ?? limit.nextResetAt
+    ?? limit.next_reset_at
+  ) || fallbackResetAt;
   const window = {
     kind,
     label,

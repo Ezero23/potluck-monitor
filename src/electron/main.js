@@ -139,6 +139,7 @@ const {
   normalizeMimoCookieHeader
 } = require('../shared/mimoLimits');
 const { historyPreview, historyRevision } = require('../shared/history');
+const { buildQuotaRotation, formatRotationLine, normalizeRotationPreferences, createRotationObserver } = require('../shared/quotaRotation');
 const { readSessionDetail } = require('../shared/sessionDetail');
 const linuxAutostart = require('./linuxAutostart');
 const { codexAccountIdForProvider, localLiveCodexProvider } = require('./renderer/accountIdentity');
@@ -364,6 +365,7 @@ function defaultSettings() {
     showTrayIcon: true,
     trayMode: false,
     trayContent: 'tokens',
+    quotaRotation: normalizeRotationPreferences(),
     trayCustomLayout: createDefaultTrayLayout(),
     windowToggleShortcut: '',
     currency: normalizeCurrency(process.env.TOKEN_MONITOR_CURRENCY || 'USD'),
@@ -2255,6 +2257,51 @@ let nativeStatusItemTimer = null;
 let nativeStatusItemHealthTimer = null;
 let nativeStatusItemAnchor = null;
 let latestStats = null;
+const rotationObserver = createRotationObserver();
+let rotationTimer = null;
+let rotationReviewAt = 0;
+let rotationReviewBusy = false;
+let rotationReviewScopes = [];
+
+function updateRotationAdvice() {
+  const providers = latestStats?.limits?.providers || [];
+  const preferences = normalizeRotationPreferences(settings.quotaRotation);
+  const now = Date.now();
+  const events = rotationObserver.observe(providers, preferences, now);
+  if (latestStats) latestStats.rotationBlockedPoolKeys = rotationObserver.blockedPoolKeys();
+  const plan = buildQuotaRotation(providers, { ...preferences, now, blockedPoolKeys: rotationObserver.blockedPoolKeys() });
+  rotationReviewScopes = plan.steps.slice(0, 2).map((slot) => slot.refreshScope);
+  const next = plan.nextCheckAt || now + 900000;
+  rotationReviewAt = rotationReviewAt ? Math.min(rotationReviewAt, next) : next;
+  for (const event of events) {
+    if (!Notification.isSupported()) continue;
+    try {
+      const notification = new Notification({
+        title: translate(trayMenuLocale(), 'rotation.notification.title'),
+        body: translate(trayMenuLocale(), `rotation.notification.${event.type}`, { provider: event.provider })
+      });
+      notification.on('click', focusExistingWindow);
+      notification.show();
+    } catch (error) { console.warn(`[rotation] notification failed: ${error.message}`); }
+  }
+}
+
+async function reviewRotationIfDue() {
+  if (rotationReviewBusy || !rotationReviewAt || Date.now() < rotationReviewAt) return;
+  rotationReviewBusy = true;
+  rotationReviewAt = Date.now() + 900000;
+  try {
+    if (deviceRuntimeHandle && (mode === 'local' || !isExternalAgentActive())) {
+      for (const scope of rotationReviewScopes) await deviceRuntimeHandle.refreshLimits(scope, 'rotation-review');
+    }
+    const stats = await fetchStats();
+    if (stats) sendPush({ event: 'stats', data: { stats, mode, reason: 'rotation-review' } });
+  } catch (error) {
+    console.warn(`[rotation] review failed: ${error.message}`);
+  } finally {
+    rotationReviewBusy = false;
+  }
+}
 let trayRefreshInFlight = false;
 let trayCodexActiveAccountId = '';
 let trayCodexPendingAccountId = '';
@@ -2703,6 +2750,7 @@ function sendPush(payload) {
   if (payload?.data?.stats) {
     injectLocalDeviceStatus(payload.data.stats);
     latestStats = payload.data.stats;
+    updateRotationAdvice();
     syncTrayCodexActiveAccount();
     updateTrayDisplay();
     if (settings.exportAutoEnabled && settings.exportDir && Date.now() - lastExportAt >= exportIntervalMs()) {
@@ -2809,7 +2857,8 @@ function updateTrayDisplay() {
   const text = trayImageMode || customImageMode ? '' : limitText;
   if (process.platform === 'darwin') tray.setTitle(text);
   // Tooltip always shows a useful summary, even in icon-only mode where setTitle is blank.
-  const tip = formatTrayText(latestStats, 'both', currency);
+  const rotation = formatRotationLine(buildQuotaRotation(latestStats?.limits?.providers || [], { ...normalizeRotationPreferences(settings.quotaRotation), blockedPoolKeys: rotationObserver.blockedPoolKeys() }), (key, params) => translate(trayMenuLocale(), key, params), 'tray');
+  const tip = [formatTrayText(latestStats, 'both', currency), rotation].filter(Boolean).join(' · ');
   tray.setToolTip(`Potluck Monitor - ${tip}`);
   // Icon: rendered bars image in bar modes, otherwise the app icon.
   let icon = null;
@@ -3116,6 +3165,7 @@ function settingsForRenderer() {
   return {
     ...settings,
     ...redactedCredentials,
+    quotaRotation: normalizeRotationPreferences(settings.quotaRotation),
     zaiApiRegion: normalizeZaiApiRegion(settings?.zaiApiRegion || 'global'),
     zaiTeamOrganizationId: settings?.zaiTeamOrganizationId ? 'set' : '',
     zaiTeamProjectId: settings?.zaiTeamProjectId ? 'set' : '',
@@ -4658,6 +4708,8 @@ app.whenReady().then(() => {
     onSettingsChanged: () => { startMode(); pushSettingsToRenderer(); }
   });
   startMode();
+  rotationTimer = setInterval(() => { void reviewRotationIfDue(); }, 30000);
+  rotationTimer.unref?.();
   void hydrateCodexManagedWorkspaceLabels();
   rateCache = readRateCache();
   applyEffectiveRates();                 // use cache/defaults immediately, avoid first-paint gap
@@ -4801,6 +4853,7 @@ app.whenReady().then(() => {
         trayMode: patch.trayMode ?? settings.trayMode
       }),
       trayContent: normalizeTrayContent(patch.trayContent ?? settings.trayContent),
+      quotaRotation: normalizeRotationPreferences(patch.quotaRotation ?? settings.quotaRotation),
       trayCustomLayout: normalizeTrayLayout(patch.trayCustomLayout ?? settings.trayCustomLayout),
       floatingBubbleContent: normalizeTrayContent(patch.floatingBubbleContent ?? settings.floatingBubbleContent, 'icon'),
       floatingBubbleCustomLayout: normalizeTrayLayout(patch.floatingBubbleCustomLayout ?? settings.floatingBubbleCustomLayout),
@@ -4906,6 +4959,10 @@ app.whenReady().then(() => {
       applyEffectiveRates();               // sync: settingsForRenderer() below sees fresh effective map
       updateTrayDisplay();
       refreshExchangeRates();              // async: fetch if stale, then re-push
+    }
+    if (patch.quotaRotation !== undefined) {
+      updateRotationAdvice();
+      updateTrayDisplay();
     }
     pushSettingsToRenderer();
     return settingsForRenderer();
@@ -5016,7 +5073,10 @@ app.whenReady().then(() => {
     updateTrayDisplay();
     return true;
   });
-  ipcMain.handle('stats:get', (_event, options) => fetchStats(options));
+  ipcMain.handle('stats:get', async (_event, options) => {
+    const stats = await fetchStats(options);
+    return { ...stats, rotationBlockedPoolKeys: rotationObserver.blockedPoolKeys() };
+  });
   ipcMain.handle('limits:getSnapshot', (_event, options) => buildLocalLimitsSnapshot(options));
   ipcMain.handle('export:now', async () => {
     const result = await dialog.showOpenDialog({
@@ -5857,6 +5917,7 @@ app.whenReady().then(() => {
 });
 
 app.on('second-instance', focusExistingWindow);
+app.on('before-quit', () => { if (rotationTimer) clearInterval(rotationTimer); rotationTimer = null; });
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
 app.on('before-quit', () => { quitRequested = true; if (rateRefreshTimer) clearInterval(rateRefreshTimer); if (appUpdateBackgroundTimer) clearInterval(appUpdateBackgroundTimer); if (codexAuthRefreshTimer) clearInterval(codexAuthRefreshTimer); unregisterWindowToggleShortcut(); destroyTray(); potluckSupervisor.onAppQuit(settings); stopAll(); });
 for (const signal of ['SIGINT', 'SIGTERM', 'SIGHUP']) {

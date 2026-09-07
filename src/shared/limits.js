@@ -915,6 +915,33 @@ function windowInfoRank(window) {
     + (window?.remainingPercent !== null && window?.remainingPercent !== undefined ? 1 : 0);
 }
 
+function windowLooksUnused(window) {
+  const used = asNumber(window?.usedPercent);
+  if (used !== null) return used <= 0;
+  const remaining = asNumber(window?.remainingPercent);
+  if (remaining !== null) return remaining >= 100;
+  return false;
+}
+
+function carryForwardFutureResets(nextWindows, previousWindows, nowMs = Date.now()) {
+  const previous = Array.isArray(previousWindows) ? previousWindows : [];
+  return (Array.isArray(nextWindows) ? nextWindows : []).map((window) => {
+    if (window?.resetsAt || windowLooksUnused(window)) return window;
+    const kind = String(window?.kind || '');
+    const label = String(window?.label || '');
+    // A kind may describe several distinct model windows. Only an unambiguous
+    // exact label match can inherit a timestamp; cadence alone is not identity.
+    const matches = previous.filter((candidate) => (
+      String(candidate?.kind || '') === kind && String(candidate?.label || '') === label
+    ));
+    if (!kind || matches.length !== 1) return window;
+    const prev = matches[0];
+    const prevMs = Date.parse(prev?.resetsAt || '');
+    if (!Number.isFinite(prevMs) || prevMs <= Number(nowMs)) return window;
+    return { ...window, resetsAt: prev.resetsAt };
+  });
+}
+
 function mergeWindowListsByKind(rows) {
   const byKind = new Map();
   for (const row of rows) {
@@ -1092,6 +1119,7 @@ module.exports = {
   DEFAULT_LIMITS_REFRESH_MS,
   LIMITS_SCHEMA_VERSION,
   aggregateLimits,
+  carryForwardFutureResets,
   mergeCodexTransientWindows,
   normalizeLimitProvider,
   normalizeLimitsSummary,

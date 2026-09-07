@@ -219,6 +219,17 @@
     return remainingMs >= -Math.max(0, Number(resetNowGraceMs) || 0) ? 0 : null;
   }
 
+  // Home and Limits share this. Only a real timestamp becomes a countdown.
+  // Providers that omit nextResetTime (unused GLM 5-hour) stay blank on purpose.
+  function formatLimitResetLabel(window, { formatReset, t } = {}) {
+    const translate = typeof t === 'function' ? t : ((key) => key);
+    const stamp = window?.resetsAt || window?.resetAt;
+    if (!stamp) return '';
+    const text = typeof formatReset === 'function' ? formatReset(stamp) : '';
+    if (text) return text;
+    return translate('home.reset.awaiting');
+  }
+
   // The "live" Codex account is the one THIS device's Codex app/CLI is currently
   // signed into (sourceDetail app/cli/unknown). Managed accounts added inside
   // Potluck Monitor report sourceDetail 'managed' and are NOT live. A remote
@@ -417,6 +428,7 @@
     namedApiProfileStatus,
     limitProviderProvenance,
     limitResetRemainingMs,
+    formatLimitResetLabel,
     limitProviderSourceLabel,
     limitProviderStatusLabel,
     limitProviderSettingsTags

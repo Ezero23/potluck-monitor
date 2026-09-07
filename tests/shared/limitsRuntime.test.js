@@ -427,6 +427,48 @@ test('credential and account lifecycle changes clear an old provider cooldown', 
   }
 });
 
+test('a later ok refresh keeps a still-future 5-hour reset when an in-use row omits it', async () => {
+  const clock = fakeClock(Date.parse('2026-09-06T05:00:00.000Z'));
+  const results = [
+    [providerRow('zai', 'glm', 'GLM', {
+      windows: [{ kind: 'session', label: '5-hour', usedPercent: 40, resetsAt: '2026-09-06T08:00:00.000Z' }]
+    })],
+    [providerRow('zai', 'glm', 'GLM', {
+      windows: [{ kind: 'session', label: '5-hour', usedPercent: 35 }]
+    })]
+  ];
+  const runtime = createLimitsRuntime({ limitProviders: ['zai'] }, runtimeDeps({
+    now: clock.now,
+    probeProvider: async () => results.shift()
+  }));
+
+  await runtime.refresh({ provider: 'zai' }, 'startup');
+  await runtime.refresh({ provider: 'zai' }, 'interval');
+  assert.equal(runtime.getSnapshot().providers[0].windows[0].resetsAt, '2026-09-06T08:00:00.000Z');
+  runtime.stop();
+});
+
+test('a later ok refresh drops a previous 5-hour reset after the window recovers', async () => {
+  const clock = fakeClock(Date.parse('2026-09-06T05:00:00.000Z'));
+  const results = [
+    [providerRow('zai', 'glm', 'GLM', {
+      windows: [{ kind: 'session', label: '5-hour', usedPercent: 40, resetsAt: '2026-09-06T08:00:00.000Z' }]
+    })],
+    [providerRow('zai', 'glm', 'GLM', {
+      windows: [{ kind: 'session', label: '5-hour', usedPercent: 0 }]
+    })]
+  ];
+  const runtime = createLimitsRuntime({ limitProviders: ['zai'] }, runtimeDeps({
+    now: clock.now,
+    probeProvider: async () => results.shift()
+  }));
+
+  await runtime.refresh({ provider: 'zai' }, 'startup');
+  await runtime.refresh({ provider: 'zai' }, 'interval');
+  assert.equal(runtime.getSnapshot().providers[0].windows[0].resetsAt, null);
+  runtime.stop();
+});
+
 test('a transient failure retains matching lastGood windows with the latest status', async () => {
   const results = [
     [providerRow('kimi', 'account', 'Kimi', { updatedAt: '2026-07-21T00:00:00.000Z' })],

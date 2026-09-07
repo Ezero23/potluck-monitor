@@ -10,7 +10,6 @@ const {
   homeDeviceRows,
   homeLimitAccounts,
   homeLimitAccountsForProviders,
-  withRequiredCoverage,
   homeModelRows,
   homeToolRows,
   homeActivityWheelRoute,
@@ -130,12 +129,79 @@ test('homeLimitAccounts keeps an exhausted monthly bucket visible over healthier
   assert.equal(rows.length, 1);
   assert.deepEqual(rows[0].windows.map((window) => [window.kind, window.label, window.remainingPercent]), [
     ['session', '5-hour', 100],
+    ['weekly', 'Weekly', 100],
     ['billing', 'Monthly', 0]
   ]);
   assert.equal(rows[0].lowestRemaining, 0);
 });
 
-test('Home marks required Kimi, GLM, and GLM Team monthly coverage unavailable instead of implying the account is usable', () => {
+test('Home keeps 5-hour, weekly, and monthly when a real monthly window exists', () => {
+  const rows = homeLimitAccounts([
+    {
+      key: 'kimi:0',
+      providerId: 'kimi',
+      name: 'Kimi',
+      windows: [
+        { kind: 'session', label: '5-hour', usedPercent: 90 },
+        { kind: 'weekly', label: 'Weekly', usedPercent: 20 },
+        { kind: 'billing', label: 'Monthly', usedPercent: 40 }
+      ]
+    }
+  ]);
+
+  assert.deepEqual(rows[0].windows.map((window) => [window.kind, window.label, window.remainingPercent]), [
+    ['session', '5-hour', 10],
+    ['weekly', 'Weekly', 80],
+    ['billing', 'Monthly', 60]
+  ]);
+});
+
+test('Home keeps windowMinutes on unused session windows without inventing a reset', () => {
+  const [row] = homeLimitAccounts([{
+    key: 'zai:0',
+    providerId: 'zai',
+    name: 'GLM',
+    windows: [
+      { kind: 'session', label: '5-hour', usedPercent: 0, windowMinutes: 300 },
+      { kind: 'weekly', label: 'Weekly', usedPercent: 100, resetsAt: '2026-09-08T03:04:19.998Z' }
+    ]
+  }]);
+  assert.equal(row.windows[0].windowMinutes, 300);
+  assert.equal(row.windows[1].resetsAt, '2026-09-08T03:04:19.998Z');
+});
+
+test('Home keeps an exhausted rolling window alongside a healthy weekly window', () => {
+  const [row] = homeLimitAccounts([{
+    key: 'opencode:go',
+    providerId: 'opencode',
+    name: 'OpenCode Go',
+    windows: [
+      { kind: 'weekly', label: 'Weekly', usedPercent: 10 },
+      { kind: 'rolling', label: 'Rolling', usedPercent: 100 }
+    ]
+  }]);
+  assert.deepEqual(row.windows.map((window) => window.kind), ['weekly', 'rolling']);
+  assert.equal(row.lowestRemaining, 0);
+});
+
+test('Home never drops an exhausted fourth window in favor of healthy preferred cadences', () => {
+  const [row] = homeLimitAccounts([{
+    key: 'plan:1',
+    providerId: 'plan',
+    name: 'Plan',
+    windows: [
+      { kind: 'session', label: 'Session', usedPercent: 10 },
+      { kind: 'weekly', label: 'Weekly', usedPercent: 10 },
+      { kind: 'monthly', label: 'Monthly', usedPercent: 10 },
+      { kind: 'rolling', label: 'Rolling', usedPercent: 100 }
+    ]
+  }]);
+  assert.equal(row.windows.length, 3);
+  assert.equal(row.windows.some((window) => window.kind === 'rolling'), true);
+  assert.equal(row.lowestRemaining, 0);
+});
+
+test('Home falls back to weekly+session when monthly is missing, and does not invent unavailable', () => {
   const rows = homeLimitAccountsForProviders({
     providers: [
       {
@@ -179,29 +245,20 @@ test('Home marks required Kimi, GLM, and GLM Team monthly coverage unavailable i
     window.kind,
     window.label,
     window.remainingPercent,
-    window.showMeter,
     window.detail
   ])), [
     [
-      ['session', '5-hour', 100, true, ''],
-      ['billing', 'Monthly', null, false, 'unavailable']
+      ['session', '5-hour', 100, ''],
+      ['weekly', 'Weekly', 100, '']
     ],
     [
-      ['weekly', 'Weekly', 0, true, ''],
-      ['billing', 'Monthly', null, false, 'unavailable']
+      ['session', '5-hour', 100, ''],
+      ['weekly', 'Weekly', 0, '']
     ],
     [
-      ['session', '5-hour', 100, true, ''],
-      ['billing', 'Monthly', null, false, 'unavailable']
+      ['session', '5-hour', 100, '']
     ]
   ]);
-});
-
-test('withRequiredCoverage only fills monthly for coding-plan providers that hide it', () => {
-  const session = [{ kind: 'session', label: '5-hour', usedPercent: 0 }];
-  assert.equal(withRequiredCoverage('claude', 'ok', session).length, 1);
-  assert.equal(withRequiredCoverage('zaiteam', 'ok', session).some((window) => window.detail === 'unavailable'), true);
-  assert.equal(withRequiredCoverage('zaiteam', 'notConfigured', session).length, 1);
 });
 
 test('Home does not invent an unavailable monthly window for an unconfigured provider', () => {
