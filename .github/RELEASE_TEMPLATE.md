@@ -3,16 +3,14 @@
 ## What's changed
 
 <!-- app-update-notes:en:start -->
-### v0.2.15 interaction hotfix
-
-- Rotation preferences no longer bubble clicks into the quota card navigation. Selecting the current plan, toggling alerts and muting remain on Home.
-
 ### Added
 
 - **Subscription rotation advice:** Home and the menu bar share a current recommendation, a backup candidate, and a review time. Choose your current subscription and retain that preference across restarts. This is advice, not automatic switching; it never modifies keys or interrupts running tasks.
 - **Optional quota alerts:** disabled by default. Enable alerts for low quota on the selected subscription or fresh confirmation that previously exhausted windows have recovered. Local quiet hours are 22:00–08:00, the cooldown is 10 minutes, and a one-hour mute is available. Startup and cached samples do not trigger recovery notices.
 
 ### Fixed
+
+- **v0.2.15 interaction hotfix:** rotation preferences no longer bubble clicks into the quota card navigation. Selecting the current plan, toggling alerts and muting remain on Home.
 
 - **Trustworthy candidates:** require fresh, successful, attributable data. Exhausted weekly or monthly windows veto short-window headroom. Shared pools use the newest sample; conflicting latest samples are excluded. During the current app session, observed exhaustion remains blocking until fresh data explicitly confirms recovery—not when fields disappear or a countdown reaches zero.
 - **Honest quota labels:** GLM billing/MCP allowance is not its model Coding Plan monthly allowance. Missing monthly coverage remains unknown. Missing reset timestamps do not create invented countdowns; rolling or unconfirmed resets are not promised as exact switch times.
@@ -43,16 +41,14 @@ Tokscale is bundled. **Settings → Tokscale** shows its exact version and offer
 ## 更新内容
 
 <!-- app-update-notes:zh:start -->
-### v0.2.15 交互修复
-
-- 隔离轮换偏好的点击事件。选择当前套餐、开关额度提醒和静音时，不再误跳转至额度详情页。
-
 ### 新增
 
 - **套餐轮换建议：**主页和状态栏共用“当前建议、备用候选、复查时间”。可选择正在使用的套餐，并在重启后保留偏好。这是建议，不是自动切换，不修改 Key，也不打断正在执行的任务。
 - **可选额度提醒：**默认关闭。开启后，提醒所选套餐额度偏低，或此前耗尽的窗口经新数据确认恢复。本地时间 22:00–08:00 免打扰，提醒间隔至少 10 分钟，并提供静音一小时。启动和旧缓存不会触发恢复提醒。
 
 ### 修复
+
+- **v0.2.15 交互修复：**隔离轮换偏好的点击事件。选择当前套餐、开关额度提醒和静音时，不再误跳转至额度详情页。
 
 - **候选更可信：**要求新鲜、成功且可归属的数据。周／月耗尽可以否决短周期余量；同一额度池采用最新样本，最新样本冲突时排除。本次应用运行期间，已观察到的耗尽状态会阻止推荐，直到新数据明确确认恢复；字段消失、倒计时归零都不算恢复。
 - **额度标签不再混淆：**GLM 的 billing／MCP 额度不是模型 Coding Plan 总月额度。缺失月数据保持未知，缺少真实重置时间时不编造倒计时；滚动或未确认的重置不承诺精确切换时间。
