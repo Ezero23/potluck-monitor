@@ -4740,7 +4740,7 @@ function homeModuleShell(kind, title, viewId, meta = '') {
   module.setAttribute('role', 'button');
   module.setAttribute('aria-label', title);
   module.addEventListener('click', (event) => {
-    if (event.target.closest('.home-activity-scroll')) return;
+    if (event.target.closest('.home-activity-scroll, .home-rotation')) return;
     renderBreakdownChange(viewId, { fromHome: true });
   });
   module.addEventListener('keydown', (event) => {

@@ -3,6 +3,10 @@
 ## What's changed
 
 <!-- app-update-notes:en:start -->
+### v0.2.15 interaction hotfix
+
+- Rotation preferences no longer bubble clicks into the quota card navigation. Selecting the current plan, toggling alerts and muting remain on Home.
+
 ### Added
 
 - **Subscription rotation advice:** Home and the menu bar share a current recommendation, a backup candidate, and a review time. Choose your current subscription and retain that preference across restarts. This is advice, not automatic switching; it never modifies keys or interrupts running tasks.
@@ -18,15 +22,15 @@
 
 ## Download
 
-- **macOS Apple Silicon** — [potluck-monitor-0.2.14-arm64.dmg](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.14/potluck-monitor-0.2.14-arm64.dmg)
-- **macOS Intel** — [potluck-monitor-0.2.14-x64.dmg](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.14/potluck-monitor-0.2.14-x64.dmg)
-- **Windows installer** — [potluck-monitor-Setup-0.2.14.exe](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.14/potluck-monitor-Setup-0.2.14.exe)
-- **Windows portable** — [potluck-monitor-0.2.14.exe](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.14/potluck-monitor-0.2.14.exe)
-- **Linux** — [potluck-monitor-0.2.14.AppImage](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.14/potluck-monitor-0.2.14.AppImage)
+- **macOS Apple Silicon** — [potluck-monitor-0.2.15-arm64.dmg](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.15/potluck-monitor-0.2.15-arm64.dmg)
+- **macOS Intel** — [potluck-monitor-0.2.15-x64.dmg](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.15/potluck-monitor-0.2.15-x64.dmg)
+- **Windows installer** — [potluck-monitor-Setup-0.2.15.exe](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.15/potluck-monitor-Setup-0.2.15.exe)
+- **Windows portable** — [potluck-monitor-0.2.15.exe](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.15/potluck-monitor-0.2.15.exe)
+- **Linux** — [potluck-monitor-0.2.15.AppImage](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.15/potluck-monitor-0.2.15.AppImage)
 
 ### First launch and limitations
 
-**macOS:** drag the app from the DMG into Applications. macOS builds use an ad-hoc signature, not a Developer ID signature or Apple notarization. Gatekeeper may require approval. Verify that your download came from this repository's release and inspect system warnings; a “damaged” warning is not proof that quarantine is the only cause. Do not remove security attributes indiscriminately. Confirm **Settings → App Updates → Installed** shows `v0.2.14`.
+**macOS:** drag the app from the DMG into Applications. macOS builds use an ad-hoc signature, not a Developer ID signature or Apple notarization. Gatekeeper may require approval. Verify that your download came from this repository's release and inspect system warnings; a “damaged” warning is not proof that quarantine is the only cause. Do not remove security attributes indiscriminately. Confirm **Settings → App Updates → Installed** shows `v0.2.15`.
 
 Advice covers only returned quota windows, not guaranteed model availability or task completion. Missing Kimi/GLM monthly data is not an unlimited allowance. Task/model suitability and automatic routing are not implemented. Recovery history lasts for the current app session; preferences persist, but notification observation restarts silently after relaunch.
 
@@ -39,6 +43,10 @@ Tokscale is bundled. **Settings → Tokscale** shows its exact version and offer
 ## 更新内容
 
 <!-- app-update-notes:zh:start -->
+### v0.2.15 交互修复
+
+- 隔离轮换偏好的点击事件。选择当前套餐、开关额度提醒和静音时，不再误跳转至额度详情页。
+
 ### 新增
 
 - **套餐轮换建议：**主页和状态栏共用“当前建议、备用候选、复查时间”。可选择正在使用的套餐，并在重启后保留偏好。这是建议，不是自动切换，不修改 Key，也不打断正在执行的任务。
@@ -54,15 +62,15 @@ Tokscale is bundled. **Settings → Tokscale** shows its exact version and offer
 
 ## 下载
 
-- **macOS Apple Silicon** — [potluck-monitor-0.2.14-arm64.dmg](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.14/potluck-monitor-0.2.14-arm64.dmg)
-- **macOS Intel** — [potluck-monitor-0.2.14-x64.dmg](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.14/potluck-monitor-0.2.14-x64.dmg)
-- **Windows 安装包** — [potluck-monitor-Setup-0.2.14.exe](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.14/potluck-monitor-Setup-0.2.14.exe)
-- **Windows 便携版** — [potluck-monitor-0.2.14.exe](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.14/potluck-monitor-0.2.14.exe)
-- **Linux** — [potluck-monitor-0.2.14.AppImage](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.14/potluck-monitor-0.2.14.AppImage)
+- **macOS Apple Silicon** — [potluck-monitor-0.2.15-arm64.dmg](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.15/potluck-monitor-0.2.15-arm64.dmg)
+- **macOS Intel** — [potluck-monitor-0.2.15-x64.dmg](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.15/potluck-monitor-0.2.15-x64.dmg)
+- **Windows 安装包** — [potluck-monitor-Setup-0.2.15.exe](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.15/potluck-monitor-Setup-0.2.15.exe)
+- **Windows 便携版** — [potluck-monitor-0.2.15.exe](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.15/potluck-monitor-0.2.15.exe)
+- **Linux** — [potluck-monitor-0.2.15.AppImage](https://github.com/Ezero23/potluck-monitor/releases/download/v0.2.15/potluck-monitor-0.2.15.AppImage)
 
 ### 首次启动与限制
 
-**macOS：**从 DMG 将应用拖入 Applications。macOS 包采用 ad-hoc 签名，不是 Developer ID 签名，也未经 Apple 公证，因此 Gatekeeper 可能要求用户批准。请确认来自本仓库的正式发布并检查系统警告；“已损坏”不代表一定只是隔离标记，不应无条件删除安全属性。启动后到 **设置 → App Updates → Installed** 确认是 `v0.2.14`。
+**macOS：**从 DMG 将应用拖入 Applications。macOS 包采用 ad-hoc 签名，不是 Developer ID 签名，也未经 Apple 公证，因此 Gatekeeper 可能要求用户批准。请确认来自本仓库的正式发布并检查系统警告；“已损坏”不代表一定只是隔离标记，不应无条件删除安全属性。启动后到 **设置 → App Updates → Installed** 确认是 `v0.2.15`。
 
 建议只覆盖实际返回的额度窗口，不保证模型一定可调用或任务一定能完成。Kimi／GLM 缺少月数据不代表额度无限。任务／模型适配和自动路由尚未实现。恢复观察历史仅保留在本次应用运行期间；偏好会持久化，但重启后会静默建立提醒基线。
 

@@ -9,6 +9,21 @@ function read(relativePath) {
   return fs.readFileSync(path.join(__dirname, '../..', relativePath), 'utf8');
 }
 
+test('rotation controls do not navigate away through the quota card click handler', () => {
+  const vm = require('node:vm');
+  const source = read('src/electron/renderer/app.js');
+  const shell = source.slice(source.indexOf('function homeModuleShell('));
+  const handler = shell.match(/module\.addEventListener\('click', (\(event\) => \{[\s\S]*?\n  \})\);/)[1];
+  let navigations = 0;
+  const click = vm.runInNewContext(`(${handler})`, { viewId: 'limits', renderBreakdownChange: () => { navigations++; } });
+  for (const selector of ['.home-rotation', '.home-activity-scroll']) {
+    click({ target: { closest: (selectors) => selectors.split(', ').includes(selector) } });
+  }
+  assert.equal(navigations, 0);
+  click({ target: { closest: () => null } });
+  assert.equal(navigations, 1);
+});
+
 test('Home low-limit indicators are opt-in and persist through the settings boundary', () => {
   const main = read('src/electron/main.js');
   const app = read('src/electron/renderer/app.js');
