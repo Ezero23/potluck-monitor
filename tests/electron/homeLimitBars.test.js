@@ -13,7 +13,7 @@ test('rotation controls do not navigate away through the quota card click handle
   const vm = require('node:vm');
   const source = read('src/electron/renderer/app.js');
   const shell = source.slice(source.indexOf('function homeModuleShell('));
-  const handler = shell.match(/module\.addEventListener\('click', (\(event\) => \{[\s\S]*?\n  \})\);/)[1];
+  const handler = shell.match(/module\.addEventListener\('click', (\(event\) => \{[\s\S]*?\n {2}\})\);/)[1];
   let navigations = 0;
   const click = vm.runInNewContext(`(${handler})`, { viewId: 'limits', renderBreakdownChange: () => { navigations++; } });
   for (const selector of ['.home-rotation', '.home-activity-scroll']) {
