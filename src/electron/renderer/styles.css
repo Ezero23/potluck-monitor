@@ -2618,7 +2618,9 @@ html.is-windows .settings-panel select option {
   line-height: 1.35;
 }
 .home-rotation-line {
-  overflow-wrap: anywhere;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .home-rotation details { margin-top: 4px; }
 .home-rotation summary { cursor: pointer; color: var(--muted); }

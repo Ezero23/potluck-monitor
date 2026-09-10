@@ -24,6 +24,14 @@ test('rotation controls do not navigate away through the quota card click handle
   assert.equal(navigations, 1);
 });
 
+test('rotation headline stays compact while details are available on demand', () => {
+  const source = read('src/electron/renderer/app.js');
+  const { translate } = require('../../src/electron/renderer/i18n');
+  assert.match(source, /function homeRotationLine\(style = 'compact'\)/);
+  assert.match(source, /line\.title = homeRotationLine\('detail'\)/);
+  assert.equal(translate('zh-CN', 'home.rotation.compact', { current: 'Codex', time: '15:15' }), '建议用 Codex · 15:15 复查');
+});
+
 test('Home low-limit indicators are opt-in and persist through the settings boundary', () => {
   const main = read('src/electron/main.js');
   const app = read('src/electron/renderer/app.js');

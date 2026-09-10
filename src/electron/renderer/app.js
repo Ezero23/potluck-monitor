@@ -4924,7 +4924,7 @@ function renderHomeWeeklyModule() {
   return module;
 }
 
-function homeRotationLine() {
+function homeRotationLine(style = 'compact') {
   if (!quotaRotationApi) return '';
   const rotation = quotaRotationApi.buildQuotaRotation(state.stats?.limits?.providers || [], {
     ...quotaRotationApi.normalizeRotationPreferences(state.settings?.quotaRotation),
@@ -4934,7 +4934,12 @@ function homeRotationLine() {
       return LIMIT_PROVIDERS.find((entry) => entry.id === id)?.label || id;
     }
   });
-  return quotaRotationApi.formatRotationLine(rotation, t);
+  if (style === 'detail') return quotaRotationApi.formatRotationLine(rotation, t);
+  if (style === 'backup') return rotation.next ? t('home.rotation.backup', { next: rotation.next.name }) : '';
+  return rotation.current ? t('home.rotation.compact', {
+    current: rotation.current.name,
+    time: quotaRotationApi.formatRotationClock(rotation.nextCheckAt)
+  }) : '';
 }
 
 function renderHomeLimitModule() {
@@ -4955,6 +4960,7 @@ function renderHomeLimitModule() {
     const line = document.createElement('div');
     line.className = 'home-rotation-line';
     line.textContent = rotationLine || t('home.rotation.unavailable');
+    line.title = homeRotationLine('detail');
     banner.append(line);
     const prefs = quotaRotationApi.normalizeRotationPreferences(state.settings?.quotaRotation);
     const details = document.createElement('details');
@@ -4964,7 +4970,8 @@ function renderHomeLimitModule() {
     summary.textContent = t('home.rotation.controls');
     details.append(summary);
     const scopeNote = document.createElement('p');
-    scopeNote.textContent = t('home.rotation.scope');
+    scopeNote.textContent = homeRotationLine('backup') || t('home.rotation.advisory');
+    scopeNote.title = t('home.rotation.scope');
     details.append(scopeNote);
     const label = document.createElement('label');
     label.textContent = t('home.rotation.current');
@@ -4982,6 +4989,7 @@ function renderHomeLimitModule() {
     checkbox.type = 'checkbox';
     checkbox.checked = prefs.notifications;
     notificationLabel.append(checkbox, document.createTextNode(t('home.rotation.notifications')));
+    notificationLabel.title = t('home.rotation.quietHours');
     const mute = document.createElement('button');
     mute.type = 'button';
     mute.textContent = t(prefs.mutedUntil > Date.now() ? 'home.rotation.unmute' : 'home.rotation.mute');
@@ -5001,6 +5009,8 @@ function renderHomeLimitModule() {
         checkbox.checked = saved.notifications;
         mute.textContent = t(saved.mutedUntil > Date.now() ? 'home.rotation.unmute' : 'home.rotation.mute');
         line.textContent = homeRotationLine() || t('home.rotation.unavailable');
+        line.title = homeRotationLine('detail');
+        scopeNote.textContent = homeRotationLine('backup') || t('home.rotation.advisory');
         select.disabled = checkbox.disabled = mute.disabled = false;
         state.rotationSaving = false;
       }
