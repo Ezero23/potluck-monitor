@@ -11,6 +11,7 @@
 ### Fixed
 
 - **v0.2.15 interaction hotfix:** rotation preferences no longer bubble clicks into the quota card navigation. Selecting the current plan, toggling alerts and muting remain on Home.
+- **Home tunnel URL:** the copied OpenAI-compatible base URL now includes `/v1`, matching Potluck Proxy.
 
 - **Trustworthy candidates:** require fresh, successful, attributable data. Exhausted weekly or monthly windows veto short-window headroom. Shared pools use the newest sample; conflicting latest samples are excluded. During the current app session, observed exhaustion remains blocking until fresh data explicitly confirms recovery—not when fields disappear or a countdown reaches zero.
 - **Honest quota labels:** GLM billing/MCP allowance is not its model Coding Plan monthly allowance. Missing monthly coverage remains unknown. Missing reset timestamps do not create invented countdowns; rolling or unconfirmed resets are not promised as exact switch times.
@@ -49,6 +50,7 @@ Tokscale is bundled. **Settings → Tokscale** shows its exact version and offer
 ### 修复
 
 - **v0.2.15 交互修复：**隔离轮换偏好的点击事件。选择当前套餐、开关额度提醒和静音时，不再误跳转至额度详情页。
+- **主页隧道地址：**复制的 OpenAI 兼容 Base URL 现在带 `/v1`，与 Potluck Proxy 一致。
 
 - **候选更可信：**要求新鲜、成功且可归属的数据。周／月耗尽可以否决短周期余量；同一额度池采用最新样本，最新样本冲突时排除。本次应用运行期间，已观察到的耗尽状态会阻止推荐，直到新数据明确确认恢复；字段消失、倒计时归零都不算恢复。
 - **额度标签不再混淆：**GLM 的 billing／MCP 额度不是模型 Coding Plan 总月额度。缺失月数据保持未知，缺少真实重置时间时不编造倒计时；滚动或未确认的重置不承诺精确切换时间。
