@@ -127,6 +127,7 @@ const limitProviderPresentationApi = window.TokenMonitorLimitProviderPresentatio
 const limitProviderSummaryApi = window.TokenMonitorLimitProviderSummary;
 const quotaForecastApi = window.TokenMonitorQuotaForecast;
 const quotaRotationApi = window.TokenMonitorQuotaRotation;
+const openaiCompatibleBaseUrlApi = window.TokenMonitorOpenaiCompatibleBaseUrl;
 const quotaRiskApi = window.TokenMonitorQuotaRisk;
 const appUpdatePresentationApi = window.TokenMonitorAppUpdatePresentation;
 const accountIdentityApi = window.TokenMonitorAccountIdentity;
@@ -5595,7 +5596,10 @@ function renderPotluckGatewayCard() {
   if (!gatewayState && !tunnel && !apiKey) return null;
   // Match Potluck's Web endpoint page exactly: prefer the stable public
   // abc-tunnel.us address and fall back to the direct Quick Tunnel URL.
-  const tunnelUrl = tunnel?.enabled ? (tunnel.publicUrl || tunnel.tunnelUrl || '') : '';
+  // The stored origin is the tunnel host; OpenAI-compatible clients need /v1.
+  const tunnelUrl = openaiCompatibleBaseUrlApi.openaiCompatibleBaseUrl(
+    tunnel?.enabled ? (tunnel.publicUrl || tunnel.tunnelUrl || '') : ''
+  );
   const card = document.createElement('section');
   card.className = 'home-module potluck-gateway-card';
   const head = document.createElement('div');

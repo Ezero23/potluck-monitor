@@ -316,6 +316,7 @@ test('view switcher preserves click-to-cycle and direct selection without crowdi
 
 test('Potluck gateway settings migrate legacy defaults to the canonical port', () => {
   const main = readRendererFile('../main.js');
+  const html = readRendererFile('index.html');
   const renderer = readRendererFile('app.js');
   assert.match(main, /const POTLUCK_DEFAULT_PORT = 21023/);
   assert.match(main, /const POTLUCK_LEGACY_PORTS = new Set\(\[20129, 20131\]\)/);
@@ -329,6 +330,11 @@ test('Potluck gateway settings migrate legacy defaults to the canonical port', (
   assert.match(renderer, /state\.settings\.potluckPort \|\| 21023/);
   assert.match(renderer, /tunnel\.publicUrl \|\| tunnel\.tunnelUrl/);
   assert.doesNotMatch(renderer, /tunnel\.tunnelUrl \|\| tunnel\.publicUrl/);
+  assert.match(html, /src="\.\.\/\.\.\/shared\/openaiCompatibleBaseUrl\.js"/);
+  assert.match(renderer, /openaiCompatibleBaseUrlApi\.openaiCompatibleBaseUrl\(/);
+  const gatewayCard = functionBody(renderer, 'renderPotluckGatewayCard', 'renderHome');
+  assert.match(gatewayCard, /copyToClipboard\(tunnelUrl, copyUrl\)/);
+  assert.match(gatewayCard, /copyLines\.push\(`\$\{t\('home\.gateway\.tunnel'\)\}: \$\{tunnelUrl\}`\)/);
 });
 
 test('Home-launched secondary views expose an accessible return action', () => {
