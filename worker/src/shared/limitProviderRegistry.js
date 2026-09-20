@@ -52,6 +52,7 @@ const COLLECTED_PROVIDER_IDS = new Set([
   'qoder',
   'commandcode',
   'ollama',
+  'gemini-cli',
   'thirdparty'
 ]);
 

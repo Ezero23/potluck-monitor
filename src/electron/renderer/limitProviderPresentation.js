@@ -35,6 +35,7 @@
     volcengine: { api: 'API' },
     qoder: { web: 'Web' },
     commandcode: { api: 'API' },
+    'gemini-cli': { oauth: 'OAuth' },
     kimi: { api: 'API', web: 'Web' },
     ollama: { web: 'Web' },
     thirdparty: { api: 'API' }
@@ -65,6 +66,7 @@
     volcengine: ['Coding Plan', 'API key'],
     qoder: ['Manual login', 'Web'],
     commandcode: ['Credit Plan', 'API key'],
+    'gemini-cli': ['Auto', 'Local login'],
     kimi: ['Membership/Coding Plan', 'Web/API'],
     ollama: ['Manual login', 'Web'],
     thirdparty: ['Relay', 'API']

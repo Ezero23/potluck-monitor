@@ -69,6 +69,7 @@ const supportedToolOrder = [
   'Volcengine',
   'Qoder',
   'CommandCode',
+  'Gemini CLI',
   'Ollama',
   'Third-party APIs'
 ];
@@ -101,6 +102,7 @@ const supportedToolIdOrder = [
   'volcengine',
   'qoder',
   'commandcode',
+  'gemini-cli',
   'ollama',
   'newapi'
 ];
