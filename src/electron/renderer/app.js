@@ -85,6 +85,7 @@ const LIMIT_PROVIDERS = [
   { id: 'volcengine', label: 'Volcengine' },
   { id: 'qoder', label: 'Qoder' },
   { id: 'commandcode', label: 'CommandCode' },
+  { id: 'codebuddy', label: 'CodeBuddy' },
   { id: 'ollama', label: 'Ollama' },
   { id: 'thirdparty', label: 'Third-party APIs' },
   { id: 'gemini-cli', label: 'Gemini CLI' },

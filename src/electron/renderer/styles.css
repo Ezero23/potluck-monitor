@@ -3216,6 +3216,11 @@ html.is-windows .settings-panel select option {
   mask-image: url(../../../assets/icons/gemini.svg);
 }
 
+.limit-icon-codebuddy {
+  -webkit-mask-image: url(../../../assets/icons/codebuddy.svg);
+  mask-image: url(../../../assets/icons/codebuddy.svg);
+}
+
 .limit-icon-ollama {
   -webkit-mask-image: url(../../../assets/icons/ollama.svg);
   mask-image: url(../../../assets/icons/ollama.svg);

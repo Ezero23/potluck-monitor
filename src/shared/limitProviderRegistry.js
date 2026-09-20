@@ -48,6 +48,7 @@ const COLLECTED_PROVIDER_IDS = new Set([
   'volcengine',
   'qoder',
   'commandcode',
+  'codebuddy',
   'ollama',
   'gemini-cli',
   'thirdparty'
@@ -73,6 +74,7 @@ const CANONICAL_PROVIDER_IDS = Object.freeze([
   'volcengine',
   'qoder',
   'commandcode',
+  'codebuddy',
   'zaiteam',
   'kimi',
   'ollama',

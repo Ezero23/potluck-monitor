@@ -51,6 +51,7 @@ test('default provider order follows tracked tools, named services, then third-p
     'volcengine',
     'qoder',
     'commandcode',
+    'codebuddy',
     'ollama',
     'thirdparty',
     'gemini-cli',
