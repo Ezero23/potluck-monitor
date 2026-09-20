@@ -9,6 +9,13 @@ const { appVersion } = require('./appVersion');
 
 const DEFAULT_PROBE_TIMEOUT_MS = 8000;
 const DEFAULT_RPC_TIMEOUT_MS = 12000;
+// Pacing between same-source quota attempts. Every RetrieveUserQuotaSummary
+// carries forceRefresh, so the language server re-fetches quotas from Google on
+// each call; fanning that out across every running account in a burst is what
+// triggers Google's anti-abuse shadow restrictions (the failure 9router fixed
+// by serialising its multi-account background refreshes with jittered delays).
+const DEFAULT_INTER_ATTEMPT_PACE_MS = 1_000;
+const INTER_ATTEMPT_PACE_JITTER_MS = 500;
 
 function errorWithStatus(status, message) {
   const error = new Error(message || status);
@@ -695,6 +702,38 @@ async function detectedProcessInfos(deps) {
   return normalizeProcessInfos(await detectProcessInfos(deps));
 }
 
+function defaultPaceSleep(ms, signal) {
+  return new Promise((resolve) => {
+    if (signal?.aborted) {
+      resolve();
+      return;
+    }
+    const onAbort = () => {
+      clearTimeout(timer);
+      resolve();
+    };
+    const timer = setTimeout(() => {
+      signal?.removeEventListener?.('abort', onAbort);
+      resolve();
+    }, ms);
+    signal?.addEventListener?.('abort', onAbort, { once: true });
+  });
+}
+
+// Sleep between serial quota attempts, but never past the provider-wide
+// deadline: when the remaining budget cannot cover the delay, pacing is
+// skipped so the fallback attempt keeps its chance to run.
+async function paceBetweenAttempts(deadlineMs, deps) {
+  const configured = Number(deps.interAttemptPaceMs);
+  const injected = Number.isFinite(configured) && configured >= 0;
+  const baseMs = injected ? configured : DEFAULT_INTER_ATTEMPT_PACE_MS;
+  const jitterMs = injected ? 0 : Math.floor(Math.random() * INTER_ATTEMPT_PACE_JITTER_MS);
+  const delayMs = baseMs + jitterMs;
+  if (delayMs <= 0 || remainingMs(deadlineMs) < delayMs) return;
+  const sleep = deps.paceSleep || defaultPaceSleep;
+  await sleep(delayMs, deps.signal);
+}
+
 async function probe(deps = {}) {
   const probeTimeoutMs = Math.max(1, Number(deps.probeTimeoutMs) || DEFAULT_PROBE_TIMEOUT_MS);
   const probeDeadlineMs = Date.now() + probeTimeoutMs;
@@ -717,9 +756,15 @@ async function probe(deps = {}) {
       signal
     );
 
-    // Source priority is deliberate and independent of ps/PID order. Processes
-    // within one source are probed concurrently under the same provider-wide
-    // deadline, and grouped quota still wins before any legacy response.
+    // Source priority is deliberate and independent of ps/PID order. Endpoint
+    // discovery stays concurrent within one source (local-only work under the
+    // provider-wide deadline), but forced quota refreshes run serially with
+    // pacing between attempts and stop at the first success — each grouped
+    // quota call forces a Google refresh, so concurrent fan-out across
+    // accounts is an anti-abuse burst and the discarded results are wasted
+    // refreshes. The legacy (non-forced) RPCs run unpaced. Grouped quota
+    // still wins before any legacy response.
+    let attemptedForcedRefresh = false;
     for (const kind of PROCESS_KIND_ORDER) {
       const sourceInfos = infos.filter((info) => info.kind === kind);
       const prepared = await Promise.all(sourceInfos.map(async (info) => {
@@ -750,28 +795,28 @@ async function probe(deps = {}) {
       if (candidatesByProcess.length === 0) continue;
 
       const summaryDeadlineMs = Date.now() + Math.max(1, Math.floor(remainingMs(probeDeadlineMs) / 2));
-      const groupedResults = await Promise.all(candidatesByProcess.map((entry) => (
-        groupedQuotaFromCandidates(entry.candidates, call, {
+      for (const entry of candidatesByProcess) {
+        if (attemptedForcedRefresh) await paceBetweenAttempts(probeDeadlineMs, runtimeDeps);
+        attemptedForcedRefresh = true;
+        const grouped = await groupedQuotaFromCandidates(entry.candidates, call, {
           summaryDeadlineMs,
           probeDeadlineMs,
           signal
-        })
-      )));
-      throwIfAborted(signal);
-      const grouped = groupedResults.find((result) => result.snapshot);
-      if (grouped?.snapshot) return { ...grouped.snapshot, sourceDetail: kind };
-      for (const result of groupedResults) lastError = result.lastError || lastError;
+        });
+        throwIfAborted(signal);
+        if (grouped.snapshot) return { ...grouped.snapshot, sourceDetail: kind };
+        lastError = grouped.lastError || lastError;
+      }
 
-      const legacyResults = await Promise.all(candidatesByProcess.map((entry) => (
-        legacyQuotaFromCandidates(entry.candidates, call, {
+      for (const entry of candidatesByProcess) {
+        const legacy = await legacyQuotaFromCandidates(entry.candidates, call, {
           probeDeadlineMs,
           signal
-        })
-      )));
-      throwIfAborted(signal);
-      const legacy = legacyResults.find((result) => result.snapshot);
-      if (legacy?.snapshot) return { ...legacy.snapshot, sourceDetail: kind };
-      for (const result of legacyResults) lastError = result.lastError || lastError;
+        });
+        throwIfAborted(signal);
+        if (legacy.snapshot) return { ...legacy.snapshot, sourceDetail: kind };
+        lastError = legacy.lastError || lastError;
+      }
     }
     throw lastError;
   } finally {

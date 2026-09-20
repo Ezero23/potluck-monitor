@@ -538,6 +538,7 @@ test('probe accepts a valid app legacy response before lower-priority grouped so
 test('probe exhausts grouped quota across same-source processes before legacy fallback', async () => {
   const calls = [];
   const result = await probe.probe({
+    interAttemptPaceMs: 0,
     detectProcessInfos: async () => [
       { pid: 11, kind: 'app', csrfToken: 'first' },
       { pid: 12, kind: 'app', csrfToken: 'second' }
@@ -567,8 +568,9 @@ test('probe exhausts grouped quota across same-source processes before legacy fa
   assert.ok(calls.every((call) => !call.includes('GetCommandModelConfigs')));
 });
 
-test('probe resolves same-source process endpoints concurrently', async () => {
+test('probe keeps endpoint discovery concurrent but forced quota refreshes serial per source', async () => {
   const waiting = new Map();
+  const calls = [];
   const result = await probe.probe({
     probeTimeoutMs: 500,
     detectProcessInfos: async () => [
@@ -577,6 +579,7 @@ test('probe resolves same-source process endpoints concurrently', async () => {
     ],
     listeningPorts: async (pid) => [pid],
     callLs: async ({ port, method }) => {
+      calls.push(`${port}:${method}`);
       if (method === 'GetUnleashData') {
         return new Promise((resolve) => {
           waiting.set(port, resolve);
@@ -597,9 +600,75 @@ test('probe resolves same-source process endpoints concurrently', async () => {
     }
   });
 
+  // Endpoint discovery fans out across both processes (local-only work).
   assert.equal(waiting.size, 2);
+  assert.ok(calls.includes('12:GetUnleashData'));
+  // Forced quota refreshes are serial and stop at the first success, so the
+  // second account is never force-refreshed at Google once the first answers.
+  assert.ok(calls.includes('11:RetrieveUserQuotaSummary'));
+  assert.ok(!calls.includes('12:RetrieveUserQuotaSummary'));
   assert.equal(result.accountEmail, 'parallel@example.com');
   assert.equal(result.sourceDetail, 'app');
+});
+
+test('probe paces serial forced-refresh attempts across same-source processes', async () => {
+  const sleeps = [];
+  const result = await probe.probe({
+    interAttemptPaceMs: 250,
+    paceSleep: async (ms) => { sleeps.push(ms); },
+    detectProcessInfos: async () => [
+      { pid: 11, kind: 'app', csrfToken: 'first' },
+      { pid: 12, kind: 'app', csrfToken: 'second' }
+    ],
+    listeningPorts: async (pid) => [pid],
+    callLs: async ({ port, method }) => {
+      if (method === 'GetUnleashData') return { ok: true };
+      if (port === 11 && method === 'RetrieveUserQuotaSummary') return { groups: [] };
+      if (port === 12 && method === 'RetrieveUserQuotaSummary') {
+        return {
+          groups: [{
+            displayName: 'Gemini Models',
+            buckets: [{ bucketId: 'gemini-weekly', remainingFraction: 0.6 }]
+          }]
+        };
+      }
+      return { userStatus: { email: 'paced@example.com' } };
+    }
+  });
+
+  // Exactly one paced gap between the two same-source forced refreshes.
+  assert.deepEqual(sleeps, [250]);
+  assert.equal(result.accountEmail, 'paced@example.com');
+});
+
+test('probe skips pacing when the remaining deadline cannot cover the delay', async () => {
+  const sleeps = [];
+  const result = await probe.probe({
+    probeTimeoutMs: 5000,
+    interAttemptPaceMs: 60_000,
+    paceSleep: async (ms) => { sleeps.push(ms); },
+    detectProcessInfos: async () => [
+      { pid: 11, kind: 'app', csrfToken: 'first' },
+      { pid: 12, kind: 'app', csrfToken: 'second' }
+    ],
+    listeningPorts: async (pid) => [pid],
+    callLs: async ({ port, method }) => {
+      if (method === 'GetUnleashData') return { ok: true };
+      if (port === 11 && method === 'RetrieveUserQuotaSummary') return { groups: [] };
+      if (port === 12 && method === 'RetrieveUserQuotaSummary') {
+        return {
+          groups: [{
+            displayName: 'Gemini Models',
+            buckets: [{ bucketId: 'gemini-weekly', remainingFraction: 0.6 }]
+          }]
+        };
+      }
+      return { userStatus: { email: 'unpaced@example.com' } };
+    }
+  });
+
+  assert.deepEqual(sleeps, []);
+  assert.equal(result.accountEmail, 'unpaced@example.com');
 });
 
 test('probe enforces one provider-wide deadline and abort signal', async () => {
