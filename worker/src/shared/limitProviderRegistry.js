@@ -50,6 +50,7 @@ const COLLECTED_PROVIDER_IDS = new Set([
   'minimax',
   'volcengine',
   'qoder',
+  'commandcode',
   'ollama',
   'thirdparty'
 ]);
@@ -73,6 +74,7 @@ const CANONICAL_PROVIDER_IDS = Object.freeze([
   'zai',
   'volcengine',
   'qoder',
+  'commandcode',
   'zaiteam',
   'kimi',
   'ollama',

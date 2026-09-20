@@ -84,6 +84,7 @@ const LIMIT_PROVIDERS = [
   { id: 'minimax', label: 'Minimax' },
   { id: 'volcengine', label: 'Volcengine' },
   { id: 'qoder', label: 'Qoder' },
+  { id: 'commandcode', label: 'CommandCode' },
   { id: 'ollama', label: 'Ollama' },
   { id: 'thirdparty', label: 'Third-party APIs' },
   { id: 'brave-search', label: 'Brave Search' },

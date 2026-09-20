@@ -34,6 +34,7 @@
     zaiteam: { api: 'API' },
     volcengine: { api: 'API' },
     qoder: { web: 'Web' },
+    commandcode: { api: 'API' },
     kimi: { api: 'API', web: 'Web' },
     ollama: { web: 'Web' },
     thirdparty: { api: 'API' }
@@ -63,6 +64,7 @@
     zaiteam: ['Team Plan', 'API key'],
     volcengine: ['Coding Plan', 'API key'],
     qoder: ['Manual login', 'Web'],
+    commandcode: ['Credit Plan', 'API key'],
     kimi: ['Membership/Coding Plan', 'Web/API'],
     ollama: ['Manual login', 'Web'],
     thirdparty: ['Relay', 'API']

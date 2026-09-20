@@ -3206,6 +3206,11 @@ html.is-windows .settings-panel select option {
   mask-image: url(../../../assets/icons/qoder.svg);
 }
 
+.limit-icon-commandcode {
+  -webkit-mask-image: url(../../../assets/icons/commandcode.svg);
+  mask-image: url(../../../assets/icons/commandcode.svg);
+}
+
 .limit-icon-ollama {
   -webkit-mask-image: url(../../../assets/icons/ollama.svg);
   mask-image: url(../../../assets/icons/ollama.svg);

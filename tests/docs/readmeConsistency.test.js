@@ -68,6 +68,7 @@ const supportedToolOrder = [
   'Minimax',
   'Volcengine',
   'Qoder',
+  'CommandCode',
   'Ollama',
   'Third-party APIs'
 ];
@@ -99,6 +100,7 @@ const supportedToolIdOrder = [
   'minimax',
   'volcengine',
   'qoder',
+  'commandcode',
   'ollama',
   'newapi'
 ];
