@@ -52,6 +52,8 @@ const COLLECTED_PROVIDER_IDS = new Set([
   'qoder',
   'commandcode',
   'codebuddy',
+  'groq',
+  'vercel',
   'ollama',
   'gemini-cli',
   'thirdparty'
@@ -78,6 +80,8 @@ const CANONICAL_PROVIDER_IDS = Object.freeze([
   'qoder',
   'commandcode',
   'codebuddy',
+  'groq',
+  'vercel',
   'zaiteam',
   'kimi',
   'ollama',

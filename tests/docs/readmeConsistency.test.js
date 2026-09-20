@@ -70,6 +70,8 @@ const supportedToolOrder = [
   'Qoder',
   'CommandCode',
   'Gemini CLI',
+  'Groq',
+  'Vercel AI Gateway',
   'Ollama',
   'Third-party APIs'
 ];
@@ -103,6 +105,8 @@ const supportedToolIdOrder = [
   'qoder',
   'commandcode',
   'gemini-cli',
+  'groq',
+  'vercel',
   'ollama',
   'newapi'
 ];

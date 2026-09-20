@@ -63,7 +63,7 @@
   const VENDOR_ORDER = [
     'claude', 'codex', 'hermes', 'opencode', 'openrouter', 'openclaw', 'cline', 'cursor',
     'gemini', 'antigravity', 'kimi', 'qwen', 'grok', 'copilot', 'pi', 'zed', 'kilocode', 'micode', 'zcode', 'kiro', 'codebuddy', 'workbuddy', 'proma', 'deepseek', 'xai', 'meta', 'mistral',
-    'moonshot', 'zai', 'zaiteam', 'cohere', 'xiaomi', 'minimax', 'doubao', 'volcengine', 'qoder', 'commandcode', 'ollama', 'thirdparty'
+    'moonshot', 'zai', 'zaiteam', 'cohere', 'xiaomi', 'minimax', 'doubao', 'volcengine', 'qoder', 'commandcode', 'groq', 'vercel', 'ollama', 'thirdparty'
   ];
 
   // Display labels for every vendor in the clientColors map. The widget also
@@ -107,6 +107,8 @@
     volcengine: 'Volcengine',
     qoder: 'Qoder',
     commandcode: 'CommandCode',
+    groq: 'Groq',
+    vercel: 'Vercel AI Gateway',
     ollama: 'Ollama',
     thirdparty: 'Third-party APIs',
     default: 'Default'

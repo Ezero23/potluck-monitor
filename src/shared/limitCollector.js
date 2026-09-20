@@ -44,6 +44,8 @@ const { qoderCookie, fetchQoderLimits } = qoderLimits;
 const commandcodeLimits = require('./commandcodeLimits');
 const geminiCliLimits = require('./geminiCliLimits');
 const codebuddyLimits = require('./codebuddyLimits');
+const groqLimits = require('./groqLimits');
+const vercelLimits = require('./vercelLimits');
 const ollamaLimits = require('./ollamaLimits');
 const { ollamaSessionCookie, fetchOllamaLimits } = ollamaLimits;
 const kimiLimits = require('./kimiLimits');
@@ -59,7 +61,7 @@ const {
 } = grokLimits;
 const { CANONICAL_PROVIDER_IDS } = require('./limitProviderRegistry');
 
-const LIMIT_PROVIDER_IDS = ['claude', 'codex', 'opencode', 'cursor', 'antigravity', 'kimi', 'grok', 'copilot', 'mimo', 'zai', 'zaiteam', 'kiro', 'deepseek', 'openrouter', 'minimax', 'volcengine', 'qoder', 'commandcode', 'codebuddy', 'ollama', 'thirdparty', 'gemini-cli'];
+const LIMIT_PROVIDER_IDS = ['claude', 'codex', 'opencode', 'cursor', 'antigravity', 'kimi', 'grok', 'copilot', 'mimo', 'zai', 'zaiteam', 'kiro', 'deepseek', 'openrouter', 'minimax', 'volcengine', 'qoder', 'commandcode', 'codebuddy', 'groq', 'vercel', 'ollama', 'thirdparty', 'gemini-cli'];
 // Ingest also accepts canonical ids the local collector never probes
 // (Potluck / third-party rows such as gemini-cli or nvidia); selections saved
 // with those ids must survive a round-trip instead of being filtered away.
@@ -3122,6 +3124,8 @@ function providerFetchers(deps = {}) {
     commandcode: (providerOptions, probeDeps) => commandcodeLimits.fetchCommandCodeLimits(providerOptions, probeDeps),
     'gemini-cli': (providerOptions, probeDeps) => geminiCliLimits.fetchGeminiCliLimits(providerOptions, probeDeps),
     codebuddy: (providerOptions, probeDeps) => codebuddyLimits.fetchCodeBuddyLimits(providerOptions, probeDeps),
+    groq: (providerOptions, probeDeps) => groqLimits.fetchGroqLimits(providerOptions, probeDeps),
+    vercel: (providerOptions, probeDeps) => vercelLimits.fetchVercelLimits(providerOptions, probeDeps),
     ollama: (providerOptions, probeDeps) => ollamaLimits.fetchOllamaLimits(providerOptions, probeDeps),
     kimi: (providerOptions, probeDeps) => kimiLimits.fetchKimiLimits(providerOptions, probeDeps),
     thirdparty: (providerOptions, probeDeps) => thirdPartyLimits.fetchThirdPartyLimits(providerOptions, probeDeps),
@@ -3488,6 +3492,10 @@ module.exports = {
   fetchGeminiCliLimits: geminiCliLimits.fetchGeminiCliLimits,
   codebuddyToken: codebuddyLimits.codebuddyToken,
   fetchCodeBuddyLimits: codebuddyLimits.fetchCodeBuddyLimits,
+  groqApiKey: groqLimits.groqApiKey,
+  fetchGroqLimits: groqLimits.fetchGroqLimits,
+  vercelApiKey: vercelLimits.vercelApiKey,
+  fetchVercelLimits: vercelLimits.fetchVercelLimits,
   ollamaSessionCookie,
   fetchOllamaLimits,
   kimiToken,

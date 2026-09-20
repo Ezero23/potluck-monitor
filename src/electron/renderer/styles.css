@@ -3221,6 +3221,16 @@ html.is-windows .settings-panel select option {
   mask-image: url(../../../assets/icons/codebuddy.svg);
 }
 
+.limit-icon-groq {
+  -webkit-mask-image: url(../../../assets/icons/groq.svg);
+  mask-image: url(../../../assets/icons/groq.svg);
+}
+
+.limit-icon-vercel {
+  -webkit-mask-image: url(../../../assets/icons/vercel.svg);
+  mask-image: url(../../../assets/icons/vercel.svg);
+}
+
 .limit-icon-ollama {
   -webkit-mask-image: url(../../../assets/icons/ollama.svg);
   mask-image: url(../../../assets/icons/ollama.svg);

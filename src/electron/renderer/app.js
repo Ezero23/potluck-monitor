@@ -86,6 +86,8 @@ const LIMIT_PROVIDERS = [
   { id: 'qoder', label: 'Qoder' },
   { id: 'commandcode', label: 'CommandCode' },
   { id: 'codebuddy', label: 'CodeBuddy' },
+  { id: 'groq', label: 'Groq' },
+  { id: 'vercel', label: 'Vercel AI Gateway' },
   { id: 'ollama', label: 'Ollama' },
   { id: 'thirdparty', label: 'Third-party APIs' },
   { id: 'gemini-cli', label: 'Gemini CLI' },

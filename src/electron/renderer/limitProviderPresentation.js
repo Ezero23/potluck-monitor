@@ -37,6 +37,8 @@
     commandcode: { api: 'API' },
     'gemini-cli': { oauth: 'OAuth' },
     codebuddy: { api: 'API' },
+    groq: { api: 'API' },
+    vercel: { api: 'API' },
     kimi: { api: 'API', web: 'Web' },
     ollama: { web: 'Web' },
     thirdparty: { api: 'API' }
@@ -69,6 +71,8 @@
     commandcode: ['Credit Plan', 'API key'],
     'gemini-cli': ['Auto', 'Local login'],
     codebuddy: ['Credit packs', 'Token'],
+    groq: ['Free tier', 'API key'],
+    vercel: ['Pay-as-you-go', 'API key'],
     kimi: ['Membership/Coding Plan', 'Web/API'],
     ollama: ['Manual login', 'Web'],
     thirdparty: ['Relay', 'API']
