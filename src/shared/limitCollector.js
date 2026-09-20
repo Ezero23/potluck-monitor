@@ -655,17 +655,20 @@ function claudeUsageWindowUsedPercent(window) {
   return utilization;
 }
 
-// Temporary: the "Fable only" weekly cap is a limited-time promo (through ~2026-07-07)
-// that only appears in the structured `limits[]` array as a `weekly_scoped` entry —
-// never as a named top-level field like `seven_day`. Surface just that one scoped
-// window; once the promo ends it drops out of `limits[]` and this returns null, so
-// the bar self-removes. Safe to delete this helper (and its call site) afterwards.
-function claudeFableWeeklyWindow(usage) {
+// The "Fable only" weekly cap started as a limited-time promo that only
+// appeared in the structured `limits[]` array as a `weekly_scoped` entry.
+// Model-tier windows have since graduated to regular `seven_day_*` fields
+// (see claudeModelScopedWeeklyWindows); this helper stays because scoped
+// `limits[]` entries are still returned and remain the richer surface
+// (9router parses the same array). Skipped when the model-scoped fields
+// already surfaced the same tier, so a tier never shows two bars.
+function claudeFableWeeklyWindow(usage, existingLabels) {
   const limits = Array.isArray(usage?.limits) ? usage.limits : [];
   for (const entry of limits) {
     if (!entry || entry.kind !== 'weekly_scoped') continue;
     const displayName = String(entry.scope?.model?.display_name || '').trim();
     if (!/^fable$/i.test(displayName)) continue;
+    if (existingLabels.has(displayName.toLowerCase())) return null;
     return {
       kind: 'weekly',
       label: displayName,
@@ -674,6 +677,29 @@ function claudeFableWeeklyWindow(usage) {
     };
   }
   return null;
+}
+
+// Model-scoped weekly windows (seven_day_sonnet / seven_day_opus /
+// seven_day_fable / …) arrive alongside the account-wide `seven_day` field.
+// Parsed generically — any `seven_day_<tier>` key with utilization data
+// becomes a labeled weekly window, so new model tiers surface without code
+// changes (this is how fable_5_1 appeared).
+function claudeModelScopedWeeklyWindows(usage) {
+  const windows = [];
+  for (const [key, value] of Object.entries(usage || {})) {
+    if (!key.startsWith('seven_day_') || !value || typeof value !== 'object') continue;
+    if (claudeUsageWindowUsedPercent(value) === undefined) continue;
+    const tier = key.slice('seven_day_'.length);
+    if (!tier) continue;
+    windows.push({
+      kind: 'weekly',
+      label: tier.charAt(0).toUpperCase() + tier.slice(1),
+      usedPercent: claudeUsageWindowUsedPercent(value),
+      resetsAt: valueFromAliases(value, ['resets_at', 'resetsAt'])
+    });
+  }
+  windows.sort((a, b) => a.label.localeCompare(b.label));
+  return windows;
 }
 
 function mapClaudeUsageToProvider(usage, meta = {}) {
@@ -694,7 +720,9 @@ function mapClaudeUsageToProvider(usage, meta = {}) {
       resetsAt: valueFromAliases(weekly, ['resets_at', 'resetsAt'])
     });
   }
-  const fableWeekly = claudeFableWeeklyWindow(usage);
+  windows.push(...claudeModelScopedWeeklyWindows(usage));
+  const scopedLabels = new Set(windows.map((window) => String(window.label || '').toLowerCase()));
+  const fableWeekly = claudeFableWeeklyWindow(usage, scopedLabels);
   if (fableWeekly) windows.push(fableWeekly);
   return normalizeLimitProvider({
     provider: 'claude',

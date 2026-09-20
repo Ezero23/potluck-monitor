@@ -1040,6 +1040,44 @@ test('Claude OAuth usage adds a Fable-only weekly window from the limits array',
   assert.equal(fable.resetsAt, '2026-07-03T09:59:59.000Z');
 });
 
+test('Claude OAuth usage parses model-scoped seven_day_* weekly windows generically', () => {
+  const provider = mapClaudeUsageToProvider({
+    five_hour: { utilization: 80, resets_at: '2026-09-01T14:00:00Z' },
+    seven_day: { utilization: 22, resets_at: '2026-09-03T10:00:00Z' },
+    seven_day_sonnet: { utilization: 30, resets_at: '2026-09-03T10:00:00Z' },
+    seven_day_opus: { utilization: 55, resets_at: '2026-09-03T10:00:00Z' },
+    seven_day_fable_5_1: { utilization: 3, resets_at: '2026-09-03T09:59:59Z' },
+    seven_day_future: { resets_at: '2026-09-03T10:00:00Z' }
+  });
+
+  const weeklies = provider.windows.filter((window) => window.kind === 'weekly');
+  // Account-wide weekly stays first; model tiers follow alphabetically; tiers
+  // without utilization data are skipped.
+  assert.deepEqual(weeklies.map((window) => window.label), ['', 'Fable_5_1', 'Opus', 'Sonnet']);
+  assert.equal(weeklies.find((window) => window.label === 'Sonnet').usedPercent, 30);
+  assert.equal(weeklies.find((window) => window.label === 'Fable_5_1').usedPercent, 3);
+});
+
+test('Claude OAuth usage does not duplicate a tier surfaced by both seven_day_* and limits[]', () => {
+  const provider = mapClaudeUsageToProvider({
+    seven_day: { utilization: 22, resets_at: '2026-09-03T10:00:00Z' },
+    seven_day_fable: { utilization: 5, resets_at: '2026-09-03T09:59:59Z' },
+    limits: [
+      { kind: 'weekly_all', group: 'weekly', percent: 22, resets_at: '2026-09-03T10:00:00Z', scope: null },
+      {
+        kind: 'weekly_scoped',
+        group: 'weekly',
+        percent: 5,
+        resets_at: '2026-09-03T09:59:59Z',
+        scope: { model: { id: null, display_name: 'Fable' }, surface: null }
+      }
+    ]
+  });
+
+  const fableWindows = provider.windows.filter((window) => /^fable/i.test(String(window.label || '')));
+  assert.equal(fableWindows.length, 1);
+});
+
 test('Claude OAuth usage omits the Fable window when no scoped model limit is present', () => {
   const provider = mapClaudeUsageToProvider({
     five_hour: { utilization: 40, resets_at: '2026-07-02T14:00:00Z' },
