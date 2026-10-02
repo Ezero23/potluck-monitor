@@ -349,6 +349,18 @@ test('GLM and Kimi titles mark unverified subscriptions instead of rendering fin
     runTitle(app, `limitAccountTitle('kimi', ${JSON.stringify(kimiKey)}, 0)`, titleContext(true)),
     'limits.identityUnconfirmed'
   );
+
+  // A user-configured display name is authoritative for unconfirmed rows too:
+  // the operator named the connection on purpose, which must not be treated as
+  // an invented identity.
+  assert.equal(
+    runTitle(
+      app,
+      "limitAccountTitle('kimi', { accountName: 'kimicodingplan', accountKey: 'sha256:kkk222', connectionKey: 'sha256:ccc2' }, 0)",
+      titleContext(true)
+    ),
+    'kimicodingplan'
+  );
   assert.doesNotMatch(
     runTitle(app, `limitAccountTitle('zai', ${JSON.stringify(solo)}, 0)`, titleContext(true)),
     /glm-account\.local/

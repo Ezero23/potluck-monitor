@@ -3530,7 +3530,11 @@ function renderLimitConnectionRow(providerId, label, connection, index, connecti
 // their plan/user label; unverified ones must say so instead of inventing an
 // account, and distinct keys stay distinct rows.
 function connectionBackedAccountTitle(provider, index, providerEntries) {
+  // An explicitly configured display name is user-authored identity, not a
+  // fingerprint guess, so it wins even when the provider never confirmed a
+  // subscription subject (e.g. a bare Kimi API key).
   const namedLabel = String(provider?.accountName || provider?.accountLabel || '').trim();
+  if (namedLabel) return namedLabel;
   if (String(provider?.upstreamAccountKey || '').trim()) return namedLabel;
   const unconfirmed = accountIdentityApi.connectionIdentityLabel(provider, providerEntries, {
     unconfirmedLabel: t('limits.identityUnconfirmed')
