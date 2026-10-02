@@ -1,6 +1,8 @@
 'use strict';
 
 const assert = require('node:assert/strict');
+const os = require('node:os');
+const path = require('node:path');
 const test = require('node:test');
 
 const {
@@ -15,11 +17,11 @@ const {
 test('geminiCredentialsPath honours GEMINI_CLI_HOME and defaults to ~/.gemini', () => {
   assert.equal(
     geminiCredentialsPath({ GEMINI_CLI_HOME: '/custom/gemini' }),
-    '/custom/gemini/oauth_creds.json'
+    path.join('/custom/gemini', 'oauth_creds.json')
   );
   assert.equal(
-    geminiCredentialsPath({}).replace(/\/oauth_creds\.json$/, '').endsWith('/.gemini'),
-    true
+    geminiCredentialsPath({}),
+    path.join(os.homedir(), '.gemini', 'oauth_creds.json')
   );
 });
 
