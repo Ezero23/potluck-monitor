@@ -605,6 +605,37 @@ test('parseGrokBilling prefers creditUsagePercent + currentPeriod when present',
   assert.equal(windows[0].resetsAt, '2026-07-21T02:07:01.000Z');
 });
 
+test('parseGrokBilling reads a fresh period without creditUsagePercent as 0%', () => {
+  // Protobuf JSON omits zero values: right after a weekly reset the config
+  // carries the new period but no percentage field at all.
+  const windows = parseGrokBilling({
+    config: {
+      currentPeriod: {
+        type: 'USAGE_PERIOD_TYPE_WEEKLY',
+        start: '2026-07-21T02:07:01Z',
+        end: '2026-07-28T02:07:01Z'
+      }
+    }
+  });
+  assert.equal(windows.length, 1);
+  assert.equal(windows[0].label, 'Weekly');
+  assert.equal(windows[0].usedPercent, 0);
+  assert.equal(windows[0].resetsAt, '2026-07-28T02:07:01.000Z');
+});
+
+test('parseGrokBilling rejects a period without a usable end when percentage is absent', () => {
+  // No percentage and no parseable period end: cannot tell a fresh period
+  // from a malformed response, so this must stay an error.
+  assert.throws(() => parseGrokBilling({
+    config: {
+      currentPeriod: {
+        type: 'USAGE_PERIOD_TYPE_WEEKLY',
+        start: '2026-07-21T02:07:01Z'
+      }
+    }
+  }), /no monthly quota/);
+});
+
 test('fetchGrokLimits maps HTTP 401 to unauthorized', async () => {
   const r = await fetchGrokLimits(
     { grokBearerToken: 'eyJ' },

@@ -165,16 +165,24 @@ function parseGrokBilling(body) {
   const currentPeriod = config.currentPeriod && typeof config.currentPeriod === 'object'
     ? config.currentPeriod
     : (config.current_period && typeof config.current_period === 'object' ? config.current_period : null);
+  const periodStart = currentPeriod?.start ?? currentPeriod?.billingPeriodStart;
+  const periodEnd = currentPeriod?.end ?? currentPeriod?.billingPeriodEnd;
+  const periodResetAt = normalizeIsoReset(periodEnd);
+  const periodWindowMinutes = windowMinutesFromBillingCycle(periodStart, periodEnd);
+  const periodType = String(currentPeriod?.type || currentPeriod?.period_type || currentPeriod?.periodType || '').toUpperCase();
+  const periodLabel = periodType.includes('WEEK') ? 'Weekly' : periodType.includes('MONTH') ? 'Monthly' : billingWindowLabel(periodWindowMinutes);
   if (creditPercent !== null) {
-    const periodStart = currentPeriod?.start ?? currentPeriod?.billingPeriodStart;
-    const periodEnd = currentPeriod?.end ?? currentPeriod?.billingPeriodEnd;
-    const resetAt = normalizeIsoReset(periodEnd);
-    const windowMinutes = windowMinutesFromBillingCycle(periodStart, periodEnd);
-    const label = billingWindowLabel(windowMinutes);
-    const periodType = String(currentPeriod?.type || currentPeriod?.period_type || currentPeriod?.periodType || '').toUpperCase();
-    const forcedLabel = periodType.includes('WEEK') ? 'Weekly' : periodType.includes('MONTH') ? 'Monthly' : label;
     // Percent is already 0–100 usage; model as used/limit against 100.
-    const window = buildWindow(forcedLabel, creditPercent, 100, resetAt, windowMinutes);
+    const window = buildWindow(periodLabel, creditPercent, 100, periodResetAt, periodWindowMinutes);
+    if (window) return [window];
+  } else if (periodResetAt) {
+    // The CLI chat proxy answers in protobuf JSON, which omits zero values:
+    // right after a billing reset the config carries its current period but
+    // no creditUsagePercent, so read a complete period without a percentage
+    // as 0%. Without a parseable period end we cannot tell a fresh period
+    // from a malformed response — fall through and reject instead of
+    // assuming zero usage.
+    const window = buildWindow(periodLabel, 0, 100, periodResetAt, periodWindowMinutes);
     if (window) return [window];
   }
 
