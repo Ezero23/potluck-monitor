@@ -1,6 +1,16 @@
 import { publicLimits } from './shared/limits.js';
 import { aggregateDevices, mergeDeviceRecord, aggregateHistory } from './shared/usage.js';
 import { historyPreview, historyRevision } from './shared/history.js';
+import { applyExternalLimitSnapshot } from './shared/externalLimitSnapshot.js';
+import { normalizeMonitorEnvelope } from './shared/monitorEvents.js';
+
+// Ingest parity with the Node hub (src/shared/http.js): bodies are capped at
+// 1 MiB. Cloudflare Durable Object storage additionally caps each stored value
+// at 128 KiB, so a merged device record beyond that is rejected cleanly instead
+// of throwing an opaque storage error on put.
+const MAX_JSON_BODY_BYTES = 1024 * 1024;
+const DO_VALUE_LIMIT_BYTES = 128 * 1024;
+const textEncoder = new TextEncoder();
 
 const CORS_HEADERS = {
   'access-control-allow-origin': '*',
@@ -193,14 +203,83 @@ export class HubDO {
     }
 
     if (request.method === 'POST' && url.pathname === '/api/ingest') {
+      // content-length can be absent (chunked), so measure the actual body too.
+      const declaredLength = Number(request.headers.get('content-length') || 0);
+      if (declaredLength > MAX_JSON_BODY_BYTES) {
+        return jsonResponse(413, { error: 'payload_too_large', message: 'Request body too large' });
+      }
+      const bodyText = await request.text();
+      if (textEncoder.encode(bodyText).length > MAX_JSON_BODY_BYTES) {
+        return jsonResponse(413, { error: 'payload_too_large', message: 'Request body too large' });
+      }
       let payload;
-      try { payload = await request.json(); }
+      try { payload = JSON.parse(bodyText); }
       catch (error) { return jsonResponse(400, { error: 'bad_request', message: error.message }); }
+      if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+        return jsonResponse(400, { error: 'bad_request', message: 'JSON object body required' });
+      }
       if (!payload.deviceId && !payload.id) return jsonResponse(400, { error: 'deviceId_required' });
       const deviceId = String(payload.deviceId || payload.id);
       const existing = await this.state.storage.get(`dev:${deviceId}`);
+
+      // Mirror the Node hub ingest path: normalize the optional monitor
+      // envelope, and route Potluck/external limit snapshots through the same
+      // adapter so field allowlisting, snapshot idempotency and full/partial
+      // replacement semantics hold on the Worker exactly as self-hosted.
+      if (Object.prototype.hasOwnProperty.call(payload, 'monitor')) {
+        const monitor = normalizeMonitorEnvelope(payload.monitor);
+        if (monitor) payload.monitor = monitor;
+        else delete payload.monitor;
+      }
+      const incomingLimits = payload.limits;
+      const providerRows = Array.isArray(incomingLimits?.providers) ? incomingLimits.providers : [];
+      const sourceInstanceId = String(
+        incomingLimits?.sourceInstanceId || incomingLimits?.source_instance_id || ''
+      ).trim();
+      const isExternalSnapshot = Boolean(
+        incomingLimits
+        && typeof incomingLimits === 'object'
+        && (
+          sourceInstanceId.startsWith('potluck:')
+          || providerRows.some((row) => row?.managedBy === 'potluck')
+        )
+      );
+      let externalStateKey = null;
+      let externalApplied = null;
+      if (isExternalSnapshot) {
+        externalStateKey = `extsnap:${deviceId}`;
+        const appliedState = (await this.state.storage.get(externalStateKey)) || {};
+        const adapted = applyExternalLimitSnapshot(existing?.limits, incomingLimits, appliedState);
+        if (!adapted.ok) {
+          const reason = adapted.error?.code || adapted.reason || 'invalid';
+          return jsonResponse(400, { error: 'invalid_limits_snapshot', message: `limits_snapshot_${reason}` });
+        }
+        if (adapted.skipped) {
+          // Idempotent duplicate or out-of-order generatedAt: keep the stored
+          // record untouched and answer with the current aggregate.
+          return jsonResponse(200, {
+            ok: true,
+            deviceId,
+            skipped: adapted.reason || 'duplicate',
+            stats: await this.getStats()
+          });
+        }
+        payload.limits = adapted.summary;
+        externalApplied = adapted.applied;
+      }
+
       const record = mergeDeviceRecord(existing, { ...payload, receivedAt: new Date().toISOString() });
-      await this.state.storage.put(`dev:${record.deviceId}`, record);
+      if (textEncoder.encode(JSON.stringify(record)).length > DO_VALUE_LIMIT_BYTES) {
+        return jsonResponse(413, {
+          error: 'record_too_large',
+          message: 'Device record exceeds the Durable Object 128 KiB value limit'
+        });
+      }
+      if (externalStateKey) {
+        await this.state.storage.put({ [`dev:${record.deviceId}`]: record, [externalStateKey]: externalApplied });
+      } else {
+        await this.state.storage.put(`dev:${record.deviceId}`, record);
+      }
       this.broadcast('ingest').catch(() => {});
       return jsonResponse(200, { ok: true, deviceId: record.deviceId, stats: await this.getStats() });
     }

@@ -6,7 +6,7 @@
 
 > 屬於 **[Token Monitor](https://github.com/Javis603/token-monitor)** 專案。這個目錄只是 Cloudflare Worker hub；桌面小工具、無頭 agent 和完整文件都在主倉庫。一鍵部署會建立一份獨立副本，不會自動更新，所以請回主倉庫查看新版本。
 
-自架 Node hub 的即插即用替代品，以 Cloudflare Worker 部署，用 Durable Object 保存裝置狀態。它講的是同一套 HTTP 協定（`/api/ingest`、`/api/stats`、`/api/stats/stream`），所以小工具和 agent 無需改動即可使用，只是 Hub URL 不同。
+自架 Node hub 的即插即用替代品，以 Cloudflare Worker 部署，用 Durable Object 保存裝置狀態。它講的是同一套 HTTP 協定（`/api/ingest`、`/api/stats`、`/api/stats/stream`），所以小工具和 agent 無需改動即可使用，只是 Hub URL 不同。ingest 行為與 Node hub 一致：同樣的 1 MiB 請求主體上限、同樣的 Monitor 轉接器外部限額快照校驗（快照狀態持久化在 Durable Object 中）、同樣的 monitor 信封正規化。唯一受儲存約束的差異：Durable Object 單值上限 128 KiB，合併後超限的裝置記錄會回傳 `413 record_too_large`。
 
 相比 Node hub，用它的理由：
 

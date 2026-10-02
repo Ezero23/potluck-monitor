@@ -9,7 +9,12 @@
 Drop-in replacement for the self-hosted Node hub, deployed as a Cloudflare
 Worker with a Durable Object holding device state. Speaks the same HTTP
 protocol (`/api/ingest`, `/api/stats`, `/api/stats/stream`), so the widget and
-agent work unchanged — only the Hub URL differs.
+agent work unchanged — only the Hub URL differs. Ingest matches the Node hub:
+the same 1 MiB body cap, the same Monitor-adapter validation for external
+limit snapshots (with snapshot state persisted in the Durable Object), and the
+same monitor-envelope normalization. One storage-bound difference: Durable
+Object values are capped at 128 KiB, so an over-limit merged device record is
+rejected with `413 record_too_large`.
 
 Why use this instead of the Node hub:
 
