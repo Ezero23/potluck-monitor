@@ -41,6 +41,41 @@ test('normalizeDailyHistoryArchive rejects malformed days and observations', () 
   });
 });
 
+test('capture keeps observations separate when providers differ', () => {
+  const archive = captureDailyHistoryArchive({}, graph('2026-07-17', [
+    client('claude', 'same-model', 100, 1, 1, { providerId: 'anthropic' }),
+    client('claude', 'same-model', 200, 2, 2, { providerId: 'openrouter' })
+  ]), { todayKey: '2026-07-18' });
+  const observations = archive.days['2026-07-17'].observations;
+  assert.equal(Object.keys(observations).length, 2);
+  assert.deepEqual(
+    Object.values(observations).map((row) => row.providerId).sort(),
+    ['anthropic', 'openrouter']
+  );
+  const restored = graphFromDailyHistoryArchive([], archive, { todayKey: '2026-07-18' });
+  assert.deepEqual(
+    restored.contributions[0].clients.map((row) => row.providerId).sort(),
+    ['anthropic', 'openrouter']
+  );
+});
+
+test('legacy observations without a provider keep the same identity', () => {
+  const archive = captureDailyHistoryArchive({
+    version: 1,
+    days: {
+      '2026-07-17': {
+        date: '2026-07-17',
+        observations: {
+          legacy: { client: 'claude', modelId: 'opus', tokens: 100, cost: 4, messages: 5 }
+        }
+      }
+    }
+  }, graph('2026-07-17', [client('claude', 'opus', 120, 4.8, 6)]), { todayKey: '2026-07-18' });
+  assert.equal(Object.keys(archive.days['2026-07-17'].observations).length, 1);
+  assert.deepEqual(Object.values(archive.days['2026-07-17'].observations), [
+    { client: 'claude', modelId: 'opus', tokens: 120, cost: 4.8, messages: 6 }
+  ]);
+});
 test('capture preserves a larger prior observation as one coherent record', () => {
   const first = captureDailyHistoryArchive({}, graph('2026-07-17', [
     client('claude', 'opus', 100, 4, 5, { providerId: 'anthropic', reasoning: 7 })

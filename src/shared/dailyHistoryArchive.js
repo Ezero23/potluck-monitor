@@ -12,7 +12,8 @@ const DAY_KEY_RE = /^\d{4}-\d{2}-\d{2}$/;
 function observationKey(value) {
   return JSON.stringify([
     String(value?.client || 'unknown'),
-    String(value?.modelId || value?.model || value?.model_id || 'unknown')
+    String(value?.modelId || value?.model || value?.model_id || 'unknown'),
+    String(value?.providerId || value?.provider_id || '').trim()
   ]);
 }
 
