@@ -4,7 +4,7 @@ The hub exposes a small JSON HTTP API.
 
 ## Authentication
 
-All endpoints except `/api/health` require the configured shared secret.
+All endpoints except `/api/health` (and the opt-in Worker-only `/api/public/stats`) require the configured shared secret.
 
 Use either:
 
@@ -17,6 +17,8 @@ or:
 ```http
 X-Token-Monitor-Secret: <secret>
 ```
+
+The Node hub accepts only these two headers. The Cloudflare Worker additionally accepts a `?secret=<secret>` query parameter as a compatibility entry point for iOS widget runtimes (Widgy/Scriptable) whose WKWebView cannot send an `Authorization` header through the CORS preflight; the URL stays on the local device in that setup. Do not use query-string secrets anywhere the URL could be logged by proxies, analytics, or browser history.
 
 ## `GET /api/health`
 

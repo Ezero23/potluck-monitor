@@ -1,6 +1,7 @@
 'use strict';
 
 const http = require('node:http');
+const crypto = require('node:crypto');
 const path = require('node:path');
 const { URL } = require('node:url');
 const { aggregateDevices, mergeDeviceRecord, aggregateHistory } = require('../shared/usage');
@@ -73,7 +74,12 @@ function snapshotRequestSecret(req) {
 
 function rateLimitKey(req, secret) {
   const used = snapshotRequestSecret(req) || secret;
-  if (used) return `secret:${used.slice(0, 8)}`;
+  if (used) {
+    // Never key on (a prefix of) the raw secret: prefixes of low-entropy
+    // secrets collide across callers and the key must never be loggable.
+    const digest = crypto.createHash('sha256').update(String(used)).digest('hex').slice(0, 16);
+    return `secret:${digest}`;
+  }
   const remote = req.socket?.remoteAddress || 'unknown';
   return `ip:${remote}`;
 }

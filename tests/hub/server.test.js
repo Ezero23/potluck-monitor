@@ -293,6 +293,30 @@ test('ingest accepts payloads above the legacy 256 KiB limit', async () => {
   }
 });
 
+test('Node hub never accepts a query-string secret', async () => {
+  const dataFile = tempDataFile();
+  const hub = createHub({
+    port: 0,
+    host: '127.0.0.1',
+    secret: 'header-only-secret',
+    dataFile,
+    logger: { error() {} }
+  });
+  await hub.start();
+  try {
+    const { port } = hub.server.address();
+    const viaQuery = await fetch(`http://127.0.0.1:${port}/api/stats?secret=header-only-secret`);
+    assert.equal(viaQuery.status, 401, 'query secrets are a Worker-only iOS compatibility entry point');
+    const viaHeader = await fetch(`http://127.0.0.1:${port}/api/stats`, {
+      headers: { 'x-token-monitor-secret': 'header-only-secret' }
+    });
+    assert.equal(viaHeader.status, 200);
+  } finally {
+    await hub.stop();
+    fs.rmSync(dataFile, { force: true });
+  }
+});
+
 test('GET /api/limits/snapshot returns 404 when the endpoint is disabled', async () => {
   const dataFile = tempDataFile();
   const hub = createHub({
