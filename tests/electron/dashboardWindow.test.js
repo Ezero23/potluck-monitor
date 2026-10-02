@@ -90,6 +90,7 @@ test('dashboard.html wires the shared modules and the two panels', () => {
   assert.match(html, /<script src="usageCharts\.js"><\/script>/);
   assert.match(html, /<script src="i18n\.js"><\/script>/);
   assert.match(html, /<script src="\.\.\/\.\.\/shared\/currency\.js"><\/script>/);
+  assert.match(html, /<script src="htmlEscape\.js"><\/script>/);
   assert.match(html, /<script src="dashboard\.js"><\/script>/);
   assert.match(html, /id="trendsTab"/);
   assert.match(html, /id="activityTab"/);

@@ -1,5 +1,7 @@
 'use strict';
 
+const htmlEscapeApi = typeof require === 'function' ? require('./htmlEscape') : window.TokenMonitorHtmlEscape;
+const { escapeHtml } = htmlEscapeApi;
 const charts = window.TokenMonitorUsageCharts;
 const themePresetsApi = window.TokenMonitorThemePresets;
 const i18n = window.TokenMonitorI18n;
@@ -318,7 +320,7 @@ function renderLegend(model) {
     .sort((a, b) => b.value - a.value);
   els.legend.innerHTML = rows.map((r) =>
     `<div class="dash-legend-row">`
-    + `<span class="dash-legend-name"><span class="dash-legend-swatch" data-c="${colorFor(r.key)}"></span>${r.key}</span>`
+    + `<span class="dash-legend-name"><span class="dash-legend-swatch" data-c="${colorFor(r.key)}"></span>${escapeHtml(r.key)}</span>`
     + `<span class="dash-legend-val">${formatCompact(r.value)}</span>`
     + `<span class="dash-legend-pct">${(r.value / grand * 100).toFixed(1)}%</span>`
     + `</div>`
@@ -389,7 +391,7 @@ function renderBreakdown() {
       const color = displayColor(colorFn(key));
       const motionKey = `${titleKey}:${encodeURIComponent(key)}`;
       return `<div class="dash-bd-row">
-        <span class="dash-bd-name"><span class="dash-bd-swatch" data-c="${color}"></span>${String(key).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')}</span>
+        <span class="dash-bd-name"><span class="dash-bd-swatch" data-c="${color}"></span>${escapeHtml(key)}</span>
         <div class="dash-bd-bar-bg"><div class="dash-bd-bar-fill" data-motion-key="${motionKey}" data-w="${Number(pctMax) / 100}" data-c="${color}"></div></div>
         <span class="dash-bd-val">${formatCompact(val)}</span>
         <span class="dash-bd-pct">${pctGrand}%</span>
@@ -535,7 +537,7 @@ function positionTooltip(ev) {
 function showBarTooltip(bar, ev) {
   const segs = (bar.segments || []).filter((s) => s.value > 0).sort((a, b) => b.value - a.value);
   const rows = segs.map((s) =>
-    `<div class="tt-row"><span class="tt-dot" data-c="${colorFor(s.key)}"></span><span class="tt-name">${s.key}</span><span class="tt-val">${formatCompact(s.value)}</span></div>`
+    `<div class="tt-row"><span class="tt-dot" data-c="${colorFor(s.key)}"></span><span class="tt-name">${escapeHtml(s.key)}</span><span class="tt-val">${formatCompact(s.value)}</span></div>`
   ).join('');
   els.tooltip.innerHTML = `<div class="tt-head">${shortDate(bar.label)} · ${formatCompact(bar.total)}</div>${rows}`;
   applySwatchColors(els.tooltip);

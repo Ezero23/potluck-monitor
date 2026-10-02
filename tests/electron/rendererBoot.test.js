@@ -20,8 +20,12 @@ test('renderer boot script loads before quota modules and paints version without
   const html = read('index.html');
   const bootIdx = html.indexOf('src="rendererBoot.js"');
   const forecastIdx = html.indexOf('src="../../shared/quotaForecast.js"');
+  const escapeIdx = html.indexOf('src="htmlEscape.js"');
   const appIdx = html.indexOf('src="app.js"');
   assert.ok(bootIdx > 0 && bootIdx < forecastIdx && forecastIdx < appIdx);
+  // app.js pulls escapeHtml from the window global at load time, so the
+  // helper must load first.
+  assert.ok(escapeIdx > 0 && escapeIdx < appIdx);
 
   const sandbox = {
     window: {

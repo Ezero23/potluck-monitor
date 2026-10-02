@@ -136,6 +136,7 @@ const quotaRiskApi = window.TokenMonitorQuotaRisk;
 const appUpdatePresentationApi = window.TokenMonitorAppUpdatePresentation;
 const accountIdentityApi = window.TokenMonitorAccountIdentity;
 const clientStatusPresentationApi = window.TokenMonitorClientStatusPresentation;
+const { escapeHtml } = window.TokenMonitorHtmlEscape;
 const serviceStatusPresentationApi = window.TokenMonitorServiceStatusPresentation;
 const clientDisplayPreferencesApi = window.TokenMonitorClientDisplayPreferences;
 const customPricingFormApi = window.TokenMonitorCustomPricingForm;
@@ -4370,12 +4371,12 @@ function renderTrends() {
     let modelsHtml = '';
     if (topModels && topModels.length > 0) {
       modelsHtml = '<div class="weekly-models">' + topModels.slice(0, 3).map((m) =>
-        `<div class="weekly-model-row"><span class="weekly-model-name">${m.model}</span><span class="weekly-model-val">${formatNumber(m.tokens)}</span></div>`
+        `<div class="weekly-model-row"><span class="weekly-model-name">${escapeHtml(m.model)}</span><span class="weekly-model-val">${formatNumber(m.tokens)}</span></div>`
       ).join('') + '</div>';
     }
     let provHtml = '';
     if (topProviders && topProviders.length > 0) {
-      provHtml = `<div class="weekly-providers">${topProviders.map((p) => p.provider).join(' · ')}</div>`;
+      provHtml = `<div class="weekly-providers">${topProviders.map((p) => escapeHtml(p.provider)).join(' · ')}</div>`;
     }
     weeklyHtml = `<div class="weekly-board"><div class="weekly-summary"><span class="weekly-tokens">${formatNumber(totals.tokens)}</span><span class="weekly-cost">${formatCost(totals.cost)}</span>${deltaHtml}</div><div class="weekly-chart">${barsHtml}</div>${modelsHtml}${provHtml}</div>`;
   }
