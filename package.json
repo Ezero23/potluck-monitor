@@ -22,6 +22,7 @@
     "dist:win:prepackaged": "electron-builder --prepackaged dist/win-unpacked --win nsis portable --x64 --publish never",
     "dist:linux": "electron-builder --linux --x64 --publish never",
     "verify:release-artifact-names": "node scripts/verify-updater-artifact-names.js dist",
+    "verify:release-artifact-integrity": "node scripts/verify-updater-artifact-names.js dist --integrity",
     "lint": "eslint .",
     "verify": "npm run lint && npm test"
   },

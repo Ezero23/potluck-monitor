@@ -1,6 +1,7 @@
 'use strict';
 
 const assert = require('node:assert/strict');
+const crypto = require('node:crypto');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
@@ -9,7 +10,9 @@ const { MacUpdater } = require('electron-updater');
 
 const rootPackage = require('../../package.json');
 const {
+  referencedArtifactEntries,
   referencedArtifactNames,
+  verifyUpdaterArtifactIntegrity,
   verifyUpdaterArtifactNames
 } = require('../../scripts/verify-updater-artifact-names');
 const { mergeMacUpdaterMetadata } = require('../../scripts/merge-mac-updater-metadata');
@@ -113,6 +116,54 @@ test('fails when updater metadata references an asset that will not be uploaded'
   assert.deepEqual(verifyUpdaterArtifactNames(distDir), {
     metadataFiles: ['latest-mac.yml']
   });
+});
+
+test('integrity check passes when sha512 and size match the artifacts', (t) => {
+  const distDir = fs.mkdtempSync(path.join(os.tmpdir(), 'token-monitor-integrity-'));
+  t.after(() => fs.rmSync(distDir, { recursive: true, force: true }));
+  const artifact = Buffer.from('signed-bytes');
+  const sha512 = crypto.createHash('sha512').update(artifact).digest('base64');
+  fs.writeFileSync(path.join(distDir, 'app.zip'), artifact);
+  fs.writeFileSync(path.join(distDir, 'latest-mac.yml'), [
+    'version: 1.0.0',
+    'files:',
+    '  - url: app.zip',
+    `    sha512: ${sha512}`,
+    `    size: ${artifact.length}`,
+    'path: app.zip',
+    `sha512: ${sha512}`,
+    ''
+  ].join('\n'));
+
+  const result = verifyUpdaterArtifactIntegrity(distDir);
+  assert.deepEqual(result.metadataFiles, ['latest-mac.yml']);
+  assert.equal(result.checked, 2, 'deduped artifact verifies sha512 + size once');
+});
+
+test('integrity check rejects tampered artifacts and hashless metadata', (t) => {
+  const distDir = fs.mkdtempSync(path.join(os.tmpdir(), 'token-monitor-integrity-'));
+  t.after(() => fs.rmSync(distDir, { recursive: true, force: true }));
+  const artifact = Buffer.from('signed-bytes');
+  const sha512 = crypto.createHash('sha512').update(artifact).digest('base64');
+  fs.writeFileSync(path.join(distDir, 'app.zip'), artifact);
+  fs.writeFileSync(path.join(distDir, 'latest.yml'), [
+    'files:',
+    '  - url: app.zip',
+    `    sha512: ${sha512}`,
+    `    size: ${artifact.length}`
+  ].join('\n'));
+  assert.doesNotThrow(() => verifyUpdaterArtifactIntegrity(distDir));
+
+  fs.writeFileSync(path.join(distDir, 'app.zip'), Buffer.from('replaced-after-hashing'));
+  assert.throws(() => verifyUpdaterArtifactIntegrity(distDir), /app\.zip: sha512 mismatch/);
+
+  fs.writeFileSync(path.join(distDir, 'app.zip'), artifact);
+  const parsed = referencedArtifactEntries(fs.readFileSync(path.join(distDir, 'latest.yml'), 'utf8'));
+  assert.equal(parsed[0].sha512, sha512);
+  assert.equal(parsed[0].size, artifact.length);
+
+  fs.writeFileSync(path.join(distDir, 'latest.yml'), 'files:\n  - url: app.zip\n');
+  assert.throws(() => verifyUpdaterArtifactIntegrity(distDir), /no sha512\/size fields/);
 });
 
 test('merges arm64 and x64 mac updater files into one architecture-aware feed', (t) => {

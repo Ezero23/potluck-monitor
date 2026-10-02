@@ -5,7 +5,33 @@ on:
     tags: ['v*']
 
 jobs:
+  # A tag must pass the same gates as main CI before any artifact is built or
+  # published — earlier releases shipped while the tag's CI was red because
+  # this workflow ran independently of ci.yml results.
+  verify:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: Audit production dependencies
+        run: |
+          npm audit --omit=dev --audit-level=high
+          npm audit --prefix worker --omit=dev --audit-level=high
+      - name: Verify vendored worker shared code is in sync
+        run: |
+          npm run sync:worker
+          git diff --exit-code worker/src/shared \
+            || { echo "::error::worker/src/shared is stale — run 'npm run sync:worker' and commit."; exit 1; }
+      - run: npm run verify
+
   build:
+    needs: verify
     strategy:
       fail-fast: false
       matrix:
@@ -275,8 +301,8 @@ jobs:
       - name: Build unsigned Windows artifacts
         if: matrix.target == 'win' && env.HAS_SIGNPATH != 'true'
         run: npm run dist:win
-      - name: Verify updater artifact names
-        run: npm run verify:release-artifact-names
+      - name: Verify updater artifact integrity
+        run: npm run verify:release-artifact-integrity
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: ${{ matrix.artifact_name }}
@@ -316,7 +342,7 @@ jobs:
             release-artifacts/latest-mac.yml \
             artifacts/potluck-monitor-mac-arm64/latest-mac.yml \
             artifacts/potluck-monitor-mac-x64/latest-mac.yml
-          node scripts/verify-updater-artifact-names.js release-artifacts
+          node scripts/verify-updater-artifact-names.js release-artifacts --integrity
       - uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
         with:
           files: |
