@@ -28,3 +28,11 @@
 - 依赖漏洞清零（undici/electron/js-yaml/xmldom/brace-expansion 共 13 个高危），新增 Dependabot 周更新 + 漏洞告警 + 自动安全修复。
 - 修复 Windows CI 失败测试（geminiCredentialsPath 平台路径断言）。
 - 对照 CodeZeno 的 Grok 账单周期边界修复审计 `grokLimits.js`：**确认存在同样 bug 并已修复**（d1cddd4）——protobuf JSON 省略零值导致重置后 `creditUsagePercent` 缺失时报 unavailable，现读取为 0%；无可解析 period end 时仍拒绝。新增 2 个回归测试。
+
+## 第二轮成果（2026-10-02 已落地）
+
+- **红队结论**：本地 collector 自愈有界（dateKey + configFingerprint 锚点 + 每小时强制全量）；limits 已有可信度拆分（connectionStatus/quotaStatus、precision、resetConfidence）。决定**不做**：逐条 token warehouse（本地明细定位冲突）、竞品 provider 扩展（凭据来源不兼容）、强制云端账号体系。
+- **Worker 对齐**（94fdc0b）：Node hub 与 Worker 增补外部快照/monitor ingest 路由、body 双查、DO 128 KiB 明确 413，兑现 drop-in replacement。
+- **release 门禁**：tag 推送曾独立于 CI（v0.2.15/v0.2.16 带红发布）。现 release.yml 新增 `verify` job（lint+test+生产审计+worker vendor 漂移）并用 `--integrity` 校验 latest.yml 的 sha512/size 与磁盘字节一致。
+- **renderer HTML 收紧**：模型/client/provider 名经 tokscale 与远端 hub 进入 innerHTML 模板，现统一走 `htmlEscape.js`（覆盖 legend/tooltip/breakdown/weekly-board）。
+- **定价 freshness/完整性结论（经验证后决定不加代码）**：`tokscale pricing --json` 载荷无 catalog 时间戳/版本字段，本地无法诚实地展示保鲜度；`sessionDetailsOmitted`/`periodProjectsOmitted` 已在 breakdown 区显示明确提示（文案保证期间总计完整），Home 总计本身不受影响，加全局徽标只会制造误报。定价 freshness 待 tokscale 上游暴露 catalog 版本后再跟进（列入周报关注点）。
