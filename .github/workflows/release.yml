@@ -182,7 +182,7 @@ jobs:
           path: ${{ runner.temp }}/signpath-application-input
       - name: Code-sign Windows application (SignPath)
         if: matrix.target == 'win' && env.HAS_SIGNPATH == 'true'
-        uses: SignPath/github-action-submit-signing-request@b9d91eadd323de506c0c81cf0c7fe7438f3360fd # v2.2
+        uses: SignPath/github-action-submit-signing-request@f6d04783b4569d051e0c80105fe66e82819d0092 # v3.0
         with:
           api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
           organization-id: 8bf2856b-5fb0-4c78-ba99-90931fcce837
@@ -249,7 +249,7 @@ jobs:
             ${{ runner.temp }}/signpath-artifact-input/portable/${{ steps.prepare-unsigned-win.outputs.portable }}
       - name: Code-sign Windows artifacts (SignPath)
         if: matrix.target == 'win' && env.HAS_SIGNPATH == 'true'
-        uses: SignPath/github-action-submit-signing-request@b9d91eadd323de506c0c81cf0c7fe7438f3360fd # v2.2
+        uses: SignPath/github-action-submit-signing-request@f6d04783b4569d051e0c80105fe66e82819d0092 # v3.0
         with:
           api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
           organization-id: 8bf2856b-5fb0-4c78-ba99-90931fcce837
