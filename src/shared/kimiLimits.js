@@ -104,6 +104,30 @@ function classifyKimiWindow(minutes) {
   return 'weekly';
 }
 
+// Provider-confirmed subscription identity for non-JWT credentials: the Code
+// usages response carries the account's stable userId inside booster_wallet
+// (also mirrored on its balance entries). Without it an API key has no
+// parseable subject and the row would show as "subscription unconfirmed".
+function kimiUsageIdentity(body) {
+  if (!body || typeof body !== 'object') return '';
+  const candidates = [
+    body.booster_wallet?.userId,
+    body.booster_wallet?.balance?.userId,
+    Array.isArray(body.booster_wallet?.balances)
+      ? body.booster_wallet.balances.map((entry) => entry?.userId).find(Boolean)
+      : null,
+    body.userId,
+    body.user_id,
+    body.account?.userId,
+    body.account?.user_id
+  ];
+  for (const candidate of candidates) {
+    const value = String(candidate || '').trim();
+    if (value) return value;
+  }
+  return '';
+}
+
 function classifyKimiUsageName(name) {
   const raw = String(name || '').toLowerCase();
   if (/(hour|小时|時間|시간)/.test(raw)) return 'session';
@@ -276,7 +300,7 @@ function parseKimiUsage(rawBody) {
     }
   }
 
-  return { windows };
+  return { windows, userId: kimiUsageIdentity(body) };
 }
 
 function objectAt(body, keys) {
@@ -359,15 +383,15 @@ function parseKimiMembershipStats(rawBody) {
       });
     }
   }
-  return { windows };
+  return { windows, userId: kimiUsageIdentity(body) };
 }
 
 function parseKimiWebUsage(rawBody) {
   const body = rawBody?.data && typeof rawBody.data === 'object' ? rawBody.data : rawBody;
   const usages = Array.isArray(body?.usages) ? body.usages : [];
   const coding = usages.find((entry) => entry?.scope === 'FEATURE_CODING');
-  if (!coding) return { windows: [] };
-  return parseKimiUsage({ usage: coding.detail, limits: coding.limits });
+  if (!coding) return { windows: [], userId: kimiUsageIdentity(body) };
+  return parseKimiUsage({ usage: coding.detail, limits: coding.limits, booster_wallet: body.booster_wallet });
 }
 
 function kimiRequestError(label, response) {
@@ -484,9 +508,10 @@ async function fetchKimiWebWindows(token, deps = {}) {
   }, deps, 'Kimi web usage'));
   const [membership, usage] = await Promise.all([membershipOutcome, usageOutcome]);
   const membershipWindows = membership.value ? parseKimiMembershipStats(membership.value).windows : [];
-  const usageWindows = usage.value ? parseKimiWebUsage(usage.value).windows : [];
+  const parsedUsage = usage.value ? parseKimiWebUsage(usage.value) : { windows: [], userId: '' };
   return {
-    windows: mergeKimiWindows(usageWindows, membershipWindows),
+    windows: mergeKimiWindows(parsedUsage.windows, membershipWindows),
+    userId: parsedUsage.userId || (membership.value ? kimiUsageIdentity(membership.value) : ''),
     errors: [membership.error, usage.error].filter(Boolean)
   };
 }
@@ -498,7 +523,8 @@ async function fetchKimiCodeWindows(key, deps = {}) {
       Accept: 'application/json'
     }
   }, deps, 'Kimi usage');
-  return parseKimiUsage(body).windows;
+  const parsed = parseKimiUsage(body);
+  return { windows: parsed.windows, userId: parsed.userId };
 }
 
 function mergeKimiWindows(...groups) {
@@ -540,16 +566,21 @@ async function fetchKimiLimits(options = {}, deps = {}) {
   const errors = [];
   let webWindows = [];
   let codeWindows = [];
+  let webUserId = '';
+  let codeUserId = '';
   if (webToken) {
     const web = await fetchKimiWebWindows(webToken, deps);
     webWindows = web.windows;
+    webUserId = web.userId || '';
     errors.push(...web.errors);
   }
   const missingCodeWindow = !webWindows.some((window) => window.kind === 'session')
     || !webWindows.some((window) => window.kind === 'weekly');
   if (key && (!webToken || missingCodeWindow)) {
     try {
-      codeWindows = await fetchKimiCodeWindows(key, deps);
+      const code = await fetchKimiCodeWindows(key, deps);
+      codeWindows = code.windows;
+      codeUserId = code.userId || '';
     } catch (error) {
       errors.push(error);
     }
@@ -559,7 +590,11 @@ async function fetchKimiLimits(options = {}, deps = {}) {
   // Keep the configured logical account stable when a temporary web failure
   // makes this tick report Code API fallback windows only.
   const accountSecret = webToken || key;
-  const subject = kimiTokenSubject(webToken) || kimiTokenSubject(key);
+  // Identity precedence: a parseable JWT subject, then the provider-confirmed
+  // userId from any usages response (works for plain API keys, which are not
+  // JWTs and previously left the row flagged "subscription unconfirmed").
+  const subject = kimiTokenSubject(webToken) || kimiTokenSubject(key)
+    || webUserId || codeUserId;
   const accountKey = subject ? hashKey('kimi-account', subject) : accountSecret ? hashKey('kimi', accountSecret) : '';
   const connectionKey = accountSecret ? hashKey('kimi-connection', webToken || '', key || '') : '';
   return normalizeLimitProvider({
@@ -588,6 +623,7 @@ module.exports = {
   kimiToken,
   kimiWebToken,
   kimiTokenSubject,
+  kimiUsageIdentity,
   parseKimiUsage,
   parseKimiWebUsage,
   parseKimiMembershipStats,

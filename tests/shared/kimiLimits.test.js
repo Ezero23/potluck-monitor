@@ -14,6 +14,7 @@ const {
   KIMI_WEB_USAGES_URL,
   kimiToken,
   kimiTokenSubject,
+  kimiUsageIdentity,
   kimiWebToken,
   parseKimiUsage,
   parseKimiMembershipStats,
@@ -555,4 +556,34 @@ test('fetchKimiLimits attaches kimiAccountLabel as accountName', async () => {
   );
   assert.equal(provider.status, 'ok');
   assert.equal(provider.accountName, 'Personal');
+});
+
+test('kimiUsageIdentity extracts the booster_wallet userId from Code usages responses', () => {
+  const body = {
+    usage: { limit: '100', used: '6', remaining: '94' },
+    limits: [{ window: { duration: 300, timeUnit: 'TIME_UNIT_MINUTE' }, detail: { limit: '100', remaining: '100' } }],
+    booster_wallet: { userId: 'cp6uq1qul723lq833j1g', balance: { userId: 'cp6uq1qul723lq833j1g' } }
+  };
+  assert.equal(kimiUsageIdentity(body), 'cp6uq1qul723lq833j1g');
+  assert.equal(parseKimiUsage(body).userId, 'cp6uq1qul723lq833j1g');
+  assert.equal(kimiUsageIdentity({ usage: { limit: '1' } }), '');
+});
+
+test('fetchKimiLimits confirms subscription identity for plain API keys via the usages userId', async () => {
+  const { fetchKimiLimits: fetch } = require('../../src/shared/kimiLimits');
+  const provider = await fetch({ kimiApiKey: 'plain-api-key' }, {
+    fetch: async () => ({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        usage: { limit: '100', used: '6', remaining: '94', resetTime: '2026-10-16T12:46:19Z' },
+        limits: [{ window: { duration: 300, timeUnit: 'TIME_UNIT_MINUTE' }, detail: { limit: '100', remaining: '90', resetTime: '2026-10-11T15:46:19Z' } }],
+        booster_wallet: { userId: 'cp6uq1qul723lq833j1g' }
+      })
+    })
+  });
+  assert.equal(provider.status, 'ok');
+  assert.equal(provider.upstreamAccountKey, hashKey('kimi-account', 'cp6uq1qul723lq833j1g'));
+  assert.equal(provider.accountKey, provider.upstreamAccountKey);
+  assert.equal(provider.quotaPoolKey, hashKey('kimi-pool', 'cp6uq1qul723lq833j1g'));
 });
