@@ -171,7 +171,7 @@ jobs:
       - name: Upload unsigned Windows application
         if: matrix.target == 'win' && env.HAS_SIGNPATH == 'true'
         id: upload-unsigned-win-app
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: unsigned-windows-application
           if-no-files-found: error
@@ -235,7 +235,7 @@ jobs:
       - name: Upload unsigned Windows artifacts
         if: matrix.target == 'win' && env.HAS_SIGNPATH == 'true'
         id: upload-unsigned-win
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: unsigned-windows-artifacts
           if-no-files-found: error
@@ -303,7 +303,7 @@ jobs:
         run: npm run dist:win
       - name: Verify updater artifact integrity
         run: npm run verify:release-artifact-integrity
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: ${{ matrix.artifact_name }}
           if-no-files-found: error
